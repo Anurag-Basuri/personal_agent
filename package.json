@@ -1,0 +1,14 @@
+{
+  "name": "personal-agent",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "dev": "concurrently -n frontend,backend -c blue,green \"npm:dev --workspace frontend\" \"npm:dev --workspace backend\""
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
