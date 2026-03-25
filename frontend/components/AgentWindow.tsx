@@ -12,6 +12,7 @@ export interface AgentWindowProps {
 	setIsOpen: (val: boolean) => void;
 	sendMessage: (val: string) => void;
 	clearSession: () => void;
+	variant?: 'floating' | 'centered';
 }
 
 export function AgentWindow({
@@ -21,6 +22,7 @@ export function AgentWindow({
 	setIsOpen,
 	sendMessage,
 	clearSession,
+	variant = 'floating',
 }: AgentWindowProps) {
 	const inputRef = useRef<HTMLInputElement>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);
@@ -40,10 +42,15 @@ export function AgentWindow({
 		if (inputRef.current) inputRef.current.value = '';
 	};
 
-	if (!isOpen) return null;
+	if (!isOpen && variant === 'floating') return null;
+
+	const wrapperClass =
+		variant === 'centered'
+			? 'relative flex h-[680px] w-full max-w-[900px] flex-col overflow-hidden rounded-3xl bg-white/90 shadow-2xl ring-1 ring-emerald-200/50 backdrop-blur-lg'
+			: 'fixed bottom-20 right-4 z-9999 flex h-[500px] w-[350px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-zinc-200 transition-all dark:bg-zinc-950 dark:ring-zinc-800 sm:bottom-24 sm:right-6 sm:h-[550px] sm:w-[380px]';
 
 	return (
-		<div className="fixed bottom-20 right-4 z-9999 flex h-[500px] w-[350px] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl ring-1 ring-zinc-200 transition-all dark:bg-zinc-950 dark:ring-zinc-800 sm:bottom-24 sm:right-6 sm:h-[550px] sm:w-[380px]">
+		<div className={wrapperClass}>
 			{/* Header */}
 			<div className="flex items-center justify-between border-b border-zinc-100 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-950">
 				<div className="flex items-center gap-2">
@@ -67,12 +74,14 @@ export function AgentWindow({
 					>
 						<Trash2 size={16} />
 					</button>
-					<button
-						onClick={() => setIsOpen(false)}
-						className="rounded-full p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 transition-colors dark:hover:bg-zinc-900 dark:hover:text-zinc-300"
-					>
-						<X size={18} />
-					</button>
+					{variant === 'floating' && (
+						<button
+							onClick={() => setIsOpen(false)}
+							className="rounded-full p-2 text-zinc-400 hover:bg-zinc-100 hover:text-zinc-600 transition-colors dark:hover:bg-zinc-900 dark:hover:text-zinc-300"
+						>
+							<X size={18} />
+						</button>
+					)}
 				</div>
 			</div>
 

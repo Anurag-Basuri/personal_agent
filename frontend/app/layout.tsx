@@ -1,4 +1,17 @@
 import './globals.css';
+import { Fraunces, Space_Grotesk } from 'next/font/google';
+
+const spaceGrotesk = Space_Grotesk({
+	weight: ['400', '500', '600', '700'],
+	subsets: ['latin'],
+	variable: '--font-sans',
+});
+
+const fraunces = Fraunces({
+	weight: ['500', '600', '700'],
+	subsets: ['latin'],
+	variable: '--font-display',
+});
 
 export const metadata = {
 	title: 'Personal Agent',
@@ -7,8 +20,8 @@ export const metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="en">
-			<body>{children}</body>
+		<html lang="en" className="scroll-smooth">
+			<body className={`${spaceGrotesk.variable} ${fraunces.variable}`}> {children}</body>
 		</html>
 	);
 }
