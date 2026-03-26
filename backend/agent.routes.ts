@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
-import * as AgentController from './agent.controller';
+import * as AgentController from './agent.controller.js';
 
 const router = Router();
 

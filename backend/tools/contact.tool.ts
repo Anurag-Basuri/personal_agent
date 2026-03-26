@@ -1,6 +1,6 @@
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { prisma } from '../../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 import sanitizeHtml from 'sanitize-html';
 
 export const submitContactTool = tool(
