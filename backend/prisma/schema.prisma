@@ -50,3 +50,11 @@ model ContactMessage {
   isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
 }
+
+model AgentSession {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  history   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
