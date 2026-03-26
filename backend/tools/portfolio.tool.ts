@@ -1,6 +1,6 @@
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
-import { prisma } from '../../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 
 export const portfolioTool = tool(
 	async ({ query }) => {
@@ -12,9 +12,9 @@ export const portfolioTool = tool(
 				where: {
 					status: 'published',
 					OR: [
-						{ title: { contains: query, mode: 'insensitive' } },
-						{ description: { contains: query, mode: 'insensitive' } },
-						{ techStack: { hasSome: [query] } },
+						{ title: { contains: query } },
+						{ description: { contains: query } },
+						{ techStack: { contains: query } },
 					],
 				},
 				take: 3,
@@ -34,7 +34,7 @@ export const portfolioTool = tool(
 			// Format the DB response into Markdown text for the LLM to read
 			let result = `Found ${projects.length} relevant projects for "${query}":\n\n`;
 
-			projects.forEach(p => {
+			projects.forEach((p: any) => {
 				result += `### ${p.title}\n`;
 				result += `Tech Stack: ${p.techStack.join(', ')}\n`;
 				result += `Description: ${p.description}\n`;
