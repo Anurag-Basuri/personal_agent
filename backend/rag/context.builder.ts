@@ -1,4 +1,4 @@
-import { prisma } from '../../lib/prisma';
+import { prisma } from '../lib/prisma.js';
 
 export async function getBasePortfolioContext(): Promise<string> {
 	try {
@@ -13,7 +13,7 @@ export async function getBasePortfolioContext(): Promise<string> {
 		if (profile.header) context += `Headline: ${profile.header}\n`;
 		if (profile.bio) context += `Bio: ${profile.bio}\n`;
 		if (profile.skills) {
-			const skills = profile.skills as Record<string, string[]>;
+			const skills = JSON.parse(profile.skills) as Record<string, string[]>;
 			context += `Skills:\n`;
 			Object.entries(skills).forEach(([category, list]) => {
 				context += `- ${category}: ${list.join(', ')}\n`;

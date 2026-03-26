@@ -1,49 +1,109 @@
-import { BaseMessage } from '@langchain/core/messages';
+import {
+	BaseMessage,
+	mapChatMessagesToStoredMessages,
+	mapStoredMessagesToChatMessages,
+} from '@langchain/core/messages';
 import { BaseListChatMessageHistory } from '@langchain/core/chat_history';
+import { prisma } from '../lib/prisma.js';
+
+const MAX_HISTORY_MESSAGES = 20;
+
+// Simple in-memory cache to avoid DB round-trips within the same request
+const sessionCache = new Map<string, { messages: BaseMessage[]; ts: number }>();
+const CACHE_TTL_MS = 60_000; // 1 minute
+
+function pruneCache() {
+	const now = Date.now();
+	for (const [key, val] of sessionCache) {
+		if (now - val.ts > CACHE_TTL_MS) sessionCache.delete(key);
+	}
+}
 
 /**
- * In-memory Chat History implementation for LangChain.
- * Used for storing Multi-turn Conversation Context explicitly.
+ * Permanent Chat History implementation for LangChain using PostgreSQL.
+ * Used for storing Multi-turn Conversation Context permanently so Anurag can view visitor questions.
  */
-class InMemoryChatMessageHistory extends BaseListChatMessageHistory {
-	lc_namespace = ['langchain', 'stores', 'message', 'in_memory'];
-	private messages: BaseMessage[] = [];
+class PrismaChatMessageHistory extends BaseListChatMessageHistory {
+	lc_namespace = ['langchain', 'stores', 'message', 'prisma'];
+	private sessionId: string;
 
-	constructor(messages?: BaseMessage[]) {
+	constructor(sessionId: string) {
 		super();
-		this.messages = messages || [];
+		this.sessionId = sessionId;
 	}
 
 	async getMessages(): Promise<BaseMessage[]> {
-		return this.messages;
+		// Check cache first
+		const cached = sessionCache.get(this.sessionId);
+		if (cached && Date.now() - cached.ts < CACHE_TTL_MS) {
+			return cached.messages;
+		}
+
+		const session = await prisma.agentSession.findUnique({
+			where: { sessionId: this.sessionId },
+		});
+
+		if (!session || !session.history) return [];
+
+		const parsed =
+			typeof session.history === 'string' ? JSON.parse(session.history) : session.history;
+		const allMessages = mapStoredMessagesToChatMessages(parsed);
+
+		// Trim to last N messages to keep prompts small
+		const trimmed =
+			allMessages.length > MAX_HISTORY_MESSAGES
+				? allMessages.slice(-MAX_HISTORY_MESSAGES)
+				: allMessages;
+
+		// Update cache
+		sessionCache.set(this.sessionId, { messages: trimmed, ts: Date.now() });
+
+		return trimmed;
 	}
 
 	async addMessage(message: BaseMessage): Promise<void> {
-		this.messages.push(message);
+		// Update cache immediately (avoid extra DB read)
+		const cached = sessionCache.get(this.sessionId);
+		const currentMessages = cached ? [...cached.messages] : await this.getMessages();
+
+		currentMessages.push(message);
+
+		// Trim before persisting
+		const trimmed =
+			currentMessages.length > MAX_HISTORY_MESSAGES
+				? currentMessages.slice(-MAX_HISTORY_MESSAGES)
+				: currentMessages;
+
+		const stored = mapChatMessagesToStoredMessages(trimmed);
+
+		await prisma.agentSession.upsert({
+			where: { sessionId: this.sessionId },
+			update: { history: stored as any },
+			create: { sessionId: this.sessionId, history: stored as any },
+		});
+
+		// Refresh cache
+		sessionCache.set(this.sessionId, { messages: trimmed, ts: Date.now() });
 	}
 
 	async clear(): Promise<void> {
-		this.messages = [];
+		sessionCache.delete(this.sessionId);
+		await prisma.agentSession.deleteMany({
+			where: { sessionId: this.sessionId },
+		});
 	}
 }
 
-// Global store to keep track of sessions
-export const messageHistories: Record<string, InMemoryChatMessageHistory> = {};
+// Periodically prune expired cache entries
+setInterval(pruneCache, CACHE_TTL_MS);
 
-/**
- * Retrieves or creates a new history session instance based on sessionId.
- * Keeps memory isolated per user socket/session.
- */
-export function getMessageHistory(sessionId: string): InMemoryChatMessageHistory {
-	if (!messageHistories[sessionId]) {
-		messageHistories[sessionId] = new InMemoryChatMessageHistory();
-	}
-	return messageHistories[sessionId];
+// Global factory to instantiate Postgres adapters
+export function getMessageHistory(sessionId: string): PrismaChatMessageHistory {
+	return new PrismaChatMessageHistory(sessionId);
 }
 
-export function clearSessionMemory(sessionId: string) {
-	if (messageHistories[sessionId]) {
-		messageHistories[sessionId].clear();
-		delete messageHistories[sessionId];
-	}
+export async function clearSessionMemory(sessionId: string) {
+	const history = new PrismaChatMessageHistory(sessionId);
+	await history.clear();
 }
+
