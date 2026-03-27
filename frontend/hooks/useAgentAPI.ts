@@ -1,3 +1,5 @@
+'use client';
+
 import { useCallback } from 'react';
 import { useAgentStore, ChatMessage, AgentSession } from '../store/useAgentStore';
 

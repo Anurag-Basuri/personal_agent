@@ -1,3 +1,5 @@
+'use client';
+
 import { useAgentStore } from '../../store/useAgentStore';
 import { Icons } from '../ui/Icons';
 

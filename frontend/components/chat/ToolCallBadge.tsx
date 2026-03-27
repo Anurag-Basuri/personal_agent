@@ -1,3 +1,5 @@
+'use client';
+
 import { ToolCall } from '../../store/useAgentStore';
 import { Icons } from '../ui/Icons';
 import { cn } from '../../utils/cn';

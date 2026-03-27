@@ -1,3 +1,5 @@
+'use client';
+
 import { useState, useRef, useEffect } from 'react';
 import { useAgentAPI } from '../../hooks/useAgentAPI';
 import { useAgentStore } from '../../store/useAgentStore';

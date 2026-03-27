@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef } from 'react';
 import { useAgentStore } from '../../store/useAgentStore';
 import { MessageBubble } from './MessageBubble';
