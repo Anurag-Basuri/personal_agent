@@ -21,20 +21,31 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 	}
 
 	return (
-		<div className={cn("group relative flex w-full gap-4 px-4 py-6 md:px-0", isUser ? "bg-white" : "bg-zinc-50")}>
+		<div
+			className={cn(
+				'group relative flex w-full gap-4 px-4 py-6 md:px-0',
+				isUser ? 'bg-white' : 'bg-zinc-50',
+			)}
+		>
 			<div className="mx-auto flex w-full max-w-3xl gap-4 md:gap-6">
 				{/* Avatar */}
-				<div className={cn(
-					"flex h-8 w-8 shrink-0 items-center justify-center rounded-sm",
-					isUser ? "bg-zinc-800 text-white" : "bg-emerald-600 text-white"
-				)}>
-					{isUser ? <Icons.User className="h-5 w-5" /> : <Icons.Agent className="h-5 w-5" />}
+				<div
+					className={cn(
+						'flex h-8 w-8 shrink-0 items-center justify-center rounded-sm',
+						isUser ? 'bg-zinc-800 text-white' : 'bg-emerald-600 text-white',
+					)}
+				>
+					{isUser ? (
+						<Icons.User className="h-5 w-5" />
+					) : (
+						<Icons.Agent className="h-5 w-5" />
+					)}
 				</div>
 
 				{/* Content */}
 				<div className="flex-1 space-y-4">
 					<div className="font-medium text-zinc-900">{isUser ? 'You' : 'Agent'}</div>
-					
+
 					{/* Message Text (Markdown) */}
 					{message.content && (
 						<div className="prose prose-zinc max-w-none prose-p:leading-relaxed prose-pre:bg-zinc-900 prose-pre:text-zinc-100 text-[15px]">

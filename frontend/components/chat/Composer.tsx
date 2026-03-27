@@ -42,7 +42,7 @@ export function Composer() {
 				<textarea
 					ref={textareaRef}
 					value={text}
-					onChange={(e) => setText(e.target.value)}
+					onChange={e => setText(e.target.value)}
 					onKeyDown={handleKeyDown}
 					placeholder="Message Agent..."
 					className="max-h-[200px] min-h-[44px] w-full resize-none border-0 bg-transparent py-3 pl-3 pr-10 text-[15px] focus:ring-0"
@@ -52,8 +52,10 @@ export function Composer() {
 					onClick={handleSubmit}
 					disabled={!text.trim() || isTyping}
 					className={cn(
-						"absolute right-3 bottom-3 flex h-8 w-8 items-center justify-center rounded-md transition",
-						text.trim() && !isTyping ? "bg-emerald-600 text-white hover:bg-emerald-700" : "bg-zinc-100 text-zinc-400"
+						'absolute right-3 bottom-3 flex h-8 w-8 items-center justify-center rounded-md transition',
+						text.trim() && !isTyping
+							? 'bg-emerald-600 text-white hover:bg-emerald-700'
+							: 'bg-zinc-100 text-zinc-400',
 					)}
 				>
 					<Icons.Send className="h-4 w-4" />

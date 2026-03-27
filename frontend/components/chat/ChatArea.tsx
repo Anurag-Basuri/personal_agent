@@ -22,9 +22,12 @@ export function ChatArea() {
 						<span className="text-3xl">👋</span>
 					</div>
 				</div>
-				<h2 className="text-2xl font-semibold text-zinc-900 mb-2">How can I help you today?</h2>
+				<h2 className="text-2xl font-semibold text-zinc-900 mb-2">
+					How can I help you today?
+				</h2>
 				<p className="max-w-md text-zinc-500">
-					Ask me about Anurag's projects, technical skills, or have me write an email to him.
+					Ask me about Anurag's projects, technical skills, or have me write an email to
+					him.
 				</p>
 			</div>
 		);
@@ -32,10 +35,10 @@ export function ChatArea() {
 
 	return (
 		<div className="flex-1 overflow-y-auto pb-6">
-			{messages.map((msg) => (
+			{messages.map(msg => (
 				<MessageBubble key={msg.id} message={msg} />
 			))}
-			
+
 			{isTyping && (
 				<div className="group relative flex w-full gap-4 px-4 py-6 bg-zinc-50 md:px-0">
 					<div className="mx-auto flex w-full max-w-3xl gap-4 md:gap-6">
@@ -45,9 +48,18 @@ export function ChatArea() {
 						<div className="flex-1 space-y-4">
 							<div className="font-medium text-zinc-900">Agent</div>
 							<div className="flex items-center gap-1 mt-2">
-								<span className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-								<span className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-								<span className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+								<span
+									className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-bounce"
+									style={{ animationDelay: '0ms' }}
+								/>
+								<span
+									className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-bounce"
+									style={{ animationDelay: '150ms' }}
+								/>
+								<span
+									className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-bounce"
+									style={{ animationDelay: '300ms' }}
+								/>
 							</div>
 						</div>
 					</div>
