@@ -1,12 +1,38 @@
-node_modules
+# Virtual environment
+venv/
+.venv/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Environment
 .env
 .env.*
-!.env.example
-dist
-.next
-coverage
-*.log
-.DS_Store
-*.sqlite
+
+# Database
 *.db
-prisma/migrations
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+pip_log.txt
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
