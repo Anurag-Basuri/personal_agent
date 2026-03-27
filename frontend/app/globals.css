@@ -2,25 +2,36 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-	color-scheme: light;
-	--bg: #f6f7fb;
-	--ink: #0b0f1a;
-	--accent: #0ea5a1;
-	--accent-strong: #0f766e;
+@layer base {
+	:root {
+		color-scheme: light;
+		--bg: #ffffff;
+		--ink: #09090b;
+	}
+
+	body {
+		background-color: var(--bg);
+		color: var(--ink);
+		font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif;
+	}
+
+	.font-display {
+		font-family: var(--font-display), ui-serif, Georgia, serif;
+	}
 }
 
-body {
-	background-color: var(--bg);
-	color: var(--ink);
-	font-family:
-		var(--font-sans),
-		ui-sans-serif,
-		system-ui,
-		-apple-system,
-		sans-serif;
+/* Custom Scrollbar for Chat */
+::-webkit-scrollbar {
+	width: 6px;
+	height: 6px;
 }
-
-.font-display {
-	font-family: var(--font-display), ui-serif, Georgia, serif;
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+::-webkit-scrollbar-thumb {
+	background: #e4e4e7; /* zinc-200 */
+	border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover {
+	background: #d4d4d8; /* zinc-300 */
 }
