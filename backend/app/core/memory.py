@@ -51,8 +51,9 @@ class AsyncMessageHistory:
     - Upsert persistence
     """
 
-    def __init__(self, session_id: str):
+    def __init__(self, session_id: str, user_id: str | None = None):
         self.session_id = session_id
+        self.user_id = user_id
 
     async def get_messages(self) -> list[BaseMessage]:
         """Load messages from cache or DB."""
@@ -66,6 +67,10 @@ class AsyncMessageHistory:
                 select(AgentSession).where(AgentSession.sessionId == self.session_id)
             )
             session = result.scalar_one_or_none()
+            
+            # Additional ownership check
+            if session and self.user_id and session.user_id != self.user_id:
+                return []
 
         if not session or not session.history:
             return []
@@ -110,6 +115,7 @@ class AsyncMessageHistory:
                     id=str(uuid.uuid4()).replace("-", "")[:25],
                     sessionId=self.session_id,
                     history=stored,
+                    user_id=self.user_id,
                 )
                 db.add(session)
 
@@ -128,10 +134,10 @@ class AsyncMessageHistory:
             await db.commit()
 
 
-def get_message_history(session_id: str) -> AsyncMessageHistory:
+def get_message_history(session_id: str, user_id: str | None = None) -> AsyncMessageHistory:
     """Factory — returns an async message history for the given session."""
     _prune_cache()
-    return AsyncMessageHistory(session_id)
+    return AsyncMessageHistory(session_id, user_id)
 
 
 async def clear_session_memory(session_id: str) -> None:

@@ -1,11 +1,13 @@
 """Agent chat endpoints."""
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Request, Depends
 
 from app.core.exceptions import AgentError, RateLimitError
 from app.core.logger import agent_logger
 from app.core.memory import clear_session_memory
 from app.core.responses import success_response
+from app.core.auth import get_current_user
+from app.models.user import User
 from app.schemas.agent import ChatRequest, ChatResponseData, ResetRequest, ResetResponseData
 from app.services.agent import process_user_message
 
@@ -13,7 +15,11 @@ router = APIRouter(prefix="/chat", tags=["Agent"])
 
 
 @router.post("/")
-async def send_message(body: ChatRequest, request: Request):
+async def send_message(
+    body: ChatRequest, 
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
     """Send a message to the AI agent and receive a response."""
     request_id = getattr(request.state, "request_id", "")
 
@@ -22,6 +28,7 @@ async def send_message(body: ChatRequest, request: Request):
             message=body.message,
             session_id=body.sessionId,
             current_url=body.currentUrl,
+            user_id=current_user.id
         )
 
         agent_logger.debug("CTRL", "Agent Reply", {
@@ -61,7 +68,11 @@ async def send_message(body: ChatRequest, request: Request):
 
 
 @router.post("/reset")
-async def reset_session(body: ResetRequest, request: Request):
+async def reset_session(
+    body: ResetRequest, 
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
     """Clear agent session memory."""
     request_id = getattr(request.state, "request_id", "")
 
