@@ -3,5 +3,6 @@ from app.models.profile import Profile, SocialLink
 from app.models.project import Project
 from app.models.contact import ContactMessage
 from app.models.agent_session import AgentSession
+from app.models.user import User
 
-__all__ = ["Base", "Profile", "SocialLink", "Project", "ContactMessage", "AgentSession"]
+__all__ = ["Base", "Profile", "SocialLink", "Project", "ContactMessage", "AgentSession", "User"]
