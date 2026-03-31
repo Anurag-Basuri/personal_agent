@@ -42,6 +42,7 @@ async def process_user_message(
     message: str,
     session_id: str,
     current_url: str | None = None,
+    user_id: str | None = None,
 ) -> AgentResponse:
     """
     Process a user message through the agent pipeline.
@@ -68,7 +69,7 @@ async def process_user_message(
     fallback = llms["fallback"]
 
     # Load session history
-    memory = get_message_history(session_id)
+    memory = get_message_history(session_id, user_id=user_id)
     history = await memory.get_messages()
     agent_logger.debug("MEMORY", f"Loaded {len(history)} messages from session history", {
         "session_id": session_id,

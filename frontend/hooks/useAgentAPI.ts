@@ -24,6 +24,7 @@ export function useAgentAPI() {
 				const res = await fetch(`${API_BASE}/chat`, {
 					method: 'POST',
 					headers: { 'Content-Type': 'application/json' },
+					credentials: 'include',
 					body: JSON.stringify({
 						message: content,
 						sessionId,
@@ -64,7 +65,9 @@ export function useAgentAPI() {
 		async (page = 1) => {
 			setSessionsLoading(true);
 			try {
-				const res = await fetch(`${API_BASE}/admin/agent-sessions?page=${page}&limit=50`);
+				const res = await fetch(`${API_BASE}/admin/agent-sessions?page=${page}&limit=50`, {
+					credentials: 'include'
+				});
 				const data = await res.json();
 				if (data.success && data.data.items) {
 					setSessions(data.data.items);
@@ -83,6 +86,7 @@ export function useAgentAPI() {
 			await fetch(`${API_BASE}/chat/reset`, {
 				method: 'POST',
 				headers: { 'Content-Type': 'application/json' },
+				credentials: 'include',
 				body: JSON.stringify({ sessionId }),
 			});
 		} catch (err) {
