@@ -14,6 +14,10 @@ class User(Base):
     email: Mapped[str] = mapped_column(String, unique=True, index=True, nullable=False)
     name: Mapped[str] = mapped_column(String, nullable=True)
     picture: Mapped[str] = mapped_column(String, nullable=True)
+    
+    # Role tracking for RBAC (GUEST, ADMIN)
+    role: Mapped[str] = mapped_column(String, default="GUEST", nullable=False)
+    
     createdAt: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     
     sessions = relationship("AgentSession", back_populates="user", cascade="all, delete-orphan")
