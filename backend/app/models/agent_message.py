@@ -30,6 +30,8 @@ class EncryptedString(TypeDecorator):
         return decrypted
 
 
+from pgvector.sqlalchemy import Vector
+
 class AgentMessage(Base):
     """
     Individual Agent Message Model.
@@ -47,6 +49,9 @@ class AgentMessage(Base):
     
     # The actual message text, completely encrypted in the database
     content: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+    
+    # Mathematical Representation for Omni-Memory Semantic Search
+    embedding: Mapped[Vector | None] = mapped_column(Vector(768), nullable=True)
     
     # Store tool calls or results. Also encrypted.
     tool_calls: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
