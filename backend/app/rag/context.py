@@ -1,51 +1,37 @@
-"""RAG context builder — fetches base portfolio profile from DB."""
+"""RAG context builder — fetches base portfolio profile from PGVector in NeonDB."""
 
 from __future__ import annotations
 
-import json
+from app.rag.vector_store import get_neon_vector_store
+from app.core.logger import agent_logger
 
-from sqlalchemy import select
-
-from app.database import async_session
-from app.models.profile import Profile
-
-
-async def get_base_portfolio_context() -> str:
-    """Build a text context block from the user's profile data."""
+async def get_base_portfolio_context(query: str = "") -> str:
+    """Build a contextual block by retrieving the most relevant chunks from the RAG store."""
     try:
-        async with async_session() as db:
-            result = await db.execute(select(Profile).limit(1))
-            profile = result.scalar_one_or_none()
+        if not query:
+            return "No specific query provided to search the portfolio."
 
-        if not profile:
-            return "No profile found."
+        # Initialize the Langchain PGVector store
+        vector_store = get_neon_vector_store()
+        
+        # Perform similarity search
+        agent_logger.debug("RAG", f"Semantic search triggered for: '{query[:50]}'")
+        
+        # Async retriever isn't natively supported on all sync pgvector implementations 
+        # so we use ainvoke if available, else a wrapper or direct invoke
+        docs = await vector_store.asimilarity_search(query, k=4)
+        
+        if not docs:
+            return "No highly relevant portfolio data found in vector limits."
 
-        context = "[Anurag's Core Profile Data]\n"
-        context += f"Name: {profile.name}\n"
-        if profile.header:
-            context += f"Headline: {profile.header}\n"
-        if profile.bio:
-            context += f"Bio: {profile.bio}\n"
-        if profile.skills:
-            try:
-                skills: dict[str, list[str]] = json.loads(profile.skills)
-                context += "Skills:\n"
-                for category, items in skills.items():
-                    context += f"- {category}: {', '.join(items)}\n"
-            except (json.JSONDecodeError, TypeError):
-                context += f"Skills: {profile.skills}\n"
-
-        availability = (
-            f"Open to Work (Available {profile.availableFrom or 'immediately'}, "
-            f"Notice Period: {profile.noticePeriod or 'N/A'})"
-            if profile.openToWork
-            else "Currently employed / Not looking"
-        )
-        context += f"Current Status: {availability}\n"
-        context += "[End Profile Data]\n"
+        context = "[Found Portfolio Context via RAG]\n"
+        for i, doc in enumerate(docs):
+            source = doc.metadata.get("source", "Unknown")
+            context += f"--- Result {i+1} (Source: {source}) ---\n{doc.page_content}\n\n"
+        context += "[End Portfolio Data]\n"
 
         return context
 
     except Exception as e:
-        print(f"[context.builder] Error fetching base profile: {e}")
+        agent_logger.error("RAG", f"Error during vector retrieval: {e}")
         return ""

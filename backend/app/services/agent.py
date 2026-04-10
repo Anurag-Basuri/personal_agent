@@ -63,8 +63,8 @@ async def process_user_message(
         "session_id": session_id,
     })
 
-    # Build context
-    portfolio_context = await get_base_portfolio_context()
+    # Build context by searching the Vector Database with the user's prompt
+    portfolio_context = await get_base_portfolio_context(query=message)
     location_context = ""
     if current_url:
         location_context = (
