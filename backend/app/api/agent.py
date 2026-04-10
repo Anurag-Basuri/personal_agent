@@ -19,7 +19,7 @@ from app.schemas.agent import (
     ResetRequest, ResetResponseData,
     EditMessageRequest, HistoryResponseData, MessageResponseItem
 )
-from app.services.agent import process_user_message
+from app.agent.service import process_user_message
 
 router = APIRouter(prefix="/chat", tags=["Agent"])
 
