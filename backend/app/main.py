@@ -49,7 +49,7 @@ async def lifespan(app: FastAPI):
     print("[server] Database initialized")
 
     # Warm up LLM factory (imports trigger init)
-    from app.core.llm_factory import llm_info  # noqa: F401
+    from app.agent.llm import llm_info  # noqa: F401
     print(f"[server] LLM mode: {llm_info.mode}")
 
     yield
@@ -88,13 +88,8 @@ def create_app() -> FastAPI:
     )
 
     # Request ID middleware
-    @app.middleware("http")
-    async def add_request_id(request: Request, call_next):
-        request_id = str(uuid.uuid4())
-        request.state.request_id = request_id
-        response = await call_next(request)
-        response.headers["X-Request-ID"] = request_id
-        return response
+    from app.middlewares.request_id import RequestIdMiddleware
+    app.add_middleware(RequestIdMiddleware)
 
     # ─── Exception Handlers ──────────────────────────────────
     app.add_exception_handler(ApiError, api_error_handler)
