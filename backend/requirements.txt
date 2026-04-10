@@ -15,9 +15,21 @@ langchain>=0.3.0
 langchain-core>=0.3.0
 langchain-google-genai>=2.1.0
 langchain-openai>=0.3.0
+langgraph>=0.2.0
+langchain_text_splitters>=0.3.0
 
 # HTTP Client (async)
 httpx>=0.28.0
+
+# Cryptography & Security
+cryptography>=41.0.0
+hkdf>=0.0.3
+
+# PostgreSql / Vector RAG
+asyncpg>=0.30.0
+psycopg2-binary>=2.9.9
+pgvector>=0.3.0
+langchain-postgres>=0.0.12
 
 # Utilities
 python-dotenv>=1.0.0

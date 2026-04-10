@@ -1,5 +1,3 @@
-"""RAG context builder — fetches base portfolio profile from PGVector in NeonDB."""
-
 from __future__ import annotations
 
 from app.rag.vector_store import get_neon_vector_store

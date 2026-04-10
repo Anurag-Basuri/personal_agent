@@ -1,9 +1,3 @@
-"""
-Neon PostgreSQL Vector Store Implementation.
-
-Replaces ChromaDB. Connects to NeonDB pgvector extension via Langchain.
-"""
-
 from langchain_postgres.vectorstores import PGVector
 from langchain_huggingface import HuggingFaceEmbeddings
 from app.config import get_settings

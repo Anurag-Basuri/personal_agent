@@ -5,7 +5,7 @@ from fastapi import APIRouter, Request, Depends, Query, HTTPException, Path
 from app.core.exceptions import AgentError, RateLimitError
 from app.core.logger import agent_logger
 from app.core.memory import clear_session_memory, get_message_history
-from app.core.responses import success_response, error_response
+from app.core.responses import success_response
 from app.core.auth import get_current_user
 from app.models.user import User
 
