@@ -1,16 +1,68 @@
-"""LangGraph nodes: LLM invocation and Tool Execution."""
+"""LangGraph nodes: Intent Router, LLM invocation, and Tool Execution."""
 
 import json
-from langchain_core.messages import ToolMessage
+from langchain_core.messages import ToolMessage, HumanMessage, AIMessage
 from app.agent.llm import get_bound_llms, llm_info
 from app.core.logger import agent_logger
 from app.agent.tools import agent_tools
 from app.agent.core.state import AgentState
 
+
+# ─── Keywords for fast intent classification ─────────────────────
+
+_GREETING_PATTERNS = {
+    "hi", "hello", "hey", "howdy", "sup", "yo", "what's up",
+    "good morning", "good evening", "good afternoon", "greetings",
+    "namaste", "hola",
+}
+
+_META_PATTERNS = {
+    "who are you", "what can you do", "help", "what are you",
+    "how do you work", "what tools", "capabilities",
+}
+
+
+async def route_intent(state: AgentState) -> dict:
+    """
+    Lightweight intent classifier — routes messages to skip tools when unnecessary.
+    
+    Intents:
+      - "greeting": Simple hello/hi → skip tools, direct LLM reply
+      - "meta_question": Questions about the agent itself → skip tools
+      - "tool_use": Everything else → full agent+tools cycle
+    """
+    messages = state["messages"]
+    
+    # Find the last human message
+    user_msg = ""
+    for msg in reversed(messages):
+        if isinstance(msg, HumanMessage):
+            user_msg = str(msg.content).strip().lower()
+            break
+    
+    if not user_msg:
+        return {"intent": "tool_use"}
+    
+    # Fast keyword match — no LLM call needed for obvious intents
+    cleaned = user_msg.rstrip("!?.,:;")
+    
+    if cleaned in _GREETING_PATTERNS or any(cleaned.startswith(g) for g in _GREETING_PATTERNS):
+        agent_logger.debug("ROUTER", f"Intent: greeting — '{user_msg[:40]}'")
+        return {"intent": "greeting"}
+    
+    if any(p in user_msg for p in _META_PATTERNS):
+        agent_logger.debug("ROUTER", f"Intent: meta_question — '{user_msg[:40]}'")
+        return {"intent": "meta_question"}
+    
+    agent_logger.debug("ROUTER", f"Intent: tool_use — '{user_msg[:40]}'")
+    return {"intent": "tool_use"}
+
+
 async def call_model(state: AgentState):
     """Invokes the dual-LLM setup with proper tool binding depending on user role."""
     messages = state["messages"]
     role = state.get("role", "GUEST")
+    intent = state.get("intent", "tool_use")
     
     # ─── Role-Based Access Control (RBAC) ───
     # Filter tools before binding to LLM.
@@ -21,6 +73,10 @@ async def call_model(state: AgentState):
         if getattr(t, "requires_admin", False) and role != "ADMIN":
             continue
         allowed_tools.append(t)
+    
+    # For greetings and meta questions, don't bind any tools — faster and cheaper
+    if intent in ("greeting", "meta_question"):
+        allowed_tools = []
         
     llms = get_bound_llms(allowed_tools)
     primary = llms["primary"]
@@ -107,3 +163,4 @@ async def call_tools(state: AgentState):
             results.append(msg)
             
     return {"messages": results}
+
