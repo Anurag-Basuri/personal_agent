@@ -36,7 +36,7 @@ interface AgentState {
 	// UI State
 	isSidebarOpen: boolean;
 	sessions: AgentSession[];
-	sessionsLoading: boolean;
+	isSessionsLoading: boolean;
 
 	// Actions
 	setSessionId: (id: string) => void;
@@ -54,13 +54,13 @@ export const useAgentStore = create<AgentState>(set => ({
 	isTyping: false,
 	isSidebarOpen: false,
 	sessions: [],
-	sessionsLoading: false,
+	isSessionsLoading: false,
 
 	setSessionId: id => set({ sessionId: id }),
 	addMessage: msg => set(state => ({ messages: [...state.messages, msg] })),
 	setTyping: typing => set({ isTyping: typing }),
 	setSidebarOpen: open => set({ isSidebarOpen: open }),
 	setSessions: sessions => set({ sessions }),
-	setSessionsLoading: loading => set({ sessionsLoading: loading }),
+	setSessionsLoading: loading => set({ isSessionsLoading: loading }),
 	resetChat: () => set({ messages: [], isTyping: false }),
 }));
