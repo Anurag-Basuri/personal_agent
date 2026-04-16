@@ -1,12 +1,31 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useAgentStore, ChatMessage, AgentSession } from '../store/useAgentStore';
+import { useSession } from 'next-auth/react';
+import { useAgentStore, ChatMessage } from '../store/useAgentStore';
 
-const API_BASE = 'http://localhost:4000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export function useAgentAPI() {
 	const { sessionId, addMessage, setTyping, setSessionsLoading, setSessions } = useAgentStore();
+	const { data: session } = useSession();
+
+	/**
+	 * Build auth headers using the Google ID token from the NextAuth session.
+	 * FastAPI verifies this token via google-auth library.
+	 */
+	const getAuthHeaders = useCallback((): HeadersInit => {
+		const headers: HeadersInit = {
+			'Content-Type': 'application/json',
+		};
+
+		const apiToken = (session as any)?.apiToken;
+		if (apiToken) {
+			headers['Authorization'] = `Bearer ${apiToken}`;
+		}
+
+		return headers;
+	}, [session]);
 
 	const sendMessage = useCallback(
 		async (content: string) => {
@@ -21,10 +40,9 @@ export function useAgentAPI() {
 			setTyping(true);
 
 			try {
-				const res = await fetch(`${API_BASE}/chat`, {
+				const res = await fetch(`${API_BASE}/chat/`, {
 					method: 'POST',
-					headers: { 'Content-Type': 'application/json' },
-					credentials: 'include',
+					headers: getAuthHeaders(),
 					body: JSON.stringify({
 						message: content,
 						sessionId,
@@ -58,7 +76,7 @@ export function useAgentAPI() {
 				setTyping(false);
 			}
 		},
-		[sessionId, addMessage, setTyping],
+		[sessionId, addMessage, setTyping, getAuthHeaders],
 	);
 
 	const fetchSessions = useCallback(
@@ -66,7 +84,7 @@ export function useAgentAPI() {
 			setSessionsLoading(true);
 			try {
 				const res = await fetch(`${API_BASE}/admin/agent-sessions?page=${page}&limit=50`, {
-					credentials: 'include'
+					headers: getAuthHeaders(),
 				});
 				const data = await res.json();
 				if (data.success && data.data.items) {
@@ -78,21 +96,20 @@ export function useAgentAPI() {
 				setSessionsLoading(false);
 			}
 		},
-		[setSessions, setSessionsLoading],
+		[setSessions, setSessionsLoading, getAuthHeaders],
 	);
 
 	const resetSession = useCallback(async () => {
 		try {
 			await fetch(`${API_BASE}/chat/reset`, {
 				method: 'POST',
-				headers: { 'Content-Type': 'application/json' },
-				credentials: 'include',
+				headers: getAuthHeaders(),
 				body: JSON.stringify({ sessionId }),
 			});
 		} catch (err) {
 			console.error('Failed to reset session on server:', err);
 		}
-	}, [sessionId]);
+	}, [sessionId, getAuthHeaders]);
 
 	return { sendMessage, fetchSessions, resetSession };
 }
