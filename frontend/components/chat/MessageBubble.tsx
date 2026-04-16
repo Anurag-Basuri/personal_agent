@@ -13,9 +13,9 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 
 	if (isSystem) {
 		return (
-			<div className="mx-auto my-4 max-w-[80%] rounded-md bg-rose-50 px-4 py-2 text-center text-sm text-rose-600 border border-rose-100">
-				<Icons.Warning className="inline-block h-4 w-4 mr-2 -mt-0.5" />
-				{message.content}
+			<div className="mx-auto my-6 max-w-[90%] rounded-xl bg-rose-500/5 px-6 py-3 text-center text-xs font-bold uppercase tracking-widest text-rose-500 border border-rose-500/20 backdrop-blur-sm">
+				<Icons.Warning className="inline-block h-3 w-3 mr-2 -mt-0.5" />
+				System: {message.content}
 			</div>
 		);
 	}
@@ -23,41 +23,63 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 	return (
 		<div
 			className={cn(
-				'group relative flex w-full gap-4 px-4 py-6 md:px-0',
-				isUser ? 'bg-white' : 'bg-zinc-50',
+				'flex w-full gap-4 py-4 sm:py-6',
+				isUser ? 'flex-row-reverse' : 'flex-row',
 			)}
 		>
-			<div className="mx-auto flex w-full max-w-3xl gap-4 md:gap-6">
-				{/* Avatar */}
+			{/* Avatar */}
+			<div
+				className={cn(
+					'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-lg transition-transform hover:scale-105',
+					isUser
+						? 'bg-zinc-800 text-white border border-zinc-700'
+						: 'bg-primary text-white animate-glow border border-primary/20',
+				)}
+			>
+				{isUser ? <Icons.User className="h-5 w-5" /> : <Icons.Agent className="h-5 w-5" />}
+			</div>
+
+			{/* Bubble Card */}
+			<div
+				className={cn(
+					'flex flex-col gap-2 max-w-[85%] sm:max-w-[75%]',
+					isUser ? 'items-end' : 'items-start',
+				)}
+			>
 				<div
 					className={cn(
-						'flex h-8 w-8 shrink-0 items-center justify-center rounded-sm',
-						isUser ? 'bg-zinc-800 text-white' : 'bg-emerald-600 text-white',
+						'flex items-center gap-2 mb-1 px-1',
+						isUser ? 'flex-row-reverse' : 'flex-row',
 					)}
 				>
-					{isUser ? (
-						<Icons.User className="h-5 w-5" />
-					) : (
-						<Icons.Agent className="h-5 w-5" />
-					)}
+					<span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground font-display">
+						{isUser ? 'User Controller' : 'Neural Agent v2'}
+					</span>
 				</div>
 
-				{/* Content */}
-				<div className="flex-1 space-y-4">
-					<div className="font-medium text-zinc-900">{isUser ? 'You' : 'Agent'}</div>
-
-					{/* Message Text (Markdown) */}
-					{message.content && (
-						<div className="prose prose-zinc max-w-none prose-p:leading-relaxed prose-pre:bg-zinc-900 prose-pre:text-zinc-100 text-[15px]">
-							<ReactMarkdown remarkPlugins={[remarkGfm]}>
-								{message.content}
-							</ReactMarkdown>
-						</div>
+				<div
+					className={cn(
+						'relative px-5 py-4 rounded-3xl shadow-sm text-[15px] leading-relaxed',
+						isUser
+							? 'bg-primary text-white rounded-tr-none font-medium'
+							: 'bg-card border border-border rounded-tl-none text-foreground',
 					)}
+				>
+					{/* Markdown Content */}
+					<div
+						className={cn(
+							'prose max-w-none',
+							isUser
+								? 'prose-invert prose-p:text-white'
+								: 'prose-zinc dark:prose-invert',
+						)}
+					>
+						<ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+					</div>
 
-					{/* Tool Calls */}
+					{/* Tool Executions */}
 					{message.toolCalls && message.toolCalls.length > 0 && (
-						<div className="flex flex-col gap-2 mt-4">
+						<div className="flex flex-wrap gap-2 mt-5 pt-4 border-t border-border/50">
 							{message.toolCalls.map(tc => (
 								<ToolCallBadge key={tc.id} tool={tc} />
 							))}
