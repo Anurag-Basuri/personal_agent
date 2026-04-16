@@ -1,118 +1,151 @@
-import os
-import hashlib
-import json
-from datetime import datetime, timezone
-from typing import Annotated
+"""
+Google OAuth 2.0 Authentication for FastAPI.
 
-from fastapi import Depends, HTTPException, status, Request
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+Verifies Google ID tokens sent as Bearer tokens from the Next.js frontend.
+In DEBUG mode, creates a dev user when no token is present for easy testing.
+"""
+
+import uuid
+from datetime import datetime, timezone
+
+from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from hkdf import Hkdf
-from jwcrypto import jwe
 
+from app.config import get_settings
+from app.core.logger import agent_logger
 from app.database import get_db
 from app.models.user import User
 
-bearer_scheme = HTTPBearer()
 
-def get_auth_secret() -> str:
-    """Return the NextAuth secret from .env."""
-    return os.getenv("AUTH_SECRET", "")
+def _extract_bearer_token(request: Request) -> str | None:
+    """Extract Bearer token from Authorization header."""
+    auth_header = request.headers.get("Authorization", "")
+    if auth_header.startswith("Bearer "):
+        return auth_header[7:].strip()
+    return None
 
-def derive_nextauth_key(secret: str, info: str = "Auth.js Generated Encryption Key (authjs.session-token)") -> bytes:
+
+def _verify_google_id_token(token: str) -> dict:
     """
-    Derives the AES-GCM-256 encryption key using HKDF as per NextAuth.js / Auth.js specifications.
-    Auth.js v5 defaults to: `Auth.js Generated Encryption Key (${cookieName})`
+    Verify a Google ID token using Google's official library.
+    Returns the decoded payload with email, name, picture, etc.
     """
-    hkdf = Hkdf(salt=b"", input_key_material=secret.encode("utf-8"), hash=hashlib.sha256)
-    return hkdf.expand(info=info.encode("utf-8"), length=32)
+    settings = get_settings()
 
-def decode_nextauth_jwe(token: str) -> dict:
-    """Decodes NextAuth.js encrypted JWE session token securely."""
-    secret = get_auth_secret()
-    if not secret:
-        raise HTTPException(status_code=500, detail="AUTH_SECRET is not configured on the backend.")
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as google_requests
 
-    # Try common auth.js info strings depending on if it's beta or release
-    infos = [
-        "Auth.js Generated Encryption Key (authjs.session-token)",
-        "Auth.js Generated Encryption Key (__Secure-authjs.session-token)",
-        "NextAuth.js Generated Encryption Key",
-        "Auth.js Generated Encryption Key"
-    ]
-    
-    last_error = None
-    for info in infos:
-        try:
-            key_bytes = derive_nextauth_key(secret, info)
-            
-            # Create a JWK (JSON Web Key) from the derived bytes
-            jwk_key = {"k": key_bytes, "kty": "oct"}
-            from jwcrypto import jwk
-            key = jwk.JWK(**jwk_key)
-            
-            jwe_token = jwe.JWE()
-            jwe_token.deserialize(token)
-            jwe_token.decrypt(key)
-            payload = json.loads(jwe_token.payload.decode("utf-8"))
-            
-            # Validate expiration if present
-            if "exp" in payload:
-                exp = datetime.fromtimestamp(payload["exp"], tz=timezone.utc)
-                if datetime.now(timezone.utc) > exp:
-                    raise HTTPException(status_code=401, detail="Token has expired.")
-            
-            return payload
-        except Exception as e:
-            last_error = e
-            continue
-            
-    # If all decrypt attempts fail
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail=f"Could not validate NextAuth credentials. {last_error}",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+        # verify_oauth2_token validates:
+        #   - Signature (via Google's public keys)
+        #   - Expiration
+        #   - Issuer (accounts.google.com)
+        #   - Audience (your client ID)
+        payload = id_token.verify_oauth2_token(
+            token,
+            google_requests.Request(),
+            audience=settings.AUTH_GOOGLE_CLIENT_ID if settings.AUTH_GOOGLE_CLIENT_ID else None,
+        )
+
+        # Additional safety checks
+        issuer = payload.get("iss", "")
+        if issuer not in ("accounts.google.com", "https://accounts.google.com"):
+            raise ValueError(f"Invalid issuer: {issuer}")
+
+        return payload
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid Google ID token: {e}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Could not validate credentials: {e}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
 
 async def get_current_user(
     request: Request,
-    db: AsyncSession = Depends(get_db)
+    db: AsyncSession = Depends(get_db),
 ) -> User:
     """
-    FastAPI Dependency to enforce valid NextAuth session tokens flexibly.
-    Checks Cookies (__Secure-authjs.session-token or authjs.session-token) OR Bearer headers.
-    """
-    token = None
-    
-    # Try cookies first (Browser fetch with credentials: 'include')
-    token = request.cookies.get("authjs.session-token") or request.cookies.get("__Secure-authjs.session-token")
-    
-    # Try Authorization Header (for Postman/external clients)
-    if not token and "Authorization" in request.headers:
-        auth_header = request.headers["Authorization"]
-        if auth_header.startswith("Bearer "):
-            token = auth_header.split(" ")[1]
-            
-    if not token:
-        raise HTTPException(status_code=401, detail="Authentication required. No session token found.")
+    FastAPI Dependency to authenticate users via Google OAuth 2.0 ID tokens.
 
-    payload = decode_nextauth_jwe(token)
-    
+    Expects: Authorization: Bearer <google_id_token>
+
+    In DEBUG mode, if no token is present, a dev user is auto-created
+    so the server can be tested without the frontend running.
+    """
+    settings = get_settings()
+    token = _extract_bearer_token(request)
+
+    # ─── Dev Mode Bypass ────────────────────────────────────────
+    if not token and settings.is_debug:
+        agent_logger.debug("AUTH", "🔓 DEBUG mode: using dev user (no token provided)")
+        return await _get_or_create_user(
+            db,
+            email="dev@localhost",
+            name="Dev User",
+            picture="",
+            role="ADMIN",
+        )
+
+    if not token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication required. Send Google ID token as Bearer token.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    # ─── Verify Google ID Token ─────────────────────────────────
+    payload = _verify_google_id_token(token)
+
     email = payload.get("email")
     if not email:
-        raise HTTPException(status_code=401, detail="Invalid token payload: missing email.")
-    
-    # Retrieve or create User async
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token payload: missing email.",
+        )
+
+    if not payload.get("email_verified", False):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Email not verified by Google.",
+        )
+
+    name = payload.get("name", "")
+    picture = payload.get("picture", "")
+
+    return await _get_or_create_user(db, email=email, name=name, picture=picture)
+
+
+async def _get_or_create_user(
+    db: AsyncSession,
+    email: str,
+    name: str = "",
+    picture: str = "",
+    role: str = "GUEST",
+) -> User:
+    """Find existing user by email or create a new one."""
     result = await db.execute(select(User).where(User.email == email))
     user = result.scalar_one_or_none()
-    
+
     if not user:
-        name = payload.get("name", "")
-        picture = payload.get("picture", "")
-        user = User(email=email, name=name, picture=picture)
+        user = User(
+            id=str(uuid.uuid4()),
+            email=email,
+            name=name,
+            picture=picture,
+            role=role,
+        )
         db.add(user)
         await db.commit()
         await db.refresh(user)
-        
+        agent_logger.info("AUTH", f"✨ New user created: {email}", {"role": role})
+
     return user

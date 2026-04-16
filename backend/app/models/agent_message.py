@@ -30,7 +30,19 @@ class EncryptedString(TypeDecorator):
         return decrypted
 
 
-from pgvector.sqlalchemy import Vector
+# ─── Conditional pgvector Import ─────────────────────────────────
+# pgvector is only available when using PostgreSQL. On SQLite, we use a
+# nullable Text column as a no-op placeholder for the embedding field.
+_vector_column_type = None
+try:
+    from app.config import get_settings as _get_settings
+    _settings = _get_settings()
+    if _settings.is_postgres:
+        from pgvector.sqlalchemy import Vector
+        _vector_column_type = Vector(768)
+except Exception:
+    pass
+
 
 class AgentMessage(Base):
     """
@@ -51,7 +63,12 @@ class AgentMessage(Base):
     content: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
     
     # Mathematical Representation for Omni-Memory Semantic Search
-    embedding: Mapped[Vector | None] = mapped_column(Vector(768), nullable=True)
+    # On PostgreSQL: Vector(768) column for pgvector similarity search
+    # On SQLite: nullable Text column (no-op, embeddings disabled)
+    if _vector_column_type is not None:
+        embedding = mapped_column(_vector_column_type, nullable=True)
+    else:
+        embedding: Mapped[str | None] = mapped_column(Text, nullable=True)
     
     # Store tool calls or results. Also encrypted.
     tool_calls: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
