@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAgentStore } from '../../store/useAgentStore';
 import { MessageBubble } from './MessageBubble';
+import { Icons } from '../ui/Icons';
 
 export function ChatArea() {
 	const { messages, isTyping } = useAgentStore();
@@ -15,57 +17,75 @@ export function ChatArea() {
 
 	if (messages.length === 0) {
 		return (
-			<div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
-				<div className="relative mb-6">
-					<div className="absolute inset-0 rounded-full bg-emerald-200 blur-xl opacity-50" />
-					<div className="relative flex h-20 w-20 items-center justify-center rounded-full border border-zinc-200 bg-white shadow-sm">
-						<span className="text-3xl">👋</span>
+			<motion.div
+				initial={{ opacity: 0, scale: 0.9 }}
+				animate={{ opacity: 1, scale: 1 }}
+				className="flex flex-1 flex-col items-center justify-center p-8 text-center"
+			>
+				<div className="relative mb-10 group">
+					<div className="absolute inset-0 rounded-full bg-primary/20 blur-3xl opacity-50 group-hover:opacity-80 transition-opacity" />
+					<div className="relative flex h-24 w-24 items-center justify-center rounded-3xl border border-primary/20 bg-card shadow-2xl animate-glow">
+						<Icons.Agent className="h-10 w-10 text-primary" />
 					</div>
 				</div>
-				<h2 className="text-2xl font-semibold text-zinc-900 mb-2">
-					How can I help you today?
+				<h2 className="text-3xl font-black text-foreground mb-4 font-display">
+					Ready to assist, Captain.
 				</h2>
-				<p className="max-w-md text-zinc-500">
-					Ask me about Anurag's projects, technical skills, or have me write an email to
-					him.
+				<p className="max-w-md text-muted-foreground text-sm leading-relaxed">
+					Ask me about your technical roadmap, RAG-indexed portfolio data, or have me
+					trigger external tool workflows.
 				</p>
-			</div>
+			</motion.div>
 		);
 	}
 
 	return (
-		<div className="flex-1 overflow-y-auto pb-6">
-			{messages.map(msg => (
-				<MessageBubble key={msg.id} message={msg} />
-			))}
+		<div className="flex-1 overflow-y-auto px-4 md:px-0">
+			<div className="mx-auto max-w-3xl w-full py-10 space-y-2">
+				<AnimatePresence initial={false}>
+					{messages.map((msg, index) => (
+						<motion.div
+							key={msg.id || index}
+							initial={{ opacity: 0, y: 20, scale: 0.95 }}
+							animate={{ opacity: 1, y: 0, scale: 1 }}
+							exit={{ opacity: 0, transition: { duration: 0.2 } }}
+							transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+						>
+							<MessageBubble message={msg} />
+						</motion.div>
+					))}
+				</AnimatePresence>
 
-			{isTyping && (
-				<div className="group relative flex w-full gap-4 px-4 py-6 bg-zinc-50 md:px-0">
-					<div className="mx-auto flex w-full max-w-3xl gap-4 md:gap-6">
-						<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-sm bg-emerald-600 text-white">
-							<span className="h-2 w-2 rounded-full bg-white animate-bounce" />
+				{isTyping && (
+					<motion.div
+						initial={{ opacity: 0, y: 10 }}
+						animate={{ opacity: 1, y: 0 }}
+						className="flex gap-4 p-6"
+					>
+						<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary">
+							<Icons.Agent className="h-5 w-5" />
 						</div>
-						<div className="flex-1 space-y-4">
-							<div className="font-medium text-zinc-900">Agent</div>
-							<div className="flex items-center gap-1 mt-2">
-								<span
-									className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-bounce"
-									style={{ animationDelay: '0ms' }}
-								/>
-								<span
-									className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-bounce"
-									style={{ animationDelay: '150ms' }}
-								/>
-								<span
-									className="h-1.5 w-1.5 rounded-full bg-zinc-400 animate-bounce"
-									style={{ animationDelay: '300ms' }}
-								/>
-							</div>
+						<div className="flex items-center gap-1.5 px-4 py-2 bg-muted/30 rounded-2xl rounded-tl-none border border-border">
+							<motion.span
+								animate={{ scale: [1, 1.3, 1] }}
+								transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+								className="h-1.5 w-1.5 rounded-full bg-primary/60"
+							/>
+							<motion.span
+								animate={{ scale: [1, 1.3, 1] }}
+								transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
+								className="h-1.5 w-1.5 rounded-full bg-primary/60"
+							/>
+							<motion.span
+								animate={{ scale: [1, 1.3, 1] }}
+								transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
+								className="h-1.5 w-1.5 rounded-full bg-primary/60"
+							/>
 						</div>
-					</div>
-				</div>
-			)}
-			<div ref={bottomRef} className="h-4" />
+					</motion.div>
+				)}
+				<div ref={bottomRef} className="h-20" />
+			</div>
 		</div>
 	);
 }
