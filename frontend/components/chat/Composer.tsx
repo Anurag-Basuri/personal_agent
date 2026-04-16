@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAgentAPI } from '../../hooks/useAgentAPI';
 import { useAgentStore } from '../../store/useAgentStore';
 import { Icons } from '../ui/Icons';
@@ -37,33 +38,49 @@ export function Composer() {
 	};
 
 	return (
-		<div className="mx-auto w-full max-w-3xl px-4 pb-6 pt-2">
-			<div className="relative flex items-end gap-2 rounded-xl border border-zinc-200 bg-white p-2 shadow-sm transition-shadow focus-within:ring-1 focus-within:ring-emerald-500">
+		<div className="mx-auto w-full max-w-3xl px-6 pb-8 pt-2">
+			<div className="relative flex items-end gap-2 p-2 rounded-[28px] border border-border bg-card/50 backdrop-blur-xl shadow-2xl transition-all focus-within:ring-2 focus-within:ring-primary/40 focus-within:border-primary/50 group">
 				<textarea
 					ref={textareaRef}
 					value={text}
 					onChange={e => setText(e.target.value)}
 					onKeyDown={handleKeyDown}
-					placeholder="Message Agent..."
-					className="max-h-[200px] min-h-[44px] w-full resize-none border-0 bg-transparent py-3 pl-3 pr-10 text-[15px] focus:ring-0"
+					placeholder="Message Neural Agent..."
+					className="max-h-[200px] min-h-[48px] w-full resize-none border-0 bg-transparent py-3.5 pl-5 pr-12 text-[15px] focus:ring-0 placeholder:text-muted-foreground/50 transition-all font-medium"
 					disabled={isTyping}
 				/>
-				<button
-					onClick={handleSubmit}
-					disabled={!text.trim() || isTyping}
-					className={cn(
-						'absolute right-3 bottom-3 flex h-8 w-8 items-center justify-center rounded-md transition',
-						text.trim() && !isTyping
-							? 'bg-emerald-600 text-white hover:bg-emerald-700'
-							: 'bg-zinc-100 text-zinc-400',
+
+				<AnimatePresence>
+					{text.trim() && !isTyping && (
+						<motion.button
+							initial={{ scale: 0.8, opacity: 0 }}
+							animate={{ scale: 1, opacity: 1 }}
+							exit={{ scale: 0.8, opacity: 0 }}
+							onClick={handleSubmit}
+							className="absolute right-3.5 bottom-3.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-primary text-white shadow-lg animate-glow hover:bg-primary/90 transition-all active:scale-90"
+						>
+							<Icons.Send className="h-5 w-5" />
+						</motion.button>
 					)}
-				>
-					<Icons.Send className="h-4 w-4" />
-				</button>
+				</AnimatePresence>
+
+				{!text.trim() && (
+					<div className="absolute right-3.5 bottom-3.5 flex h-10 w-10 items-center justify-center rounded-2xl bg-muted/50 text-muted-foreground/40 border border-border/50">
+						<Icons.Send className="h-4 w-4" />
+					</div>
+				)}
 			</div>
-			<div className="mt-2 text-center text-xs text-zinc-400">
-				Personal Agent can make mistakes. Verify important technical details.
-			</div>
+
+			<motion.div
+				initial={{ opacity: 0 }}
+				animate={{ opacity: 1 }}
+				transition={{ delay: 1 }}
+				className="mt-4 text-center px-4"
+			>
+				<p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/40 font-display">
+					Secure Workspace &bull; RAG Context Active &bull; AES-GCM Encrypted
+				</p>
+			</motion.div>
 		</div>
 	);
 }

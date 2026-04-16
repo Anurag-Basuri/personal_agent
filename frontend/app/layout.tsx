@@ -1,28 +1,29 @@
 import './globals.css';
-import { Fraunces, Space_Grotesk } from 'next/font/google';
+import { Inter, Outfit } from 'next/font/google';
 import { Providers } from '@/components/auth/Providers';
 
-const spaceGrotesk = Space_Grotesk({
-	weight: ['400', '500', '600', '700'],
+const inter = Inter({
 	subsets: ['latin'],
 	variable: '--font-sans',
 });
 
-const fraunces = Fraunces({
-	weight: ['500', '600', '700'],
+const outfit = Outfit({
 	subsets: ['latin'],
 	variable: '--font-display',
 });
 
 export const metadata = {
-	title: 'Personal Agent',
-	description: 'Portfolio AI agent',
+	title: 'Personal Agent | Anurag Basuri',
+	description:
+		'Autonomous AI companion for Anurag Basuri - Portfolio, RAG, and Tool Orchestration.',
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="en" className="scroll-smooth">
-			<body className={`${spaceGrotesk.variable} ${fraunces.variable}`}>
+		<html lang="en" className="scroll-smooth dark">
+			<body
+				className={`${inter.variable} ${outfit.variable} font-sans antialiased bg-background text-foreground`}
+			>
 				<Providers>{children}</Providers>
 			</body>
 		</html>
