@@ -1,29 +1,94 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @layer base {
 	:root {
-		color-scheme: light;
-		--bg: #ffffff;
-		--ink: #09090b;
+		/* Premium Light Mode (Zinc/Emerald) */
+		--background: 0 0% 100%;
+		--foreground: 240 10% 3.9%;
+		--card: 0 0% 100%;
+		--card-foreground: 240 10% 3.9%;
+		--popover: 0 0% 100%;
+		--popover-foreground: 240 10% 3.9%;
+		--primary: 158 94% 30%;
+		--primary-foreground: 0 0% 100%;
+		--secondary: 240 4.8% 95.9%;
+		--secondary-foreground: 240 5.9% 10%;
+		--muted: 240 4.8% 95.9%;
+		--muted-foreground: 240 3.8% 46.1%;
+		--accent: 240 4.8% 95.9%;
+		--accent-foreground: 240 5.9% 10%;
+		--border: 240 5.9% 90%;
+		--input: 240 5.9% 90%;
+		--ring: 158 94% 30%;
+	}
+
+	.dark {
+		/* Premium Dark Mode (Deep Zinc/Teal) */
+		--background: 240 10% 3.9%;
+		--foreground: 0 0% 98%;
+		--card: 240 10% 3.9%;
+		--card-foreground: 0 0% 98%;
+		--popover: 240 10% 3.9%;
+		--popover-foreground: 0 0% 98%;
+		--primary: 158 94% 30%;
+		--primary-foreground: 0 0% 100%;
+		--secondary: 240 3.7% 15.9%;
+		--secondary-foreground: 0 0% 98%;
+		--muted: 240 3.7% 15.9%;
+		--muted-foreground: 240 5% 64.9%;
+		--accent: 240 3.7% 15.9%;
+		--accent-foreground: 0 0% 98%;
+		--border: 240 3.7% 15.9%;
+		--input: 240 3.7% 15.9%;
+		--ring: 158 94% 30%;
 	}
 
 	body {
-		background-color: var(--bg);
-		color: var(--ink);
+		background-color: hsl(var(--background));
+		color: hsl(var(--foreground));
 		font-family:
-			var(--font-sans),
+			'Inter',
 			ui-sans-serif,
 			system-ui,
 			-apple-system,
 			sans-serif;
+		-webkit-font-smoothing: antialiased;
+		-moz-osx-font-smoothing: grayscale;
+		transition: background-color 0.3s ease;
 	}
 
 	.font-display {
-		font-family: var(--font-display), ui-serif, Georgia, serif;
+		font-family: 'Outfit', var(--font-display), ui-serif, Georgia, serif;
 	}
 }
 
-/* Custom Scrollbar for Chat */
+@layer utilities {
+	.glass {
+		@apply bg-white/70 dark:bg-zinc-950/70 backdrop-blur-md border border-white/20 dark:border-zinc-800/50;
+	}
+
+	.glass-dark {
+		@apply bg-zinc-950/80 backdrop-blur-xl border border-zinc-800/40;
+	}
+
+	.text-balance {
+		text-wrap: balance;
+	}
+
+	.mesh-gradient {
+		background-color: hsla(240, 10%, 4%, 1);
+		background-image:
+			radial-gradient(at 0% 0%, hsla(158, 94%, 30%, 0.15) 0px, transparent 50%),
+			radial-gradient(at 50% 0%, hsla(200, 100%, 50%, 0.1) 0px, transparent 50%),
+			radial-gradient(at 100% 0%, hsla(280, 100%, 50%, 0.05) 0px, transparent 50%);
+	}
+
+	.animate-glow {
+		box-shadow: 0 0 20px -5px hsla(158, 94%, 30%, 0.4);
+	}
+}
+
+/* Custom Scrollbar */
 ::-webkit-scrollbar {
 	width: 6px;
 	height: 6px;
@@ -32,9 +97,39 @@
 	background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-	background: #e4e4e7; /* zinc-200 */
+	background: hsl(var(--muted));
 	border-radius: 10px;
 }
 ::-webkit-scrollbar-thumb:hover {
-	background: #d4d4d8; /* zinc-300 */
+	background: hsl(var(--muted-foreground));
+}
+
+/* Typography Enhancements */
+h1,
+h2,
+h3,
+h4,
+.title {
+	@apply tracking-tight font-display;
+}
+
+/* Prose Overrides */
+.prose {
+	@apply text-foreground/90 transition-colors;
+}
+
+.prose pre {
+	@apply bg-zinc-950/50 border border-border/50 rounded-2xl p-4 shadow-xl backdrop-blur-sm !important;
+}
+
+.prose code {
+	@apply text-primary font-bold bg-primary/5 px-1.5 py-0.5 rounded-md border border-primary/10 transition-all !important;
+}
+
+.prose a {
+	@apply text-primary no-underline font-bold hover:underline decoration-primary/30 transition-all;
+}
+
+.prose strong {
+	@apply text-foreground font-black;
 }
