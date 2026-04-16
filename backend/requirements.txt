@@ -24,11 +24,12 @@ httpx>=0.28.0
 
 # Cryptography & Security
 cryptography>=41.0.0
-hkdf>=0.0.3
 
-# PostgreSql / Vector RAG
+# Google OAuth 2.0 ID Token Verification
+google-auth>=2.29.0
+
+# PostgreSql / Vector RAG (optional — only active when DATABASE_URL is postgres)
 asyncpg>=0.30.0
-psycopg2-binary>=2.9.9
 pgvector>=0.3.0
 langchain-postgres>=0.0.12
 
@@ -36,3 +37,6 @@ langchain-postgres>=0.0.12
 python-dotenv>=1.0.0
 bleach>=6.2.0
 slowapi>=0.1.9
+
+# External Transports
+python-telegram-bot>=21.0

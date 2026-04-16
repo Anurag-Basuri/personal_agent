@@ -48,13 +48,29 @@ async def lifespan(app: FastAPI):
     await init_db()
     print("[server] Database initialized")
 
-    # Warm up LLM factory (imports trigger init)
-    from app.agent.llm import llm_info  # noqa: F401
+    # Eagerly initialize LLMs so startup logs are accurate
+    from app.agent.llm import init_llms_eagerly, llm_info
+    init_llms_eagerly()
     print(f"[server] LLM mode: {llm_info.mode}")
+
+    # Initialize Telegram Bot
+    from app.transports.telegram import build_telegram_app
+    telegram_app = build_telegram_app()
+    if telegram_app:
+        await telegram_app.initialize()
+        await telegram_app.start()
+        await telegram_app.updater.start_polling()
+        print("[server] Telegram bot started and polling")
 
     yield
 
     # Shutdown
+    if telegram_app:
+        await telegram_app.updater.stop()
+        await telegram_app.stop()
+        await telegram_app.shutdown()
+        print("[server] Telegram bot stopped")
+
     await close_db()
     print("[server] Database connection closed")
 
