@@ -53,6 +53,11 @@ async def lifespan(app: FastAPI):
     init_llms_eagerly()
     print(f"[server] LLM mode: {llm_info.mode}")
 
+    # Initialize MCP Client
+    from app.mcp.client import mcp_manager
+    await mcp_manager.startup()
+    print(f"[server] MCP: {mcp_manager.connected_count} servers connected, {len(mcp_manager.get_tools())} tools discovered")
+
     # Initialize Telegram Bot
     from app.transports.telegram import build_telegram_app
     telegram_app = build_telegram_app()
@@ -63,6 +68,10 @@ async def lifespan(app: FastAPI):
         print("[server] Telegram bot started and polling")
 
     yield
+
+    # Shutdown MCP connections
+    await mcp_manager.shutdown()
+    print("[server] MCP connections closed")
 
     # Shutdown
     if telegram_app:
@@ -117,10 +126,12 @@ def create_app() -> FastAPI:
     from app.api.health import router as health_router
     from app.api.agent import router as agent_router
     from app.api.admin import router as admin_router
+    from app.api.mcp import router as mcp_router
 
     app.include_router(health_router)
     app.include_router(agent_router)
     app.include_router(admin_router)
+    app.include_router(mcp_router)
 
     return app
 
