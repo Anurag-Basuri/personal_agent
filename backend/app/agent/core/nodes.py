@@ -4,7 +4,7 @@ import json
 from langchain_core.messages import ToolMessage, HumanMessage, AIMessage
 from app.agent.llm import get_bound_llms, llm_info
 from app.core.logger import agent_logger
-from app.agent.tools import agent_tools
+from app.agent.tools import get_all_tools
 from app.agent.core.state import AgentState
 
 
@@ -69,7 +69,7 @@ async def call_model(state: AgentState):
     # Admin tools might have a custom attribute like `requires_admin`
     # For now, if role == GUEST, limit to safe tools (we assume all default are safe until we add dangerous ones)
     allowed_tools = []
-    for t in agent_tools:
+    for t in get_all_tools():
         if getattr(t, "requires_admin", False) and role != "ADMIN":
             continue
         allowed_tools.append(t)
@@ -121,7 +121,7 @@ async def call_tools(state: AgentState):
     if not tool_calls:
         return {"messages": []}
         
-    tool_map = {t.name: t for t in agent_tools}
+    tool_map = {t.name: t for t in get_all_tools()}
     results = []
     
     for tc in tool_calls:

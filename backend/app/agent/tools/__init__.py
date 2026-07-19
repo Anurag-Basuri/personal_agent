@@ -22,5 +22,11 @@ agent_tools = [
     web_search_tool,
 ]
 
-__all__ = ["agent_tools"]
+def get_all_tools() -> list:
+    """Merge local tools with dynamically discovered MCP tools."""
+    from app.mcp.client import mcp_manager
+    mcp_tools = mcp_manager.get_tools()
+    return agent_tools + mcp_tools
+
+__all__ = ["agent_tools", "get_all_tools"]
 
