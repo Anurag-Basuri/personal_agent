@@ -15,6 +15,7 @@ from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
 from app.core.logger import agent_logger
+from app.core.degradation import system_health
 
 
 class MCPManager:
@@ -75,6 +76,7 @@ class MCPManager:
                 self._status[name] = "connected"
                 
             agent_logger.info("MCP", f"Successfully discovered {len(self._tools)} tools from {self.connected_count} servers.")
+            system_health.mark_up("mcp")
             
         except Exception as e:
             agent_logger.error("MCP", "Failed to start MCP connections", e)
@@ -82,6 +84,7 @@ class MCPManager:
             for name in enabled_servers:
                 if self._status.get(name) == "connecting":
                     self._status[name] = "error"
+            system_health.mark_down("mcp")
             
             # We don't raise here, we want the agent to start even if MCP fails
             # The agent will just run with 0 MCP tools, using only its local tools.

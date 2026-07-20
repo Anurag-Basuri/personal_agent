@@ -4,6 +4,8 @@ Agent service — the core agent handler.
 Refactored to use LangGraph structure defined in `app/agent/core/builder.py`.
 Retrieves granular history, builds context, passes state to LangGraph,
 persists new messages, and triggers conversation summarization + memory extraction.
+
+Uses MemoryRepository for all persistent memory operations.
 """
 
 from __future__ import annotations
@@ -12,7 +14,6 @@ import time
 from dataclasses import dataclass
 
 from langchain_core.messages import HumanMessage, SystemMessage
-from sqlalchemy import select, func
 
 from app.core.logger import agent_logger
 from app.core.memory import get_message_history
@@ -29,6 +30,9 @@ from app.rag.context import get_base_portfolio_context
 from app.agent.core.builder import agent_app
 from app.agent.core.state import AgentState
 
+from app.repositories.memory_repo import memory_repo
+
+
 @dataclass
 class AgentResponse:
     reply: str
@@ -40,35 +44,21 @@ async def _load_user_memories(user_id: str | None) -> str:
     if not user_id:
         return ""
 
-    try:
-        from app.database import async_session
-        from app.models.agent_memory import AgentMemory
+    memories = await memory_repo.get_user_memories(
+        user_id=user_id,
+        types=["preference", "fact", "interest"],
+        min_confidence=0.6,
+        limit=10,
+    )
 
-        async with async_session() as db:
-            result = await db.execute(
-                select(AgentMemory)
-                .where(
-                    AgentMemory.user_id == user_id,
-                    AgentMemory.type.in_(["preference", "fact", "interest"]),
-                    AgentMemory.confidence >= 0.6,
-                )
-                .order_by(AgentMemory.updatedAt.desc())
-                .limit(10)
-            )
-            memories = result.scalars().all()
-
-            if not memories:
-                return ""
-
-            memory_text = "[USER MEMORY]\nKnown facts and preferences about this user:\n"
-            for m in memories:
-                memory_text += f"- [{m.type}] {m.content}\n"
-            memory_text += "[END USER MEMORY]\n"
-            return memory_text
-
-    except Exception as e:
-        agent_logger.warn("MEMORY", f"Failed to load user memories: {e}")
+    if not memories:
         return ""
+
+    memory_text = "[USER MEMORY]\nKnown facts and preferences about this user:\n"
+    for m in memories:
+        memory_text += f"- [{m.type}] {m.content}\n"
+    memory_text += "[END USER MEMORY]\n"
+    return memory_text
 
 
 async def _load_session_summary(session_id: str, user_id: str | None) -> str:
@@ -76,27 +66,8 @@ async def _load_session_summary(session_id: str, user_id: str | None) -> str:
     if not user_id:
         return ""
 
-    try:
-        from app.database import async_session
-        from app.models.agent_memory import AgentMemory
-
-        async with async_session() as db:
-            result = await db.execute(
-                select(AgentMemory)
-                .where(
-                    AgentMemory.user_id == user_id,
-                    AgentMemory.source_session_id == session_id,
-                    AgentMemory.type == "summary",
-                )
-                .order_by(AgentMemory.createdAt.desc())
-                .limit(1)
-            )
-            summary = result.scalar_one_or_none()
-            return summary.content if summary else ""
-
-    except Exception as e:
-        agent_logger.warn("MEMORY", f"Failed to load session summary: {e}")
-        return ""
+    summary = await memory_repo.get_session_summary(user_id, session_id)
+    return summary or ""
 
 
 async def _persist_memories(
@@ -109,45 +80,14 @@ async def _persist_memories(
     if not user_id:
         return
 
-    try:
-        from app.database import async_session
-        from app.models.agent_memory import AgentMemory
+    if summary:
+        await memory_repo.save_summary(user_id, session_id, summary)
 
-        async with async_session() as db:
-            # Save conversation summary
-            if summary:
-                mem = AgentMemory(
-                    user_id=user_id,
-                    source_session_id=session_id,
-                    type="summary",
-                    content=summary,
-                    confidence=1.0,
-                )
-                db.add(mem)
+    saved_count = await memory_repo.save_preferences(user_id, session_id, preferences)
 
-            # Save extracted preferences
-            for pref in preferences:
-                content = pref.get("content", "")
-                pref_type = pref.get("type", "preference")
-                confidence = pref.get("confidence", 0.7)
-
-                if content and confidence >= 0.5:
-                    mem = AgentMemory(
-                        user_id=user_id,
-                        source_session_id=session_id,
-                        type=pref_type,
-                        content=content,
-                        confidence=confidence,
-                    )
-                    db.add(mem)
-
-            await db.commit()
-            agent_logger.info("MEMORY", f"Persisted summary + {len(preferences)} preferences", {
-                "session_id": session_id,
-            })
-
-    except Exception as e:
-        agent_logger.error("MEMORY", f"Failed to persist memories: {e}")
+    agent_logger.info("MEMORY", f"Persisted summary + {saved_count} preferences", {
+        "session_id": session_id,
+    })
 
 
 async def process_user_message(
@@ -168,7 +108,7 @@ async def process_user_message(
     7. Trigger summarization if message threshold is reached
     """
     request_start = time.time()
-    
+
     # We define a default role; ideally this should be passed down from the route (get_current_user)
     # For now, if we have a user_id, they are at least authenticated.
     role = "ADMIN" if user_id else "GUEST"
@@ -183,7 +123,7 @@ async def process_user_message(
     # Load session history
     memory = get_message_history(session_id, user_id=user_id, role=role)
     history = await memory.get_messages()
-    
+
     agent_logger.debug("MEMORY", f"Loaded {len(history)} messages from session history", {
         "session_id": session_id,
     })
@@ -215,7 +155,7 @@ async def process_user_message(
     )
 
     human_msg = HumanMessage(content=message)
-    
+
     # Initialize LangGraph State
     initial_state: AgentState = {
         "messages": [system_prompt, *history, human_msg],
@@ -231,27 +171,22 @@ async def process_user_message(
     agent_logger.debug("LLM", f"Estimated prompt size: {approx_chars} characters", {"session_id": session_id})
 
     # ─── Invoke LangGraph ───
-    # LangGraph will run the router, model, check tools, run tools, run model again, etc.
     try:
-        # We use ainvoke. LangGraph will return the final state.
-        # Since it runs a cycle, the final messages array will have new AI msgs and Tool msgs.
         final_state = await agent_app.ainvoke(initial_state)
     except Exception as e:
         agent_logger.error("SYSTEM", "LangGraph Workflow Failed", e)
         raise e
 
     # ─── Persist New Messages ───
-    # We only want to persist new messages (human_msg + whatever graph added)
-    # The history list length + 1 (the new human msg) gets us the offset
-    new_messages_offset = len(history) + 1 
-    
+    new_messages_offset = len(history) + 1
+
     # Save the human message
     await memory.add_message(human_msg)
-    
+
     # Save everything Graph generated (AI / Tool messages)
     final_messages = final_state["messages"]
-    new_generated_messages = final_messages[new_messages_offset + 1:] # +1 because system prompt is at [0]
-    
+    new_generated_messages = final_messages[new_messages_offset + 1:]  # +1 because system prompt is at [0]
+
     for msg in new_generated_messages:
         await memory.add_message(msg)
 
@@ -272,15 +207,15 @@ async def process_user_message(
             # Use the fallback (cheaper) LLM for summarization
             from app.agent.llm import _fallback_llm, _primary_llm
             summarize_llm = _fallback_llm or _primary_llm
-            
+
             if summarize_llm:
                 # Build summarization prompt from all messages (excluding system)
                 all_msgs = [m for m in final_messages if m.type != "system"]
                 prompt_text = build_summarization_prompt(all_msgs)
-                
+
                 sum_response = await summarize_llm.ainvoke(prompt_text)
                 parsed = parse_summarization_response(str(sum_response.content))
-                
+
                 await _persist_memories(
                     user_id=user_id,
                     session_id=session_id,
@@ -302,4 +237,3 @@ async def process_user_message(
         reply=str(final_reply) if final_reply else "I couldn't process that properly.",
         session_id=session_id,
     )
-

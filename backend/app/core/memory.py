@@ -3,30 +3,28 @@ Async chat history persistence using SQLAlchemy.
 
 Migrated from monolithic AgentSession history to individual AgentMessage rows.
 This enables granular message editing, deletion, and Omni-Memory search capabilities.
+
+Refactored to use the Repository Pattern — all raw SQLAlchemy queries
+are now delegated to SessionRepository and MessageRepository.
 """
 
 from __future__ import annotations
 
-import uuid
-from typing import Any, Sequence
+import json
+from typing import Sequence
 
 from langchain_core.messages import (
     BaseMessage,
     HumanMessage,
     AIMessage,
     SystemMessage,
-    ToolMessage
+    ToolMessage,
 )
-from sqlalchemy import select, delete
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
-from app.database import async_session
-from app.models.agent_session import AgentSession
+from app.repositories.session_repo import session_repo
+from app.repositories.message_repo import message_repo
 from app.models.agent_message import AgentMessage
 
-# Note: We remove the JSON in-memory cache because we now rely on DB-level retrieval for granular control.
-# If performance drops, implement a Redis cache for message IDs.
 
 class AsyncMessageHistory:
     """
@@ -39,27 +37,6 @@ class AsyncMessageHistory:
         self.role = role
         self.transport = transport
 
-    async def _ensure_session(self, db: AsyncSession) -> AgentSession:
-        """Fetch or create the Session."""
-        result = await db.execute(
-            select(AgentSession).where(AgentSession.sessionId == self.session_id)
-        )
-        session = result.scalar_one_or_none()
-
-        if not session:
-            session = AgentSession(
-                id=str(uuid.uuid4()).replace("-", "")[:25],
-                sessionId=self.session_id,
-                user_id=self.user_id,
-                role=self.role,
-                transport=self.transport,
-            )
-            db.add(session)
-            await db.commit()
-            await db.refresh(session)
-        
-        return session
-
     def _to_langchain_message(self, db_msg: AgentMessage) -> BaseMessage | None:
         """Convert a DB row into a LangChain BaseMessage."""
         if db_msg.role == "human":
@@ -67,9 +44,6 @@ class AsyncMessageHistory:
         elif db_msg.role == "ai":
             msg = AIMessage(content=db_msg.content or "")
             if db_msg.tool_calls:
-                # Decrypting parsing tool calls is handled by the model, but we need to format it for LC
-                # For now, simplistic recovery: 
-                import json
                 try:
                     msg.additional_kwargs["tool_calls"] = json.loads(db_msg.tool_calls)
                 except Exception:
@@ -81,7 +55,7 @@ class AsyncMessageHistory:
             return ToolMessage(
                 content=db_msg.content or "",
                 tool_call_id=db_msg.tool_call_id or "",
-                name=db_msg.name or ""
+                name=db_msg.name or "",
             )
         return None
 
@@ -89,16 +63,15 @@ class AsyncMessageHistory:
         """Convert a LangChain message into an AgentMessage row."""
         db_msg = AgentMessage(
             session_id=session_db_id,
-            content=str(msg.content)
+            content=str(msg.content),
         )
-        
+
         if isinstance(msg, HumanMessage):
             db_msg.role = "human"
         elif isinstance(msg, AIMessage):
             db_msg.role = "ai"
             tool_calls = getattr(msg, "tool_calls", [])
             if tool_calls:
-                import json
                 db_msg.tool_calls = json.dumps(tool_calls)
         elif isinstance(msg, SystemMessage):
             db_msg.role = "system"
@@ -108,58 +81,50 @@ class AsyncMessageHistory:
             db_msg.name = msg.name
         else:
             db_msg.role = "unknown"
-            
+
         return db_msg
 
     async def get_messages(self) -> list[BaseMessage]:
         """Load messages from DB ordered by creation time."""
-        async with async_session() as db:
-            session = await self._ensure_session(db)
-            
-            # Security ownership check
-            if session and self.user_id and session.user_id != self.user_id:
-                return []
+        session = await session_repo.get_or_create(
+            self.session_id, self.user_id, self.role, self.transport
+        )
 
-            result = await db.execute(
-                select(AgentMessage)
-                .where(AgentMessage.session_id == session.id)
-                .order_by(AgentMessage.createdAt.asc())
-            )
-            db_messages = result.scalars().all()
-            
-            langchain_msgs = []
-            for db_msg in db_messages:
-                lc_msg = self._to_langchain_message(db_msg)
-                if lc_msg:
-                    langchain_msgs.append(lc_msg)
-            
-            return langchain_msgs
+        # Security ownership check
+        if self.user_id and session.user_id != self.user_id:
+            return []
+
+        db_messages = await message_repo.get_by_session(session.id)
+
+        langchain_msgs = []
+        for db_msg in db_messages:
+            lc_msg = self._to_langchain_message(db_msg)
+            if lc_msg:
+                langchain_msgs.append(lc_msg)
+
+        return langchain_msgs
 
     async def add_message(self, message: BaseMessage) -> None:
         """Persist a single message to the database."""
-        async with async_session() as db:
-            session = await self._ensure_session(db)
-            
-            db_msg = self._to_db_message(message, session.id)
-            db.add(db_msg)
-            await db.commit()
-
+        session = await session_repo.get_or_create(
+            self.session_id, self.user_id, self.role, self.transport
+        )
+        db_msg = self._to_db_message(message, session.id)
+        await message_repo.create(db_msg)
 
     async def clear(self) -> None:
         """Delete all messages for this session."""
-        async with async_session() as db:
-            session = await self._ensure_session(db)
-            await db.execute(
-                delete(AgentMessage).where(AgentMessage.session_id == session.id)
-            )
-            await db.commit()
+        session = await session_repo.get_or_create(
+            self.session_id, self.user_id, self.role, self.transport
+        )
+        await message_repo.delete_all_for_session(session.id)
 
 
 def get_message_history(
-    session_id: str, 
+    session_id: str,
     user_id: str | None = None,
     role: str = "GUEST",
-    transport: str = "WEB"
+    transport: str = "WEB",
 ) -> AsyncMessageHistory:
     """Factory — returns an async message history for the given session."""
     return AsyncMessageHistory(session_id, user_id, role, transport)

@@ -12,6 +12,8 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
+from app.core.rate_limiter import rate_limit
+
 from app.core.auth import get_current_user
 from app.models.user import User
 from app.core.responses import success_response
@@ -142,7 +144,10 @@ async def toggle_server(name: str, user: User = Depends(require_admin)):
     )
 
 @router.post("/reload")
-async def reload_servers(user: User = Depends(require_admin)):
+async def reload_servers(
+    user: User = Depends(require_admin),
+    _rate: None = Depends(rate_limit("mcp_reload")),
+):
     """Disconnect all servers, re-read config, and reconnect."""
     await mcp_manager.shutdown()
     await mcp_manager.startup()

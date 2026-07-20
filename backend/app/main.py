@@ -3,10 +3,10 @@ FastAPI application factory.
 
 - Lifespan: init DB + LLMs on startup, cleanup on shutdown
 - CORS: configured from settings
-- Rate limiting: via slowapi
+- Rate limiting: per-user, per-endpoint, per-resource
 - Error handlers: ApiError, ValidationError, generic
 - Request ID middleware: unique UUID per request for tracing
-- Routers: /health, /chat, /admin
+- Routers: /health, /chat, /admin, /admin/mcp
 """
 
 from __future__ import annotations
@@ -17,9 +17,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 
 from app.config import get_settings
 from app.core.exceptions import (
@@ -29,11 +26,6 @@ from app.core.exceptions import (
     validation_error_handler,
 )
 from app.database import close_db, init_db
-
-
-# ─── Rate Limiter ────────────────────────────────────────────────
-
-limiter = Limiter(key_func=get_remote_address)
 
 
 # ─── Lifespan ────────────────────────────────────────────────────
@@ -98,9 +90,6 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # ─── State ────────────────────────────────────────────────
-    app.state.limiter = limiter
-
     # ─── Middleware ───────────────────────────────────────────
 
     # CORS
@@ -119,7 +108,6 @@ def create_app() -> FastAPI:
     # ─── Exception Handlers ──────────────────────────────────
     app.add_exception_handler(ApiError, api_error_handler)
     app.add_exception_handler(ValidationError, validation_error_handler)
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
     app.add_exception_handler(Exception, generic_error_handler)
 
     # ─── Routers ─────────────────────────────────────────────
