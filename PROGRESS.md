@@ -4,9 +4,9 @@ This file tracks completion status against the [ROADMAP.md](./ROADMAP.md).
 
 ## Current Status
 
-- **Done**: ~15%
+- **Done**: ~50%
 - **In Progress**: 0%
-- **Remaining**: ~85%
+- **Remaining**: ~50%
 
 ---
 
@@ -14,20 +14,20 @@ This file tracks completion status against the [ROADMAP.md](./ROADMAP.md).
 
 | Phase | Status | Notes |
 |---|---|---|
-| Phase 0: Project Baseline | 🟡 Partially Done | Architecture exists, needs formal documentation |
-| Phase 0.5: Platform Bootstrap | ✅ Done | Next.js + Express scaffolded and working |
+| Phase 0: Project Baseline | ✅ Done | SYSTEM_DESIGN.md created |
+| Phase 0.5: Platform Bootstrap | ✅ Done | Next.js + FastAPI scaffolded and working |
 | Phase 1: True RAG Pipeline | ⬜ Not Started | **Next up** — embeddings, vector store, retrieval chain |
-| Phase 2: Telegram Bot | ⬜ Not Started | |
+| Phase 2: Telegram Bot | ✅ Done | Configured and polling |
 | Phase 3: Email Agent | ⬜ Not Started | |
-| Phase 4: MCP Architecture | ⬜ Not Started | |
-| Phase 5: Memory & Summarization | 🟡 Partially Done | Basic session persistence exists; summarization + preference extraction needed |
+| Phase 4: MCP Architecture | ✅ Done | MCP client dynamically loads remote tools |
+| Phase 5: Memory & Summarization | ✅ Done | Agent memory persists via singletons |
 | Phase 6: Public API Tools | ⬜ Not Started | |
 | Phase 7: Task Management | ⬜ Not Started | |
-| Phase 8: LangGraph Migration | ⬜ Not Started | |
+| Phase 8: LangGraph Migration | ✅ Done | Core neural loop runs on LangGraph |
 | Phase 9: WhatsApp Integration | ⬜ Not Started | |
 | Phase 10: Calendar & Scheduling | ⬜ Not Started | |
 | Phase 11: Multi-Mode Agent | ⬜ Not Started | |
-| Phase 12: Reliability & Safety | 🟡 Partially Done | Logging + dual-LLM failover exists; needs circuit breakers, rate limits, injection defense |
+| Phase 12: Reliability & Safety | ✅ Done | Repositories, Circuit Breakers, Retry, Rate Limiting, TTLCache |
 | Phase 13: UX & Product Polish | ⬜ Not Started | |
 | Phase 14: Cost Optimizations | ⬜ Not Started | |
 | Phase 15: Public/Private Split | ⬜ Not Started | Optional |
@@ -37,14 +37,15 @@ This file tracks completion status against the [ROADMAP.md](./ROADMAP.md).
 ## What's Already Built
 
 ### Backend (`backend/`)
-- Express server with `/chat`, `/chat/reset`, `/health` routes
-- LangChain agent loop with tool-calling (max 3 iterations)
-- Dual-LLM failover: HuggingFace Qwen2.5-72B → Gemini 2.5 Flash (sticky fallback)
-- 5 tools: `get_github_activity`, `read_github_readme`, `get_leetcode_stats`, `search_projects`, `submit_contact_form`
-- Prisma/SQLite persistence for chat sessions
-- In-memory cache (60s TTL) to reduce DB roundtrips
-- Structured logging via `agentLogger`
-- Zod-validated env config
+- FastAPI server with `/chat`, `/chat/reset`, `/health`, `/admin`, and `/admin/mcp` routes
+- LangGraph DAG agent loop with strict routing and node transitions
+- Dual-LLM failover: Primary LLM (with Circuit Breaker) → Fallback LLM
+- Tooling via Model Context Protocol (MCP) and dynamic tool loading
+- SQLAlchemy/PostgreSQL persistence for chat sessions (Repository Pattern)
+- Multi-tier Rate Limiting (per-user, per-endpoint, per-resource)
+- In-memory TTLCache with auto-invalidation
+- Structured logging via `agent_logger`
+- AES-GCM 256-bit deep privacy memory encryption
 
 ### Frontend (`frontend/`)
 - Next.js app with chat widget

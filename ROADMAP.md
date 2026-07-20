@@ -14,15 +14,16 @@ Capture the current system state and prevent regressions.
 
 ### What Exists
 
-- Express backend with LangChain agent loop (tool-calling while-loop, max 3 iterations)
-- Dual-LLM failover: HuggingFace Qwen2.5-72B (primary) → Gemini 2.5 Flash (fallback)
-- Sticky fallback logic — if primary fails once per request, skip it for remaining loops
-- 5 read-only tools: GitHub profile, GitHub repos, LeetCode stats, portfolio search, contact form
-- Prisma/SQLite persistence for chat history (sessions stored as serialized JSON)
-- In-memory cache with 60s TTL to reduce DB roundtrips
-- Structured logging via `agentLogger`
-- Next.js frontend with chat widget (4 components)
-- Zod-validated environment config
+- FastAPI backend with LangGraph DAG agent loop
+- Dual-LLM failover: Primary LLM (with Circuit Breaker) → Fallback LLM
+- Tooling via Model Context Protocol (MCP) and dynamic tool loading
+- SQLAlchemy/PostgreSQL persistence for chat sessions (Repository Pattern)
+- Multi-tier Rate Limiting (per-user, per-endpoint, per-resource)
+- In-memory TTLCache with auto-invalidation
+- Structured logging via `agent_logger`
+- AES-GCM 256-bit deep privacy memory encryption
+- Next.js frontend with chat widget
+- Telegram Bot integration
 
 ### Remaining Tasks
 

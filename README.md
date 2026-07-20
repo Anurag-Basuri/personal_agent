@@ -67,7 +67,7 @@ The platform is completely decoupled to ensure standard MVC / Domain-Driven cons
 *   Fully server-side rendered App Router architecture.
 *   Radix UI and Tailwind CSS for sophisticated, cinema-grade transitions.
 
-*(For a highly technical breakdown of the psychological and design philosophy, see [ARCHITECTURE.md](ARCHITECTURE.md)).*
+*(For a highly technical breakdown of the architectural philosophy and implemented design patterns, see [SYSTEM_DESIGN.md](SYSTEM_DESIGN.md)).*
 
 ---
 
