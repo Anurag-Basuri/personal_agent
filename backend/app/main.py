@@ -39,9 +39,10 @@ async def lifespan(app: FastAPI):
     print("[server] Database initialized")
 
     # Eagerly initialize LLMs so startup logs are accurate
-    from app.agent.llm import init_llms_eagerly, llm_info
+    from app.agent.llm import init_llms_eagerly, get_provider_info
     init_llms_eagerly()
-    print(f"[server] LLM mode: {llm_info.mode}")
+    providers = get_provider_info()
+    print(f"[server] LLM cascade: {len(providers)} tiers configured")
 
     # Initialize MCP Client
     from app.mcp.client import mcp_manager

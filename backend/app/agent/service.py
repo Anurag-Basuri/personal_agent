@@ -201,9 +201,10 @@ async def process_user_message(
             "session_id": session_id,
         })
         try:
-            # Use the fallback (cheaper) LLM for summarization
-            from app.agent.llm import _fallback_llm, _primary_llm
-            summarize_llm = _fallback_llm or _primary_llm
+            # Use the cheapest available LLM (last tier) for summarization
+            from app.agent.llm import get_providers
+            providers = get_providers()
+            summarize_llm = providers[-1].llm if providers else None
 
             if summarize_llm:
                 # Build summarization prompt from all messages (excluding system)
