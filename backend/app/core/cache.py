@@ -14,11 +14,9 @@ Usage:
 
 from __future__ import annotations
 
-import time
 import threading
+import time
 from typing import Any
-
-from app.core.logger import agent_logger
 
 
 class TTLCache:
@@ -43,23 +41,23 @@ class TTLCache:
         self._hits: int = 0
         self._misses: int = 0
 
-    def get(self, key: str) -> Any | None:
+    def get(self, key: str, default: Any = None) -> Any:
         """
         Retrieve a value by key.
-        Returns None if the key doesn't exist or has expired.
+        Returns the default if the key doesn't exist or has expired.
         """
         with self._lock:
             entry = self._store.get(key)
             if entry is None:
                 self._misses += 1
-                return None
+                return default
 
             value, expiry = entry
             if time.time() > expiry:
                 # Expired — lazy delete
                 del self._store[key]
                 self._misses += 1
-                return None
+                return default
 
             self._hits += 1
             return value
@@ -84,7 +82,10 @@ class TTLCache:
                 self._prune()
 
     def delete(self, key: str) -> bool:
-        """Delete a specific key. Returns True if the key existed."""
+        """Delete a specific key or pattern. Returns True if keys were deleted."""
+        if key.endswith("*"):
+            return self.delete_pattern(key) > 0
+
         with self._lock:
             return self._store.pop(key, None) is not None
 
