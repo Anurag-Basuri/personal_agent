@@ -4,9 +4,9 @@ This file tracks completion status against the [ROADMAP.md](./ROADMAP.md).
 
 ## Current Status
 
-- **Done**: ~50%
+- **Done**: ~55%
 - **In Progress**: 0%
-- **Remaining**: ~50%
+- **Remaining**: ~45%
 
 ---
 
@@ -16,7 +16,7 @@ This file tracks completion status against the [ROADMAP.md](./ROADMAP.md).
 |---|---|---|
 | Phase 0: Project Baseline | ✅ Done | SYSTEM_DESIGN.md created |
 | Phase 0.5: Platform Bootstrap | ✅ Done | Next.js + FastAPI scaffolded and working |
-| Phase 1: True RAG Pipeline | ⬜ Not Started | **Next up** — embeddings, vector store, retrieval chain |
+| Phase 1: True RAG Pipeline | ✅ Done | PGVector ingester + semantic search + graceful fallback |
 | Phase 2: Telegram Bot | ✅ Done | Configured and polling |
 | Phase 3: Email Agent | ⬜ Not Started | |
 | Phase 4: MCP Architecture | ✅ Done | MCP client dynamically loads remote tools |
@@ -56,7 +56,7 @@ This file tracks completion status against the [ROADMAP.md](./ROADMAP.md).
 
 ## Next Milestone
 
-**Phase 1: True RAG Pipeline** — Replace static `context.builder.ts` with embeddings + vector store + retrieval chain. This is the #1 learning priority.
+**Add Third-Party MCP Servers** — Connect external MCP tools (Brave Search, GitHub MCP, etc.) via the admin API. Infrastructure is built, just needs real servers.
 
 ---
 
