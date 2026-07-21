@@ -1,0 +1,116 @@
+[project]
+name = "personal-agent-backend"
+version = "2.0.0"
+description = "AI-powered personal agent with LangGraph, RAG, MCP, and multi-transport support."
+requires-python = ">=3.11"
+license = { text = "MIT" }
+authors = [{ name = "Anurag Basuri" }]
+
+dependencies = [
+    # FastAPI + Server
+    "fastapi>=0.115.0",
+    "uvicorn[standard]>=0.34.0",
+
+    # Validation & Settings
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+
+    # Database
+    "sqlalchemy[asyncio]>=2.0.36",
+    "aiosqlite>=0.21.0",
+
+    # LangChain AI
+    "langchain>=0.3.0",
+    "langchain-core>=0.3.0",
+    "langchain-google-genai>=2.1.0",
+    "langchain-openai>=0.3.0",
+    "langchain-huggingface>=0.1.0",
+    "langgraph>=0.2.0",
+    "langchain_text_splitters>=0.3.0",
+
+    # HTTP Client (async)
+    "httpx>=0.28.0",
+
+    # Cryptography & Security
+    "cryptography>=41.0.0",
+
+    # Google OAuth 2.0 ID Token Verification
+    "google-auth>=2.29.0",
+
+    # PostgreSQL / Vector RAG (optional — only active when DATABASE_URL is postgres)
+    "asyncpg>=0.30.0",
+    "pgvector>=0.3.0",
+    "langchain-postgres>=0.0.12",
+
+    # Utilities
+    "python-dotenv>=1.0.0",
+    "bleach>=6.2.0",
+
+    # External Transports
+    "python-telegram-bot>=21.0",
+
+    # MCP (Model Context Protocol)
+    "mcp>=1.27,<2",
+    "langchain-mcp-adapters>=0.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.24.0",
+    "pytest-cov>=6.0.0",
+    "ruff>=0.8.0",
+]
+
+[build-system]
+requires = ["setuptools>=75.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["app*"]
+
+# ─── Pytest ──────────────────────────────────────────────────────
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v --tb=short"
+
+# ─── Ruff (Linting + Formatting) ────────────────────────────────
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["app", "tests"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+    "I",    # isort (import sorting)
+    "UP",   # pyupgrade
+    "B",    # flake8-bugbear
+    "SIM",  # flake8-simplify
+    "T20",  # flake8-print (catch leftover prints)
+]
+ignore = [
+    "E501",   # line too long — handled by formatter
+    "T201",   # print() allowed in main.py startup
+    "B008",   # function call in default arg — needed for FastAPI Depends()
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["T201", "B011"]  # allow prints and asserts in tests
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+# ─── Coverage ────────────────────────────────────────────────────
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/__pycache__/*", "app/models/*"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+fail_under = 40

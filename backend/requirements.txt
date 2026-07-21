@@ -1,3 +1,10 @@
+# =============================================
+# PERSONAL AGENT - RUNTIME DEPENDENCIES
+# =============================================
+# For dev dependencies (pytest, ruff), see pyproject.toml [project.optional-dependencies.dev]
+# Install: pip install -r requirements.txt
+# Install with dev tools: pip install -e ".[dev]"
+
 # FastAPI + Server
 fastapi>=0.115.0
 uvicorn[standard]>=0.34.0
@@ -28,7 +35,7 @@ cryptography>=41.0.0
 # Google OAuth 2.0 ID Token Verification
 google-auth>=2.29.0
 
-# PostgreSql / Vector RAG (optional — only active when DATABASE_URL is postgres)
+# PostgreSQL / Vector RAG (optional — only active when DATABASE_URL is postgres)
 asyncpg>=0.30.0
 pgvector>=0.3.0
 langchain-postgres>=0.0.12
@@ -36,7 +43,6 @@ langchain-postgres>=0.0.12
 # Utilities
 python-dotenv>=1.0.0
 bleach>=6.2.0
-slowapi>=0.1.9
 
 # External Transports
 python-telegram-bot>=21.0
