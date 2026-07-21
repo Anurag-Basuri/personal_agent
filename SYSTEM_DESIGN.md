@@ -623,17 +623,24 @@ To build an "Industry Grade" system, we rejected easy defaults in favor of highl
 *   **The Problem**: Mixing raw SQL/SQLAlchemy queries directly inside routes or business logic makes the codebase tightly coupled, hard to test, and difficult to refactor if the database schema changes.
 *   **Our Solution**: Centralized repositories (`SessionRepository`, `MessageRepository`, `MemoryRepository`). All database access happens exclusively through these singletons. Routes and services only call repository methods.
 
-### 🛡️ Resilience Layer (Circuit Breaker & Retry)
-*   **Circuit Breaker**: Surrounds external calls (like the Primary LLM). If the LLM fails 3 times consecutively, the breaker trips `OPEN`, instantly skipping to the Fallback LLM without waiting for network timeouts. After 60 seconds, it transitions to `HALF_OPEN` to test a probe request.
-*   **Retry with Exponential Backoff + Jitter**: Transients failures in LLM and Tool executions are retried automatically, preventing temporary network glitches from crashing the user request.
+### 🛡️ Resilience Layer (6-Layer Fallback Cascade)
+*   **Circuit Breakers**: We employ 5 independent circuit breakers around our API-based LLM calls. The system cascades through a 6-layer architecture:
+    1.  **Tier 1**: GitHub Models (`gpt-4o`) — 3 fails → OPEN
+    2.  **Tier 2**: GitHub Models (`meta-llama-3.3-70b-instruct`) — 3 fails → OPEN
+    3.  **Tier 3**: GitHub Models (`gpt-4o-mini`) — 3 fails → OPEN
+    4.  **Tier 4**: Groq (`llama-3.1-8b-instant`) — 3 fails → OPEN
+    5.  **Tier 5**: HuggingFace (`Qwen/Qwen2.5-72B-Instruct`) — 3 fails → OPEN
+    6.  **Tier 6 (Static)**: Hardcoded local response (No API call).
+    *Note: Because GitHub Models tracks limits on a per-model basis, Tiers 1-3 provide three independent rate-limit buckets using a single `GITHUB_TOKEN`.*
+*   **Retry with Exponential Backoff + Jitter**: Transient failures within a single tier are retried automatically before giving up and cascading down to the next tier.
 
 ### ⚡ Caching Layer (TTL Cache)
 *   **The Problem**: Hitting the database for user preferences, session summaries, or history on every fast interaction is inefficient.
 *   **Our Solution**: A thread-safe, in-memory `TTLCache`. Database reads hit the cache first. Writes to the database (saving summaries or messages) automatically invalidate the relevant cache patterns (e.g., `app_cache.delete("history:*")`).
 
 ### 🚦 Graceful Degradation
-*   **System Health Tracker**: Continuously monitors the operational status of subcomponents (Primary LLM, Fallback LLM, RAG, MCP Servers, Database).
-*   **Status Levels**: The system dynamically shifts between `FULL`, `NO_RAG`, `NO_MCP`, `FALLBACK_LLM`, `DEGRADED`, and `UNAVAILABLE`. It continues functioning with whatever capabilities are left instead of crashing entirely.
+*   **System Health Tracker**: Continuously monitors the operational status of subcomponents (5 LLM Tiers, RAG, MCP Servers, Database).
+*   **Status Levels**: The system dynamically shifts between `FULL`, `NO_RAG`, `NO_MCP`, `FALLBACK_LLM`, `DEGRADED`, and `UNAVAILABLE` (when running purely on the Layer 6 static fallback).
 
 ### 📉 Identity-Aware Rate Limiting & LLM Budgets
 *   **Per-Endpoint Limits**: Protects expensive endpoints (like MCP reload or Chat) based on the user's role (ADMIN vs GUEST).
