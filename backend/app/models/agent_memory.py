@@ -8,7 +8,7 @@ Stores extracted knowledge that persists across sessions.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, String, Text, func, ForeignKey
+from sqlalchemy import DateTime, Float, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.models.base import Base
@@ -30,24 +30,24 @@ class AgentMemory(Base):
     id: Mapped[str] = mapped_column(
         String, primary_key=True, default=lambda: str(uuid.uuid4())
     )
-    
+
     # Which user this memory belongs to (nullable for anonymous/guest sessions)
     user_id: Mapped[str | None] = mapped_column(
         String, ForeignKey("users.id", ondelete="CASCADE"), nullable=True, index=True
     )
-    
+
     # Source session where this memory was extracted from
     source_session_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    
+
     # Type: "preference", "fact", "interest", "summary"
     type: Mapped[str] = mapped_column(String, nullable=False, index=True)
-    
+
     # The actual memory content
     content: Mapped[str] = mapped_column(Text, nullable=False)
-    
+
     # Confidence score (0.0 - 1.0) — how confident the extraction was
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
-    
+
     # Timestamps
     createdAt: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updatedAt: Mapped[datetime] = mapped_column(

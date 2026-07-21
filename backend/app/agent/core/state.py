@@ -1,6 +1,6 @@
 """Types and state definitions for the LangGraph agent."""
 
-from typing import Annotated, Literal, TypedDict
+from typing import Annotated, TypedDict
 
 from langchain_core.messages import BaseMessage
 

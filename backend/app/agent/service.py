@@ -15,6 +15,9 @@ from dataclasses import dataclass
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
+from app.agent.core.builder import agent_app
+from app.agent.core.state import AgentState
+from app.agent.prompts import SYSTEM_PERSONA
 from app.core.logger import agent_logger
 from app.core.memory import get_message_history
 from app.core.summarizer import (
@@ -22,14 +25,8 @@ from app.core.summarizer import (
     parse_summarization_response,
     should_summarize,
     trim_messages_with_summary,
-    SUMMARIZATION_THRESHOLD,
 )
-from app.agent.prompts import SYSTEM_PERSONA
 from app.rag.context import get_base_portfolio_context
-
-from app.agent.core.builder import agent_app
-from app.agent.core.state import AgentState
-
 from app.repositories.memory_repo import memory_repo
 
 

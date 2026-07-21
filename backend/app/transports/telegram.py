@@ -8,12 +8,13 @@ mapping chats to unique LangGraph sessions, and sending responses back.
 from __future__ import annotations
 
 import logging
-from telegram import Update
-from telegram.constants import ParseMode, ChatAction
-from telegram.ext import Application, MessageHandler, filters, ContextTypes
 
-from app.config import get_settings
+from telegram import Update
+from telegram.constants import ChatAction, ParseMode
+from telegram.ext import Application, ContextTypes, MessageHandler, filters
+
 from app.agent.service import process_user_message
+from app.config import get_settings
 from app.core.logger import agent_logger
 
 logger = logging.getLogger("telegram.bot")
@@ -24,7 +25,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     user = update.effective_user
     chat = update.effective_chat
     message_text = update.message.text
-    
+
     if not user or not chat or not message_text:
         return
 
@@ -44,7 +45,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     # ─── Session Mapping ───
     # We use tg_chat_{chat.id} as the session_id so we get separate history per chat
     session_id = f"tg_chat_{chat.id}"
-    
+
     # We use Telegram user ID (as string) as the system user_id to isolate memory
     user_id = f"tg_user_{user.id}"
 
@@ -57,7 +58,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     try:
         # Send typing action to Telegram while LLM processes
         await context.bot.send_chat_action(chat_id=chat.id, action=ChatAction.TYPING)
-        
+
         # Process through our LangGraph agent service
         # Telegram users act as ADMIN for now if they pass the whitelist
         response = await process_user_message(
@@ -78,7 +79,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         except Exception as e:
             agent_logger.error("TELEGRAM", "Failed to send formatted message, falling back to raw.", e)
             await update.message.reply_text(reply)
-            
+
     except Exception as e:
         agent_logger.error("TELEGRAM", f"Error processing message: {e}", e)
         await update.message.reply_text("Sorry, I encountered an internal error while processing that.")
@@ -94,10 +95,10 @@ def build_telegram_app() -> Application | None:
     try:
         # Build the application
         application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
-        
+
         # Add a handler for all text messages
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-        
+
         # Also handle /start command just like normal text
         application.add_handler(MessageHandler(filters.COMMAND, handle_message))
 

@@ -11,19 +11,18 @@ are now delegated to SessionRepository and MessageRepository.
 from __future__ import annotations
 
 import json
-from typing import Sequence
 
 from langchain_core.messages import (
+    AIMessage,
     BaseMessage,
     HumanMessage,
-    AIMessage,
     SystemMessage,
     ToolMessage,
 )
 
-from app.repositories.session_repo import session_repo
-from app.repositories.message_repo import message_repo
 from app.models.agent_message import AgentMessage
+from app.repositories.message_repo import message_repo
+from app.repositories.session_repo import session_repo
 
 
 class AsyncMessageHistory:

@@ -6,7 +6,6 @@ In DEBUG mode, creates a dev user when no token is present for easy testing.
 """
 
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -34,8 +33,8 @@ def _verify_google_id_token(token: str) -> dict:
     settings = get_settings()
 
     try:
-        from google.oauth2 import id_token
         from google.auth.transport import requests as google_requests
+        from google.oauth2 import id_token
 
         # verify_oauth2_token validates:
         #   - Signature (via Google's public keys)

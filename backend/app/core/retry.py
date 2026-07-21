@@ -12,7 +12,8 @@ from __future__ import annotations
 
 import asyncio
 import random
-from typing import Any, Callable, Coroutine
+from collections.abc import Callable, Coroutine
+from typing import Any
 
 from app.core.logger import agent_logger
 

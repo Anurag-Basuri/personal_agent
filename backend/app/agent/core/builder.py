@@ -7,20 +7,22 @@ The router classifies intent first. Greetings and meta questions
 skip tool binding entirely for faster, cheaper responses.
 """
 
-from langgraph.graph import StateGraph, END
 from typing import Literal
 
+from langgraph.graph import END, StateGraph
+
+from app.agent.core.nodes import call_model, call_tools, route_intent
 from app.agent.core.state import AgentState
-from app.agent.core.nodes import route_intent, call_model, call_tools
+
 
 def should_continue(state: AgentState) -> Literal["tools", "__end__"]:
     """Determines if the graph should execute tools or end."""
     last_message = state["messages"][-1]
-    
+
     # If the LLM requested tool calls, route to "tools"
     if getattr(last_message, "tool_calls", []):
         return "tools"
-        
+
     # Otherwise, finish execution
     return "__end__"
 
@@ -54,7 +56,7 @@ def build_agent_graph():
 
     # Compile the graph
     app = workflow.compile()
-    
+
     return app
 
 # Singleton instance of the graph

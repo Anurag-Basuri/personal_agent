@@ -3,7 +3,6 @@
 import httpx
 from langchain_core.tools import tool
 
-
 # Open-Meteo uses WMO weather codes
 _WMO_CODES = {
     0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",

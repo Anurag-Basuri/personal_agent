@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from sqlalchemy import select
 
+from app.core.cache import app_cache
+from app.core.logger import agent_logger
 from app.database import async_session
 from app.models.agent_memory import AgentMemory
-from app.core.logger import agent_logger
-from app.core.cache import app_cache
 
 
 class MemoryRepository:

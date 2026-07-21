@@ -14,8 +14,8 @@ from typing import Any
 from langchain_core.tools import BaseTool
 from langchain_mcp_adapters.client import MultiServerMCPClient
 
-from app.core.logger import agent_logger
 from app.core.degradation import system_health
+from app.core.logger import agent_logger
 
 
 class MCPManager:
@@ -33,7 +33,7 @@ class MCPManager:
             agent_logger.warn("MCP", f"Config {self.config_path} not found. MCP disabled.")
             return {}
         try:
-            with open(self.config_path, "r", encoding="utf-8") as f:
+            with open(self.config_path, encoding="utf-8") as f:
                 data = json.load(f)
                 return data.get("servers", {})
         except Exception as e:
@@ -64,20 +64,20 @@ class MCPManager:
             agent_logger.info("MCP", f"Connecting to {len(enabled_servers)} servers...")
             # MultiServerMCPClient handles connecting to multiple servers concurrently
             self.client = MultiServerMCPClient(enabled_servers)
-            
+
             # The async enter pattern connects the transport and initializes the session
             await self.client.__aenter__()
-            
+
             # Discover tools from all servers (auto-converted to LangChain format)
             self._tools = await self.client.get_tools()
-            
+
             self.connected_count = len(enabled_servers)
             for name in enabled_servers:
                 self._status[name] = "connected"
-                
+
             agent_logger.info("MCP", f"Successfully discovered {len(self._tools)} tools from {self.connected_count} servers.")
             system_health.mark_up("mcp")
-            
+
         except Exception as e:
             agent_logger.error("MCP", "Failed to start MCP connections", e)
             # Mark all attempting servers as failed
@@ -85,7 +85,7 @@ class MCPManager:
                 if self._status.get(name) == "connecting":
                     self._status[name] = "error"
             system_health.mark_down("mcp")
-            
+
             # We don't raise here, we want the agent to start even if MCP fails
             # The agent will just run with 0 MCP tools, using only its local tools.
 

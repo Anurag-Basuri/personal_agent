@@ -12,12 +12,11 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.core.rate_limiter import rate_limit
-
 from app.core.auth import get_current_user
-from app.models.user import User
+from app.core.rate_limiter import rate_limit
 from app.core.responses import success_response
 from app.mcp.client import mcp_manager
+from app.models.user import User
 
 router = APIRouter(prefix="/admin/mcp", tags=["Admin MCP"])
 
@@ -38,7 +37,7 @@ def _load_config() -> dict[str, Any]:
     if not os.path.exists(mcp_manager.config_path):
         return {"servers": {}}
     try:
-        with open(mcp_manager.config_path, "r", encoding="utf-8") as f:
+        with open(mcp_manager.config_path, encoding="utf-8") as f:
             return json.load(f)
     except Exception:
         return {"servers": {}}
@@ -53,14 +52,14 @@ async def list_servers(user: User = Depends(require_admin)):
     config = _load_config()
     servers = config.get("servers", {})
     status = mcp_manager.get_status()
-    
+
     result = {}
     for name, srv in servers.items():
         result[name] = {
             "config": srv,
             "status": status.get(name, "disconnected")
         }
-        
+
     return success_response(
         data={
             "servers": result,
@@ -76,14 +75,14 @@ async def add_server(server: MCPServerConfig, user: User = Depends(require_admin
     config = _load_config()
     if "servers" not in config:
         config["servers"] = {}
-        
+
     if server.name in config["servers"]:
         raise HTTPException(status_code=400, detail=f"Server '{server.name}' already exists")
-        
+
     server_dict = server.model_dump(exclude={"name"})
     config["servers"][server.name] = server_dict
     _save_config(config)
-    
+
     return success_response(
         data=server_dict,
         message=f"Added MCP server '{server.name}'. Call /reload to connect."
@@ -95,18 +94,18 @@ async def update_server(name: str, server: MCPServerConfig, user: User = Depends
     config = _load_config()
     if "servers" not in config or name not in config["servers"]:
         raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
-        
+
     server_dict = server.model_dump(exclude={"name"})
-    
+
     # If the name is changing
     if name != server.name:
         if server.name in config["servers"]:
             raise HTTPException(status_code=400, detail=f"Target server '{server.name}' already exists")
         del config["servers"][name]
-        
+
     config["servers"][server.name] = server_dict
     _save_config(config)
-    
+
     return success_response(
         data=server_dict,
         message=f"Updated MCP server '{server.name}'. Call /reload to connect."
@@ -118,10 +117,10 @@ async def remove_server(name: str, user: User = Depends(require_admin)):
     config = _load_config()
     if "servers" not in config or name not in config["servers"]:
         raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
-        
+
     del config["servers"][name]
     _save_config(config)
-    
+
     return success_response(
         data=None,
         message=f"Removed MCP server '{name}'. Call /reload to apply."
@@ -133,11 +132,11 @@ async def toggle_server(name: str, user: User = Depends(require_admin)):
     config = _load_config()
     if "servers" not in config or name not in config["servers"]:
         raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
-        
+
     current_enabled = config["servers"][name].get("enabled", True)
     config["servers"][name]["enabled"] = not current_enabled
     _save_config(config)
-    
+
     return success_response(
         data={"enabled": not current_enabled},
         message=f"Toggled MCP server '{name}' to {'enabled' if not current_enabled else 'disabled'}."
@@ -151,7 +150,7 @@ async def reload_servers(
     """Disconnect all servers, re-read config, and reconnect."""
     await mcp_manager.shutdown()
     await mcp_manager.startup()
-    
+
     return success_response(
         data={
             "connected_count": mcp_manager.connected_count,

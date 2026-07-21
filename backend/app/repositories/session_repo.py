@@ -9,8 +9,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import select, func, delete
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete, func, select
 
 from app.database import async_session
 from app.models.agent_session import AgentSession

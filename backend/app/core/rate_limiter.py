@@ -12,11 +12,10 @@ Tiers:
 
 from __future__ import annotations
 
-import time
 import threading
-from typing import Any
+import time
 
-from fastapi import Request, HTTPException, status
+from fastapi import HTTPException, Request, status
 
 from app.core.logger import agent_logger
 

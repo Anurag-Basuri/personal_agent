@@ -7,9 +7,8 @@ Falls back gracefully when RAG is unavailable (non-PostgreSQL database).
 
 from __future__ import annotations
 
-from app.rag.vector_store import get_neon_vector_store, RAG_AVAILABLE
 from app.core.logger import agent_logger
-
+from app.rag.vector_store import RAG_AVAILABLE, get_neon_vector_store
 
 # Static fallback context when RAG is not available
 _FALLBACK_CONTEXT = (

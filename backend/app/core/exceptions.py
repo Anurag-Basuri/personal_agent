@@ -11,12 +11,11 @@ All API errors extend ApiError and carry:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
-
 
 # ─── Exception Classes ──────────────────────────────────────────
 
@@ -83,7 +82,7 @@ def _error_response(status_code: int, message: str, errors: list[str], request_i
             "data": None,
             "errors": errors,
             "request_id": request_id,
-            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "timestamp": datetime.now(UTC).isoformat(),
         },
     )
 

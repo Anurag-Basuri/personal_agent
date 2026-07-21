@@ -11,10 +11,9 @@ FastAPI application factory.
 
 from __future__ import annotations
 
-import uuid
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
@@ -26,7 +25,6 @@ from app.core.exceptions import (
     validation_error_handler,
 )
 from app.database import close_db, init_db
-
 
 # ─── Lifespan ────────────────────────────────────────────────────
 
@@ -111,9 +109,9 @@ def create_app() -> FastAPI:
     app.add_exception_handler(Exception, generic_error_handler)
 
     # ─── Routers ─────────────────────────────────────────────
-    from app.api.health import router as health_router
-    from app.api.agent import router as agent_router
     from app.api.admin import router as admin_router
+    from app.api.agent import router as agent_router
+    from app.api.health import router as health_router
     from app.api.mcp import router as mcp_router
 
     app.include_router(health_router)

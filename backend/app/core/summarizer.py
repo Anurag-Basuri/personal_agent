@@ -10,10 +10,9 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
+from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
 from app.core.logger import agent_logger
-
 
 # ─── Constants ────────────────────────────────────────────────────
 

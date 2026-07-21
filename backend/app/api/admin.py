@@ -1,9 +1,9 @@
 """Admin endpoints for managing agent sessions."""
 
-from fastapi import APIRouter, Request, Depends
+from fastapi import APIRouter, Depends, Request
 
-from app.core.responses import paginated_response, success_response
 from app.core.auth import get_current_user
+from app.core.responses import paginated_response, success_response
 from app.models.user import User
 from app.repositories.session_repo import session_repo
 from app.schemas.admin import AgentSessionOut

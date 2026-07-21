@@ -3,8 +3,9 @@ Async SQLAlchemy engine, session factory, and DB lifecycle helpers.
 Updated for PostgreSQL / NeonDB and pgvector.
 """
 
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+
 from app.config import get_settings
 
 settings = get_settings()
@@ -39,7 +40,7 @@ async def init_db():
     async with engine.begin() as conn:
         if is_postgres:
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
-            
+
         await conn.run_sync(Base.metadata.create_all)
 
 async def close_db():

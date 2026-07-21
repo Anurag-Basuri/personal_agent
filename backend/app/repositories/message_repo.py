@@ -7,13 +7,12 @@ checks happen in exactly one place.
 
 from __future__ import annotations
 
-from sqlalchemy import select, delete
-from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import delete, select
 
+from app.core.cache import app_cache
 from app.database import async_session
 from app.models.agent_message import AgentMessage
 from app.models.agent_session import AgentSession
-from app.core.cache import app_cache
 
 
 class MessageRepository:
