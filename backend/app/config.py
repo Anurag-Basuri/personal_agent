@@ -30,8 +30,8 @@ class Settings(BaseSettings):
     PORTFOLIO_DB_URL: str = ""  # Optional: separate portfolio database
 
     # ─── AI Providers ────────────────────────────────────────────
-    GEMINI_API_KEY: str = ""
     HF_TOKEN: str = ""
+    GROQ_API_KEY: str = ""
 
     # ─── External APIs ───────────────────────────────────────────
     GITHUB_TOKEN: str = ""
