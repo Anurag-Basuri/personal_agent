@@ -76,9 +76,9 @@ def _init_providers() -> None:
         from langchain_openai import ChatOpenAI
 
         github_models = [
-            (1, "openai/gpt-4o"),
-            (2, "meta/llama-3.3-70b-instruct"),
-            (3, "openai/gpt-4o-mini"),
+            (1, "gpt-4o"),
+            (2, "Meta-Llama-3.1-405B-Instruct"),
+            (3, "gpt-4o-mini"),
         ]
 
         for tier, model_id in github_models:
