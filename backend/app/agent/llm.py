@@ -76,9 +76,9 @@ def _init_providers() -> None:
         from langchain_openai import ChatOpenAI
 
         github_models = [
-            (1, "gpt-4o"),
-            (2, "Meta-Llama-3.1-405B-Instruct"),
-            (3, "gpt-4o-mini"),
+            (1, "openai/gpt-4o"),
+            (2, "meta/Llama-3.3-70B-Instruct"),
+            (3, "openai/gpt-4o-mini"),
         ]
 
         for tier, model_id in github_models:
@@ -86,7 +86,7 @@ def _init_providers() -> None:
                 llm = ChatOpenAI(
                     model=model_id,
                     api_key=settings.GITHUB_TOKEN,
-                    base_url="https://models.inference.ai.azure.com",
+                    base_url="https://models.github.ai/inference",
                     temperature=0.3,
                     timeout=30,
                     max_tokens=1000,
@@ -132,16 +132,16 @@ def _init_providers() -> None:
             from langchain_openai import ChatOpenAI
 
             llm = ChatOpenAI(
-                model="Qwen/Qwen2.5-72B-Instruct",
+                model="Qwen/Qwen2.5-VL-72B-Instruct",
                 api_key=settings.HF_TOKEN,
                 base_url="https://router.huggingface.co/v1",
                 temperature=0.3,
                 timeout=30,
                 max_tokens=1000,
             )
-            _providers.append(LLMProvider(5, "HuggingFace", "Qwen2.5-72B-Instruct", llm))
+            _providers.append(LLMProvider(5, "HuggingFace", "Qwen2.5-VL-72B-Instruct", llm))
             agent_logger.info("LLM", "✅ Tier 5 configured", {
-                "provider": "HuggingFace", "model": "Qwen2.5-72B-Instruct",
+                "provider": "HuggingFace", "model": "Qwen2.5-VL-72B-Instruct",
             })
         except Exception as e:
             agent_logger.error("LLM", "Failed to init Tier 5 (HuggingFace)", e)
