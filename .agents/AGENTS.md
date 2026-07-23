@@ -9,3 +9,33 @@
 - **Python Conventions**: Use type hints, adhere to PEP 8, and format docstrings for all new methods.
 - **Workflow**: Create detailed implementation plans in an artifact before execution for major structural changes. Write code incrementally and atomically.
 - **Documentation Context**: Always read and maintain the context of the four primary project documentation files (`README.md`, `PROGRESS.md`, `ROADMAP.md`, and `SYSTEM_DESIGN.md`). Whenever you implement new features or architectural patterns, you must proactively update these files accordingly, or at the very least, explicitly inform the user that these files need updates to reflect the changes.
+
+## Architecture Decisions (Finalized)
+
+### System Architecture (3-Way Split)
+This backend serves distinct frontends on separate domains with strict physical route segregation:
+
+1.  **Portfolio Chatbot** (`/api/public/*`)
+    - **No authentication**. Open to the public via embedded widget.
+    - **Ephemeral sessions**: Session ID lives in browser `sessionStorage` (survives refresh, destroyed on tab close). Backend deletes sessions after **1 hour of inactivity**.
+    - **Message cap**: 20 messages per session. Rate limiting handles the rest.
+    - **Tools**: Portfolio-safe only (search_projects, github, leetcode, weather, wikipedia, hackernews, web_search, contact_form). No admin or personal tools.
+    - **System prompt**: Speaks as Anurag in first person, scoped to portfolio/professional topics.
+
+2.  **Agent Website** (`/api/agent/*`)
+    - **Authentication required**: Standard login/signup for normal users.
+    - **One continuous conversation per account**: No "new chat" concept. Every message is part of a single thread. Context managed via recent messages + summarization + VectorDB RAG.
+    - **Delete & restart**: Users can delete ALL their chat history and start fresh. No partial archive.
+    - **Tools**: Standard agent tools, strictly sandboxed to prevent access to admin's personal data.
+    - **Memory**: Conversation summarization + preference extraction + VectorDB for long-term RAG retrieval.
+
+3.  **Admin Exclusive** (`/api/admin/*`)
+    - **Authentication required**: Exclusive to Anurag.
+    - **Complete access**: Unrestricted access to ALL tools (Email, Calendar, Tasks, MCP system management).
+    - **Absolute segregation**: Guarantees that normal users can never collide with or access admin-only capabilities.
+
+### LLM Cascade (6-Layer Fallback)
+Both products share the same cascade: GitHub Models (gpt-4o → Llama-3.3-70B → gpt-4o-mini) → Groq (llama-3.1-8b) → HuggingFace (Qwen2.5-VL-72B) → Static Python fallback. Each tier has an independent circuit breaker.
+
+### Frontend Strategy
+Frontend will be built AFTER the backend is complete. No frontend work until all backend endpoints are stable and tested.
