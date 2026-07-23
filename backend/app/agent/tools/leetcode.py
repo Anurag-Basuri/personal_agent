@@ -3,6 +3,13 @@
 import httpx
 from langchain_core.tools import tool
 
+from app.config import get_settings
+from app.core.cache import TTLCache
+from app.core.retry import retry_with_backoff
+
+# Cache LeetCode API responses for 5 minutes
+_leetcode_cache = TTLCache(default_ttl=300)
+
 LEETCODE_QUERY = """
 query getUserProfile($username: String!) {
   matchedUser(username: $username) {
@@ -24,29 +31,47 @@ query getUserProfile($username: String!) {
 }"""
 
 
+async def _fetch_leetcode_data(username: str) -> dict:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        response = await client.post(
+            "https://leetcode.com/graphql/",
+            json={"query": LEETCODE_QUERY, "variables": {"username": username}},
+            headers={
+                "Content-Type": "application/json",
+                "Referer": "https://leetcode.com/",
+                "Origin": "https://leetcode.com",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            },
+        )
+        response.raise_for_status()
+        return response.json()
+
+
 @tool
-async def leetcode_tool(username: str = "Anurag_Basuri") -> str:
-    """Fetch Anurag's live LeetCode competitive programming stats (problems solved, ranking, etc)."""
+async def leetcode_tool() -> str:
+    """Fetch the developer's live LeetCode competitive programming stats (problems solved, ranking, etc).
+    Use this when the user asks about coding stats, LeetCode performance, or algorithms."""
+    settings = get_settings()
+    username = settings.LEETCODE_USERNAME
+
+    if not username:
+        return "LeetCode username is not configured in the system settings."
+
+    cache_key = f"leetcode_profile:{username}"
+    cached = _leetcode_cache.get(cache_key)
+    if cached:
+        return cached
+
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.post(
-                "https://leetcode.com/graphql/",
-                json={"query": LEETCODE_QUERY, "variables": {"username": username}},
-                headers={
-                    "Content-Type": "application/json",
-                    "Referer": "https://leetcode.com/",
-                    "Origin": "https://leetcode.com",
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                },
-            )
+        data = await retry_with_backoff(
+            _fetch_leetcode_data,
+            username,
+            max_retries=2,
+            base_delay=1.0,
+            retryable_exceptions=(httpx.TimeoutException, httpx.RequestError),
+            operation_name="LeetCode_API",
+        )
 
-        if response.status_code != 200:
-            return (
-                f"The LeetCode API returned status {response.status_code}. "
-                "Tell the user you can't fetch live LeetCode stats right now."
-            )
-
-        data = response.json()
         user = data.get("data", {}).get("matchedUser")
         if not user:
             return f'LeetCode account "{username}" not found or the API returned no data.'
@@ -78,12 +103,8 @@ async def leetcode_tool(username: str = "Anurag_Basuri") -> str:
         if contest.get("globalRanking"):
             result += f"Contest Global Rank: #{contest['globalRanking']}\n"
 
+        _leetcode_cache.set(cache_key, result)
         return result
 
-    except httpx.TimeoutException:
-        return (
-            "LeetCode API timed out. Tell the user the service is slow right now, "
-            "but they can check the coding profiles section on the portfolio."
-        )
     except Exception as e:
         return f"Error fetching LeetCode data: {e}"

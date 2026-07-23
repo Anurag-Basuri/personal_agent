@@ -4,45 +4,78 @@ import httpx
 from langchain_core.tools import tool
 
 from app.config import get_settings
+from app.core.cache import TTLCache
+from app.core.retry import retry_with_backoff
+
+# Cache GitHub API responses for 5 minutes to avoid rate limits on popular portfolios
+_github_cache = TTLCache(default_ttl=300)
+
+
+async def _fetch_github_data(username: str, headers: dict) -> dict:
+    """Internal function to fetch and combine GitHub data."""
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        # Fetch user info
+        user_res = await client.get(
+            f"https://api.github.com/users/{username}",
+            headers=headers,
+        )
+        user_res.raise_for_status()
+        user = user_res.json()
+
+        # Fetch recent events
+        events_res = await client.get(
+            f"https://api.github.com/users/{username}/events/public",
+            params={"per_page": 5},
+            headers=headers,
+        )
+        events_res.raise_for_status()
+        events = events_res.json()
+
+        return {"user": user, "events": events}
 
 
 @tool
-async def github_tool(username: str = "anurag-basuri") -> str:
-    """Fetch Anurag's live GitHub profile stats and recent open-source activity."""
+async def github_tool() -> str:
+    """Fetch the developer's live GitHub profile stats (followers, repos) and recent open-source activity.
+    Use this when the user asks about my GitHub activity, commits, or overall coding presence."""
     settings = get_settings()
+    username = settings.GITHUB_USERNAME
+
+    if not username:
+        return "GitHub username is not configured in the system settings."
+
+    cache_key = f"github_profile:{username}"
+    cached = _github_cache.get(cache_key)
+    if cached:
+        return cached
+
     headers = {"User-Agent": "Portfolio-App"}
     if settings.GITHUB_TOKEN:
         headers["Authorization"] = f"token {settings.GITHUB_TOKEN}"
 
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            # Fetch recent events
-            events_res = await client.get(
-                f"https://api.github.com/users/{username}/events/public",
-                params={"per_page": 5},
-                headers=headers,
-            )
-            if events_res.status_code != 200:
-                return f"Failed to fetch GitHub events for {username}. Status: {events_res.status_code}"
-
-            events = events_res.json()
-
-            # Fetch user info
-            user_res = await client.get(
-                f"https://api.github.com/users/{username}",
-                headers=headers,
-            )
-            user = user_res.json() if user_res.status_code == 200 else None
+        data = await retry_with_backoff(
+            _fetch_github_data,
+            username,
+            headers,
+            max_retries=2,
+            base_delay=1.0,
+            retryable_exceptions=(httpx.TimeoutException, httpx.RequestError),
+            operation_name="GitHub_API",
+        )
+        
+        user = data["user"]
+        events = data["events"]
 
         # Format output
         result = f"GitHub Profile: {username}\n"
-        if user:
-            result += f"Followers: {user.get('followers', 0)} | Following: {user.get('following', 0)} | Public Repos: {user.get('public_repos', 0)}\n"
-            if user.get("bio"):
-                result += f"Bio: {user['bio']}\n"
+        result += f"Followers: {user.get('followers', 0)} | Following: {user.get('following', 0)} | Public Repos: {user.get('public_repos', 0)}\n"
+        if user.get("bio"):
+            result += f"Bio: {user['bio']}\n"
 
         if not events:
             result += "\nNo recent public activity."
+            _github_cache.set(cache_key, result)
             return result
 
         result += "\nRecent Activity (Last 5 events):\n"
@@ -68,9 +101,8 @@ async def github_tool(username: str = "anurag-basuri") -> str:
             else:
                 result += f"- [{date}] Performed {event_type} in {repo_name}\n"
 
+        _github_cache.set(cache_key, result)
         return result
 
-    except httpx.TimeoutException:
-        return "GitHub API timed out. Tell the user the service is slow right now."
     except Exception as e:
         return f"Error fetching GitHub data: {e}"

@@ -18,7 +18,7 @@ from app.core.responses import success_response
 from app.mcp.client import mcp_manager
 from app.models.user import User
 
-router = APIRouter(prefix="/admin/mcp", tags=["Admin MCP"])
+router = APIRouter(prefix="/api/admin/mcp", tags=["Admin MCP"])
 
 class MCPServerConfig(BaseModel):
     name: str = Field(..., description="Unique name of the MCP server")

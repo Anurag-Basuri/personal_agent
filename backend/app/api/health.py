@@ -7,7 +7,7 @@ from fastapi import APIRouter
 from app.core.degradation import system_health
 from app.core.responses import success_response
 
-router = APIRouter(tags=["Health"])
+router = APIRouter(prefix="/api", tags=["Health"])
 
 _start_time = time.time()
 

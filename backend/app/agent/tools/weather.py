@@ -3,6 +3,8 @@
 import httpx
 from langchain_core.tools import tool
 
+from app.core.retry import retry_with_backoff
+
 # Open-Meteo uses WMO weather codes
 _WMO_CODES = {
     0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
@@ -16,17 +18,43 @@ _WMO_CODES = {
 }
 
 
-async def _geocode(city: str) -> dict | None:
-    """Resolve city name to lat/lon using Open-Meteo's geocoding API."""
+async def _fetch_geocode(city: str) -> httpx.Response:
     async with httpx.AsyncClient(timeout=10.0) as client:
-        res = await client.get(
+        return await client.get(
             "https://geocoding-api.open-meteo.com/v1/search",
             params={"name": city, "count": 1, "language": "en", "format": "json"},
         )
-        data = res.json()
-        results = data.get("results")
-        if results:
-            return results[0]
+
+
+async def _fetch_weather(lat: float, lon: float) -> httpx.Response:
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        return await client.get(
+            "https://api.open-meteo.com/v1/forecast",
+            params={
+                "latitude": lat,
+                "longitude": lon,
+                "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m",
+                "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
+                "timezone": "auto",
+                "forecast_days": 3,
+            },
+        )
+
+
+async def _geocode(city: str) -> dict | None:
+    """Resolve city name to lat/lon using Open-Meteo's geocoding API."""
+    res = await retry_with_backoff(
+        _fetch_geocode,
+        city,
+        max_retries=2,
+        base_delay=1.0,
+        retryable_exceptions=(httpx.TimeoutException, httpx.RequestError),
+        operation_name="Geocode_API",
+    )
+    data = res.json()
+    results = data.get("results")
+    if results:
+        return results[0]
     return None
 
 
@@ -45,19 +73,16 @@ async def weather_tool(city: str) -> str:
         display_name = f"{location.get('name', city)}, {location.get('country', '')}"
 
         # 2. Fetch weather
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            res = await client.get(
-                "https://api.open-meteo.com/v1/forecast",
-                params={
-                    "latitude": lat,
-                    "longitude": lon,
-                    "current": "temperature_2m,relative_humidity_2m,apparent_temperature,weather_code,wind_speed_10m",
-                    "daily": "weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max",
-                    "timezone": "auto",
-                    "forecast_days": 3,
-                },
-            )
-            weather = res.json()
+        res = await retry_with_backoff(
+            _fetch_weather,
+            lat,
+            lon,
+            max_retries=2,
+            base_delay=1.0,
+            retryable_exceptions=(httpx.TimeoutException, httpx.RequestError),
+            operation_name="Weather_API",
+        )
+        weather = res.json()
 
         # 3. Format current weather
         current = weather.get("current", {})
@@ -86,7 +111,5 @@ async def weather_tool(city: str) -> str:
 
         return result
 
-    except httpx.TimeoutException:
-        return "Weather API timed out. Please try again in a moment."
     except Exception as e:
         return f"Error fetching weather data: {e}"

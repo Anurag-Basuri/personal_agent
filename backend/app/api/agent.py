@@ -22,7 +22,7 @@ from app.schemas.agent import (
     ResetResponseData,
 )
 
-router = APIRouter(prefix="/chat", tags=["Agent"])
+router = APIRouter(prefix="/api/agent/chat", tags=["Agent"])
 
 
 @router.post("/")

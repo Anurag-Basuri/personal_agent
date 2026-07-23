@@ -8,7 +8,7 @@ from app.models.user import User
 from app.repositories.session_repo import session_repo
 from app.schemas.admin import AgentSessionOut
 
-router = APIRouter(prefix="/admin", tags=["Admin"])
+router = APIRouter(prefix="/api/admin", tags=["Admin"])
 
 
 @router.get("/agent-sessions")
