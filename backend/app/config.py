@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     # ─── Server ──────────────────────────────────────────────────
     PORT: int = 4000
     DEBUG: bool = False
-    CLIENT_URL: str = "http://localhost:3000"
+    CLIENT_URL: str = "http://localhost:3000"       # Agent website origin
+    PORTFOLIO_URL: str = ""                          # Portfolio website origin (for CORS)
 
     # ─── Database ────────────────────────────────────────────────
     DATABASE_URL: str = "sqlite+aiosqlite:///./dev.db"

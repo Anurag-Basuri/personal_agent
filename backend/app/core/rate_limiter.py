@@ -107,6 +107,10 @@ ENDPOINT_LIMITS: dict[str, dict[str, tuple[int, int]]] = {
         "ADMIN": (20, 60),      # 20 req/min for owner
         "GUEST": (5, 60),       # 5 req/min for portfolio visitors
     },
+    "public_chat": {
+        "ADMIN": (30, 60),      # Admin testing the public endpoint
+        "GUEST": (10, 60),      # 10 req/min per IP for public visitors
+    },
     "chat_history": {
         "ADMIN": (60, 60),      # Read-only, cheap
         "GUEST": (20, 60),

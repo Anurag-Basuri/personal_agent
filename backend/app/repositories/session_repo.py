@@ -8,6 +8,7 @@ into services, API routes, or the memory layer.
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, func, select
 
@@ -115,6 +116,45 @@ class SessionRepository:
             await db.commit()
             return True
 
+    async def delete_inactive_public_sessions(
+        self, max_inactivity_minutes: int = 60,
+    ) -> int:
+        """Delete public (unauthenticated) sessions inactive for longer than the threshold.
+
+        Targets only sessions with user_id = NULL (public portfolio chatbot sessions).
+        Authenticated user sessions are never touched by this cleanup.
+
+        Args:
+            max_inactivity_minutes: Sessions with no activity for this many
+                minutes will be deleted. Defaults to 60 (1 hour).
+
+        Returns:
+            Number of sessions deleted.
+        """
+        cutoff = datetime.now(UTC) - timedelta(minutes=max_inactivity_minutes)
+
+        async with async_session() as db:
+            # Count first for logging
+            count_result = await db.execute(
+                select(func.count(AgentSession.id)).where(
+                    AgentSession.user_id.is_(None),
+                    AgentSession.updatedAt < cutoff,
+                )
+            )
+            count = count_result.scalar() or 0
+
+            if count > 0:
+                await db.execute(
+                    delete(AgentSession).where(
+                        AgentSession.user_id.is_(None),
+                        AgentSession.updatedAt < cutoff,
+                    )
+                )
+                await db.commit()
+
+            return count
+
 
 # Singleton
 session_repo = SessionRepository()
+
