@@ -179,7 +179,6 @@ def create_app() -> FastAPI:
     )
 
     # Middleware
-
     # CORS allow both portfolio domain and agent domain
     allowed_origins = []
     if settings.CLIENT_URL:

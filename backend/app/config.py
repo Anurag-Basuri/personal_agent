@@ -23,7 +23,8 @@ class Settings(BaseSettings):
     # Server
     PORT: int = 4000
     DEBUG: bool = False
-    CLIENT_URL: str = "http://localhost:3000"       # Agent website origin
+    # Agent website origin
+    CLIENT_URL: str = "http://localhost:3000"
     # Portfolio website origin (for CORS)
     PORTFOLIO_URL: str = ""
 
