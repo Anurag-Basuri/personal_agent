@@ -31,7 +31,7 @@ interface AgentState {
 	// Current Session State
 	sessionId: string;
 	messages: ChatMessage[];
-	isTyping: boolean;
+	isTyping: string | boolean;
 
 	// UI State
 	isSidebarOpen: boolean;
@@ -41,7 +41,7 @@ interface AgentState {
 	// Actions
 	setSessionId: (id: string) => void;
 	addMessage: (msg: ChatMessage) => void;
-	setTyping: (typing: boolean) => void;
+	setTyping: (typing: string | boolean) => void;
 	setSidebarOpen: (open: boolean) => void;
 	setSessions: (sessions: AgentSession[]) => void;
 	setSessionsLoading: (loading: boolean) => void;
