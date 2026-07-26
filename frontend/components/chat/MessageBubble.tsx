@@ -59,10 +59,10 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 
 				<div
 					className={cn(
-						'relative px-5 py-4 rounded-3xl shadow-sm text-[15px] leading-relaxed',
+						'relative px-5 py-4 rounded-[20px] shadow-sm text-[15px] leading-relaxed backdrop-blur-xl border border-white/10 dark:border-zinc-800/50',
 						isUser
-							? 'bg-primary text-white rounded-tr-none font-medium'
-							: 'bg-card border border-border rounded-tl-none text-foreground',
+							? 'bg-primary/20 text-white rounded-tr-none font-medium'
+							: 'bg-card/40 rounded-tl-none text-foreground',
 					)}
 				>
 					{/* Markdown Content */}

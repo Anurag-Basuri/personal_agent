@@ -37,10 +37,10 @@ export function useAgentAPI() {
 				timestamp: new Date().toISOString(),
 			};
 			addMessage(userMsg);
-			setTyping(true);
+			setTyping('Processing...');
 
 			try {
-				const res = await fetch(`${API_BASE}/chat/`, {
+				const res = await fetch(`${API_BASE}/api/agent/chat/`, {
 					method: 'POST',
 					headers: getAuthHeaders(),
 					body: JSON.stringify({
@@ -83,7 +83,7 @@ export function useAgentAPI() {
 		async (page = 1) => {
 			setSessionsLoading(true);
 			try {
-				const res = await fetch(`${API_BASE}/admin/agent-sessions?page=${page}&limit=50`, {
+				const res = await fetch(`${API_BASE}/api/admin/agent-sessions?page=${page}&limit=50`, {
 					headers: getAuthHeaders(),
 				});
 				const data = await res.json();
@@ -101,7 +101,7 @@ export function useAgentAPI() {
 
 	const resetSession = useCallback(async () => {
 		try {
-			await fetch(`${API_BASE}/chat/reset`, {
+			await fetch(`${API_BASE}/api/agent/chat/reset`, {
 				method: 'POST',
 				headers: getAuthHeaders(),
 				body: JSON.stringify({ sessionId }),

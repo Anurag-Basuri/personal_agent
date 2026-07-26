@@ -1,5 +1,25 @@
 @import 'tailwindcss';
 
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+}
+
 @layer base {
 	:root {
 		/* Premium Light Mode (Zinc/Emerald) */
@@ -23,24 +43,24 @@
 	}
 
 	.dark {
-		/* Premium Dark Mode (Deep Zinc/Teal) */
-		--background: 240 10% 3.9%;
+		/* Obsidian Prism (Deep Obsidian/Electric Violet) */
+		--background: 240 11% 4.3%; /* #0A0A0B */
 		--foreground: 0 0% 98%;
-		--card: 240 10% 3.9%;
+		--card: 240 11% 6%;
 		--card-foreground: 0 0% 98%;
-		--popover: 240 10% 3.9%;
+		--popover: 240 11% 4.3%;
 		--popover-foreground: 0 0% 98%;
-		--primary: 158 94% 30%;
+		--primary: 258 90% 66%; /* #8b5cf6 Electric Violet */
 		--primary-foreground: 0 0% 100%;
-		--secondary: 240 3.7% 15.9%;
-		--secondary-foreground: 0 0% 98%;
-		--muted: 240 3.7% 15.9%;
-		--muted-foreground: 240 5% 64.9%;
-		--accent: 240 3.7% 15.9%;
+		--secondary: 191 93% 43%; /* #06b6d4 Cyber Cyan */
+		--secondary-foreground: 0 0% 100%;
+		--muted: 240 5% 15%;
+		--muted-foreground: 240 5% 65%;
+		--accent: 300 81% 60%; /* #d946ef Magenta */
 		--accent-foreground: 0 0% 98%;
-		--border: 240 3.7% 15.9%;
-		--input: 240 3.7% 15.9%;
-		--ring: 158 94% 30%;
+		--border: 240 11% 12%;
+		--input: 240 11% 12%;
+		--ring: 258 90% 66%;
 	}
 
 	body {
@@ -76,15 +96,15 @@
 	}
 
 	.mesh-gradient {
-		background-color: hsla(240, 10%, 4%, 1);
+		background-color: hsla(240, 11%, 4.3%, 1); /* Deep Obsidian */
 		background-image:
-			radial-gradient(at 0% 0%, hsla(158, 94%, 30%, 0.15) 0px, transparent 50%),
-			radial-gradient(at 50% 0%, hsla(200, 100%, 50%, 0.1) 0px, transparent 50%),
-			radial-gradient(at 100% 0%, hsla(280, 100%, 50%, 0.05) 0px, transparent 50%);
+			radial-gradient(at 0% 0%, hsla(258, 90%, 66%, 0.15) 0px, transparent 50%), /* Electric Violet */
+			radial-gradient(at 50% 0%, hsla(191, 93%, 43%, 0.1) 0px, transparent 50%), /* Cyber Cyan */
+			radial-gradient(at 100% 0%, hsla(300, 81%, 60%, 0.05) 0px, transparent 50%); /* Magenta */
 	}
 
 	.animate-glow {
-		box-shadow: 0 0 20px -5px hsla(158, 94%, 30%, 0.4);
+		box-shadow: 0 0 20px -5px hsla(258, 90%, 66%, 0.4);
 	}
 }
 
@@ -110,7 +130,8 @@ h2,
 h3,
 h4,
 .title {
-	@apply tracking-tight font-display;
+	@apply tracking-tight;
+	font-family: 'Outfit', var(--font-display), ui-serif, Georgia, serif;
 }
 
 /* Prose Overrides */
@@ -119,11 +140,11 @@ h4,
 }
 
 .prose pre {
-	@apply bg-zinc-950/50 border border-border/50 rounded-2xl p-4 shadow-xl backdrop-blur-sm !important;
+	@apply !bg-zinc-950/50 !border !border-border/50 !rounded-2xl !p-4 !shadow-xl !backdrop-blur-sm;
 }
 
 .prose code {
-	@apply text-primary font-bold bg-primary/5 px-1.5 py-0.5 rounded-md border border-primary/10 transition-all !important;
+	@apply !text-primary !font-bold !bg-primary/5 !px-1.5 !py-0.5 !rounded-md !border !border-primary/10 !transition-all;
 }
 
 .prose a {

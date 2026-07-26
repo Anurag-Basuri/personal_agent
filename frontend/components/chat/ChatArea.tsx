@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAgentStore } from '../../store/useAgentStore';
 import { MessageBubble } from './MessageBubble';
+import { SuggestionChips } from './SuggestionChips';
 import { Icons } from '../ui/Icons';
 
 export function ChatArea() {
@@ -31,10 +32,11 @@ export function ChatArea() {
 				<h2 className="text-3xl font-black text-foreground mb-4 font-display">
 					Ready to assist, Captain.
 				</h2>
-				<p className="max-w-md text-muted-foreground text-sm leading-relaxed">
+				<p className="max-w-md text-muted-foreground text-sm leading-relaxed mb-6">
 					Ask me about your technical roadmap, RAG-indexed portfolio data, or have me
 					trigger external tool workflows.
 				</p>
+				<SuggestionChips />
 			</motion.div>
 		);
 	}
@@ -65,22 +67,29 @@ export function ChatArea() {
 						<div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary">
 							<Icons.Agent className="h-5 w-5" />
 						</div>
-						<div className="flex items-center gap-1.5 px-4 py-2 bg-muted/30 rounded-2xl rounded-tl-none border border-border">
-							<motion.span
-								animate={{ scale: [1, 1.3, 1] }}
-								transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
-								className="h-1.5 w-1.5 rounded-full bg-primary/60"
-							/>
-							<motion.span
-								animate={{ scale: [1, 1.3, 1] }}
-								transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
-								className="h-1.5 w-1.5 rounded-full bg-primary/60"
-							/>
-							<motion.span
-								animate={{ scale: [1, 1.3, 1] }}
-								transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
-								className="h-1.5 w-1.5 rounded-full bg-primary/60"
-							/>
+						<div className="flex items-center gap-2 px-4 py-3 bg-card/60 backdrop-blur-md rounded-3xl rounded-tl-none border border-white/10 dark:border-zinc-800/50 shadow-sm">
+							{typeof isTyping === 'string' && (
+								<span className="text-xs font-semibold text-primary/90 mr-2 tracking-wide font-mono">
+									{isTyping}
+								</span>
+							)}
+							<div className="flex items-center gap-1.5">
+								<motion.span
+									animate={{ scale: [1, 1.3, 1] }}
+									transition={{ duration: 0.6, repeat: Infinity, delay: 0 }}
+									className="h-1.5 w-1.5 rounded-full bg-primary/60"
+								/>
+								<motion.span
+									animate={{ scale: [1, 1.3, 1] }}
+									transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
+									className="h-1.5 w-1.5 rounded-full bg-primary/60"
+								/>
+								<motion.span
+									animate={{ scale: [1, 1.3, 1] }}
+									transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
+									className="h-1.5 w-1.5 rounded-full bg-primary/60"
+								/>
+							</div>
 						</div>
 					</motion.div>
 				)}
