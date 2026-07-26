@@ -67,6 +67,35 @@ async def _public_session_cleanup_loop():
             await asyncio.sleep(60)  # Retry in 1 minute on error
 
 
+async def _rag_sync_loop():
+    """Periodic background task that re-ingests portfolio data into the vector store.
+
+    Runs every N hours (configured by RAG_SYNC_INTERVAL_HOURS).
+    Acts as a safety net so the agent's knowledge stays current even if
+    the webhook from the portfolio CMS is not configured.
+    """
+    from app.core.logger import agent_logger
+    from app.rag.vector_store import RAG_AVAILABLE
+
+    if not RAG_AVAILABLE:
+        return  # No point running if RAG isn't available
+
+    settings = get_settings()
+    interval_seconds = settings.RAG_SYNC_INTERVAL_HOURS * 3600
+
+    while True:
+        try:
+            await asyncio.sleep(interval_seconds)
+            agent_logger.info("RAG", "🔄 Periodic RAG sync triggered")
+            from app.rag.ingester import run_ingestion
+            await run_ingestion()
+        except asyncio.CancelledError:
+            break
+        except Exception as e:
+            agent_logger.warn("RAG", f"Periodic RAG sync error (non-fatal): {e}")
+            await asyncio.sleep(300)  # Retry in 5 minutes on error
+
+
 # ─── Lifespan ────────────────────────────────────────────────────
 
 @asynccontextmanager
@@ -99,19 +128,25 @@ async def lifespan(app: FastAPI):
         await telegram_app.updater.start_polling()
         print("[server] Telegram bot started and polling")
 
-    # Start background cleanup task
+    # Start background tasks
     cleanup_task = asyncio.create_task(_public_session_cleanup_loop())
     print("[server] Public session cleanup task started (every 30 min)")
 
+    rag_sync_task = asyncio.create_task(_rag_sync_loop())
+    interval = settings.RAG_SYNC_INTERVAL_HOURS
+    print(f"[server] RAG background sync task started (every {interval}h)")
+
     yield
 
-    # Cancel cleanup task
+    # Cancel background tasks
     cleanup_task.cancel()
-    try:
-        await cleanup_task
-    except asyncio.CancelledError:
-        pass
-    print("[server] Session cleanup task stopped")
+    rag_sync_task.cancel()
+    for task in [cleanup_task, rag_sync_task]:
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+    print("[server] Background tasks stopped")
 
     # Shutdown MCP connections
     await mcp_manager.shutdown()
@@ -174,6 +209,7 @@ def create_app() -> FastAPI:
     from app.api.health import router as health_router
     from app.api.mcp import router as mcp_router
     from app.api.public import router as public_router
+    from app.api.reindex import router as reindex_router
 
     # Public portfolio chatbot (no auth)
     app.include_router(public_router)
@@ -183,6 +219,7 @@ def create_app() -> FastAPI:
     app.include_router(agent_router)
     app.include_router(admin_router)
     app.include_router(mcp_router)
+    app.include_router(reindex_router)
 
     return app
 

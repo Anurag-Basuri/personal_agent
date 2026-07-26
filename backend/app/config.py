@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     AUTH_SECRET: str = ""
     AUTH_GOOGLE_CLIENT_ID: str = ""  # Google OAuth Client ID for ID token verification
     OMNI_MEMORY_KEY: str = ""       # Base64 AES-GCM 256-bit key
+    REINDEX_SECRET: str = ""        # Shared secret for RAG reindex webhook
+
+    # ─── RAG Sync ────────────────────────────────────────────────
+    RAG_SYNC_INTERVAL_HOURS: int = 6  # Background RAG re-ingestion interval
 
     # ─── Telegram Bot ────────────────────────────────────────────
     TELEGRAM_BOT_TOKEN: str = ""

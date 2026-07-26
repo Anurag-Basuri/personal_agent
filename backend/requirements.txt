@@ -1,7 +1,4 @@
-# =============================================
 # PERSONAL AGENT - RUNTIME DEPENDENCIES
-# =============================================
-# For dev dependencies (pytest, ruff), see pyproject.toml [project.optional-dependencies.dev]
 # Install: pip install -r requirements.txt
 # Install with dev tools: pip install -e ".[dev]"
 

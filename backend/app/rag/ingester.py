@@ -1,18 +1,16 @@
-"""
-RAG Ingester Script.
+"""RAG Ingester — fetches portfolio data via API, embeds it, and loads into PGVector.
 
-Fetches career and profile data from the Portfolio Database (Prisma Postgres),
-chunks the text, embeds it, and loads it into the Agent's NeonDB PGVector store.
+Two modes of operation:
+  1. CLI: `python -m app.rag.ingester` (manual one-off)
+  2. Programmatic: `await run_ingestion()` (called by webhook or background task)
 
-Usage: 
-    Ensure PORTFOLIO_DB_URL and DATABASE_URL are set in .env
-    Run via `python -m app.rag.ingester`
+Data Source: Portfolio website's public API (not direct DB access).
+This ensures the agent's vector store mirrors exactly what the frontend shows.
 """
 
 import asyncio
-import os
-import sys
 
+import httpx
 from langchain_core.documents import Document
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 
@@ -23,89 +21,279 @@ try:
 except ImportError:
     pass
 
-from sqlalchemy.ext.asyncio import create_async_engine
+from app.config import get_settings
+from app.core.logger import agent_logger
+from app.rag.vector_store import RAG_AVAILABLE, get_neon_vector_store
 
-from app.rag.vector_store import get_neon_vector_store
+
+async def _fetch_api_data(portfolio_url: str, endpoint: str) -> dict | list | None:
+    """Fetch data from a portfolio API endpoint."""
+    url = f"{portfolio_url.rstrip('/')}/api/v1{endpoint}"
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(
+                url,
+                headers={
+                    "User-Agent": "PersonalAgent-RAG-Ingester/2.0",
+                    "Accept": "application/json",
+                },
+            )
+            if response.status_code != 200:
+                print(f"  ⚠️ {endpoint} returned status {response.status_code}")
+                return None
+            json_data = response.json()
+            # Portfolio API wraps responses: { success: true, data: ... }
+            return json_data.get("data", json_data)
+    except Exception as e:
+        print(f"  ❌ Failed to fetch {endpoint}: {e}")
+        return None
 
 
-async def fetch_portfolio_data() -> list[Document]:
-    """Connects to the portfolio DB directly using asyncpg and extracts core knowledge."""
-    # Often, the portfolio and agent DB are the same natively. If not, use PORTFOLIO_DB_URL.
-    db_url = os.environ.get("PORTFOLIO_DB_URL", os.environ.get("DATABASE_URL", ""))
+async def fetch_portfolio_data_via_api() -> list[Document]:
+    """Fetch all portfolio data via the public API and convert to LangChain Documents."""
+    settings = get_settings()
+    portfolio_url = settings.PORTFOLIO_URL
 
-    if not db_url:
-        print("❌ Error: PORTFOLIO_DB_URL or DATABASE_URL not set.")
-        sys.exit(1)
+    if not portfolio_url:
+        print("❌ PORTFOLIO_URL not set. Cannot fetch portfolio data.")
+        return []
 
-    engine = create_async_engine(db_url)
     docs = []
 
-    try:
-        async with engine.begin() as conn:
-            # 1. Fetch Profile
-            try:
-                res = await conn.execute("SELECT name, Tagline, header, bio, skills FROM \"Profile\" LIMIT 1")
-                profile = res.fetchone()
-                if profile:
-                    content = f"# Anurag's Profile\n\nName: {profile[0]}\nTagline: {profile[1]}\nHeadline: {profile[2]}\nBio: {profile[3]}\nSkills: {profile[4]}"
-                    docs.append(Document(page_content=content, metadata={"source": "Profile Core Data"}))
-            except Exception as e:
-                print(f"Failed to fetch Profile: {e}")
+    # 1. Profile
+    profile = await _fetch_api_data(portfolio_url, "/profile")
+    if profile and isinstance(profile, dict):
+        parts = [f"# Anurag's Profile\n"]
+        for key in ["name", "Tagline", "header", "bio", "pronouns", "Currentlocation",
+                     "Originallocation", "email"]:
+            if profile.get(key):
+                parts.append(f"{key}: {profile[key]}")
 
-            # 2. Fetch Projects
-            try:
-                res = await conn.execute("SELECT title, description, \"techStack\", \"githubUrl\", \"liveUrl\" FROM \"Project\" WHERE status='published'")
-                projects = res.fetchall()
-                for p in projects:
-                    content = f"# Project: {p[0]}\n\nDescription: {p[1]}\nTech Stack: {p[2]}\nGitHub: {p[3]}\nLive URL: {p[4]}"
-                    docs.append(Document(page_content=content, metadata={"source": f"Project: {p[0]}"}))
-            except Exception as e:
-                print(f"Failed to fetch Projects: {e}")
+        if profile.get("openToWork"):
+            parts.append("Open to Work: Yes")
+        if profile.get("availableFrom"):
+            parts.append(f"Available From: {profile['availableFrom']}")
 
-            # 3. Fetch Journey (Work/Education)
-            try:
-                res = await conn.execute("SELECT type, title, organization, date, description FROM \"JourneyEntry\"")
-                journeys = res.fetchall()
-                for j in journeys:
-                    content = f"# Career Journey: {j[1]} at {j[2]}\n\nType: {j[0]}\nDate: {j[3]}\nDescription: {j[4]}"
-                    docs.append(Document(page_content=content, metadata={"source": f"Journey: {j[2]}"}))
-            except Exception as e:
-                print(f"Failed to fetch Journeys: {e}")
+        skills = profile.get("skills")
+        if skills:
+            if isinstance(skills, dict):
+                for cat, skill_list in skills.items():
+                    if isinstance(skill_list, list):
+                        parts.append(f"Skills ({cat}): {', '.join(skill_list)}")
+            elif isinstance(skills, str):
+                parts.append(f"Skills: {skills}")
 
-    finally:
-        await engine.dispose()
+        languages = profile.get("languages")
+        if languages and isinstance(languages, list):
+            parts.append(f"Languages: {', '.join(languages)}")
+
+        docs.append(Document(
+            page_content="\n".join(parts),
+            metadata={"source": "Profile Core Data"},
+        ))
+
+        # Social links as a separate document
+        social_links = profile.get("socialLinks", [])
+        if social_links:
+            link_lines = ["# Social Links & Coding Profiles\n"]
+            for link in social_links:
+                platform = link.get("platform", link.get("customLabel", "Link"))
+                url = link.get("url", "")
+                link_lines.append(f"- {platform}: {url}")
+            for platform in ["github", "leetcode", "codeforces", "codechef", "gfg",
+                             "kaggle", "hackerrank", "stackoverflow"]:
+                url = profile.get(platform)
+                if url:
+                    link_lines.append(f"- {platform.capitalize()}: {url}")
+            docs.append(Document(
+                page_content="\n".join(link_lines),
+                metadata={"source": "Social Links"},
+            ))
+
+    # 2. Projects
+    projects = await _fetch_api_data(portfolio_url, "/projects")
+    if projects and isinstance(projects, list):
+        for p in projects:
+            tech = p.get("techStack", "")
+            if isinstance(tech, list):
+                tech = ", ".join(tech)
+            content = (
+                f"# Project: {p.get('title', 'Untitled')}\n\n"
+                f"Description: {p.get('description', '')}\n"
+                f"Tech Stack: {tech}\n"
+                f"GitHub: {p.get('githubUrl', 'N/A')}\n"
+                f"Live URL: {p.get('liveUrl', 'N/A')}"
+            )
+            docs.append(Document(
+                page_content=content,
+                metadata={"source": f"Project: {p.get('title', 'Untitled')}"},
+            ))
+
+    # 3. Journey (Work + Education)
+    journey = await _fetch_api_data(portfolio_url, "/journey")
+    if journey and isinstance(journey, list):
+        for j in journey:
+            parts = [
+                f"# Career Journey: {j.get('title', '')} at {j.get('organization', '')}",
+                f"\nType: {j.get('type', 'OTHER')}",
+                f"Date: {j.get('date', '')}",
+                f"Description: {j.get('description', '')}",
+            ]
+            if j.get("degree"):
+                parts.append(f"Degree: {j['degree']}")
+            if j.get("fieldOfStudy"):
+                parts.append(f"Field: {j['fieldOfStudy']}")
+            if j.get("skills") and isinstance(j["skills"], list):
+                parts.append(f"Skills: {', '.join(j['skills'])}")
+            docs.append(Document(
+                page_content="\n".join(parts),
+                metadata={"source": f"Journey: {j.get('organization', j.get('title', ''))}"},
+            ))
+
+    # 4. Achievements
+    achievements = await _fetch_api_data(portfolio_url, "/achievements")
+    if achievements and isinstance(achievements, list):
+        for a in achievements:
+            parts = [
+                f"# Achievement: {a.get('title', '')}",
+                f"\nCategory: {a.get('category', '')}",
+            ]
+            if a.get("issuer"):
+                parts.append(f"Issuer: {a['issuer']}")
+            if a.get("event"):
+                parts.append(f"Event: {a['event']}")
+            if a.get("rank"):
+                parts.append(f"Rank: {a['rank']}")
+            if a.get("description"):
+                parts.append(f"Description: {a['description']}")
+            if a.get("tags") and isinstance(a["tags"], list):
+                parts.append(f"Tags: {', '.join(a['tags'])}")
+            docs.append(Document(
+                page_content="\n".join(parts),
+                metadata={"source": f"Achievement: {a.get('title', '')}"},
+            ))
+
+    # 5. Certifications
+    certifications = await _fetch_api_data(portfolio_url, "/certifications")
+    if certifications and isinstance(certifications, list):
+        for c in certifications:
+            parts = [
+                f"# Certification: {c.get('title', '')}",
+                f"\nIssuer: {c.get('issuer', '')}",
+            ]
+            if c.get("description"):
+                parts.append(f"Description: {c['description']}")
+            if c.get("skills") and isinstance(c["skills"], list):
+                parts.append(f"Skills: {', '.join(c['skills'])}")
+            docs.append(Document(
+                page_content="\n".join(parts),
+                metadata={"source": f"Certification: {c.get('title', '')}"},
+            ))
+
+    # 6. Blog posts
+    blog = await _fetch_api_data(portfolio_url, "/blog")
+    if blog and isinstance(blog, list):
+        for b in blog:
+            content = b.get("content", "")
+            if len(content) > 2000:
+                content = content[:2000] + "..."
+            parts = [
+                f"# Blog Post: {b.get('title', '')}",
+                f"\nContent: {content}",
+            ]
+            if b.get("tags") and isinstance(b["tags"], list):
+                parts.append(f"Tags: {', '.join(b['tags'])}")
+            docs.append(Document(
+                page_content="\n".join(parts),
+                metadata={"source": f"Blog: {b.get('title', '')}"},
+            ))
 
     return docs
 
-async def main():
-    print("🚀 Starting RAG Ingestion Pipeline...")
 
-    print("1. Fetching raw knowledge chunks from database...")
-    docs = await fetch_portfolio_data()
+async def run_ingestion():
+    """Reusable ingestion function — callable from CLI, webhook, or background task.
 
-    if not docs:
-        print("⚠️ No documents were fetched. Check your database connection and schema.")
+    Fetches all portfolio data via the public API, chunks it, embeds it,
+    and stores it in the PGVector store. Clears old documents first to prevent duplicates.
+    """
+    agent_logger.info("RAG", "🚀 Starting RAG ingestion pipeline...")
+
+    if not RAG_AVAILABLE:
+        agent_logger.warn("RAG", "⚠️ RAG not available (requires PostgreSQL with pgvector)")
         return
 
-    print(f"   Done. Fetched {len(docs)} highly structured documents.")
+    # 1. Fetch data via API
+    docs = await fetch_portfolio_data_via_api()
+    if not docs:
+        agent_logger.warn("RAG", "⚠️ No documents fetched. Check PORTFOLIO_URL and portfolio server.")
+        return
 
-    print("2. Splitting text for optimal embedding resolution...")
-    # Split text into manageable chunks so the vector math is highly specific
+    agent_logger.info("RAG", f"  Fetched {len(docs)} documents from portfolio API")
+
+    # 2. Split into chunks
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
         chunk_overlap=150,
-        length_function=len
+        length_function=len,
+    )
+    splits = text_splitter.split_documents(docs)
+    agent_logger.info("RAG", f"  Generated {len(splits)} chunks")
+
+    # 3. Store in vector DB
+    vector_store = get_neon_vector_store()
+    if vector_store is None:
+        agent_logger.error("RAG", "❌ Could not initialize vector store")
+        return
+
+    # Clear existing documents before re-ingesting to prevent duplicates
+    try:
+        # Delete all existing documents from the collection
+        await vector_store.adelete(ids=None)  # Clear all
+        agent_logger.info("RAG", "  Cleared old vector store documents")
+    except Exception as e:
+        agent_logger.warn("RAG", f"  Could not clear old documents (non-critical): {e}")
+
+    await vector_store.aadd_documents(splits)
+    agent_logger.info("RAG", f"✅ Successfully ingested {len(splits)} chunks into vector store")
+
+
+async def main():
+    """CLI entry point for manual ingestion."""
+    print("🚀 Starting RAG Ingestion Pipeline...")
+
+    print("1. Fetching portfolio data via API...")
+    docs = await fetch_portfolio_data_via_api()
+
+    if not docs:
+        print("⚠️ No documents were fetched. Check PORTFOLIO_URL and portfolio server.")
+        return
+
+    print(f"   Done. Fetched {len(docs)} documents.")
+
+    print("2. Splitting text for optimal embedding resolution...")
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=1000,
+        chunk_overlap=150,
+        length_function=len,
     )
     splits = text_splitter.split_documents(docs)
     print(f"   Done. Generated {len(splits)} chunks.")
 
-    print("3. Connecting to Neon PGVector Store and embedding...")
+    if not RAG_AVAILABLE:
+        print("⚠️ RAG not available (requires PostgreSQL with pgvector). Skipping vector store.")
+        return
+
+    print("3. Connecting to PGVector Store and embedding...")
     vector_store = get_neon_vector_store()
 
-    # Store documents asynchronously
-    await vector_store.aadd_documents(splits)
+    if vector_store is None:
+        print("❌ Could not initialize vector store.")
+        return
 
-    print("✅ Successfully ingested all portfolio data into Omni-Memory vector store!")
+    await vector_store.aadd_documents(splits)
+    print("✅ Successfully ingested all portfolio data into vector store!")
+
 
 if __name__ == "__main__":
     asyncio.run(main())
