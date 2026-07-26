@@ -1,4 +1,4 @@
-"""RAG Ingester — fetches portfolio data via API, embeds it, and loads into PGVector.
+"""RAG Ingester   fetches portfolio data via API, embeds it, and loads into PGVector.
 
 Two modes of operation:
   1. CLI: `python -m app.rag.ingester` (manual one-off)
@@ -212,7 +212,7 @@ async def fetch_portfolio_data_via_api() -> list[Document]:
 
 
 async def run_ingestion():
-    """Reusable ingestion function — callable from CLI, webhook, or background task.
+    """Reusable ingestion function   callable from CLI, webhook, or background task.
 
     Fetches all portfolio data via the public API, chunks it, embeds it,
     and stores it in the PGVector store. Clears old documents first to prevent duplicates.
@@ -246,7 +246,7 @@ async def run_ingestion():
         agent_logger.error("RAG", "❌ Could not initialize vector store")
         return
 
-    # Clear existing documents before re-ingesting to prevent duplicates
+    # Clear existing documents before re ingesting to prevent duplicates
     try:
         # Delete all existing documents from the collection
         # Clear all

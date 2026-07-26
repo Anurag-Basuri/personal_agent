@@ -1,11 +1,11 @@
-"""Weather tool — fetches current weather using Open-Meteo API (free, no API key needed)."""
+"""Weather tool   fetches current weather using Open Meteo API (free, no API key needed)."""
 
 import httpx
 from langchain_core.tools import tool
 
 from app.core.retry import retry_with_backoff
 
-# Open-Meteo uses WMO weather codes
+# Open Meteo uses WMO weather codes
 _WMO_CODES = {
     0: "Clear sky", 1: "Mainly clear", 2: "Partly cloudy", 3: "Overcast",
     45: "Fog", 48: "Rime fog",
@@ -42,7 +42,7 @@ async def _fetch_weather(lat: float, lon: float) -> httpx.Response:
 
 
 async def _geocode(city: str) -> dict | None:
-    """Resolve city name to lat/lon using Open-Meteo's geocoding API."""
+    """Resolve city name to lat/lon using Open Meteo's geocoding API."""
     res = await retry_with_backoff(
         _fetch_geocode,
         city,
@@ -60,7 +60,7 @@ async def _geocode(city: str) -> dict | None:
 
 @tool
 async def weather_tool(city: str) -> str:
-    """Get the current weather and 3-day forecast for any city worldwide.
+    """Get the current weather and 3 day forecast for any city worldwide.
     Provide the city name (e.g., 'Delhi', 'New York', 'London')."""
     try:
         # 1. Geocode the city

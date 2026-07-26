@@ -1,4 +1,4 @@
-"""Portfolio API tool — fetches live data from the portfolio website's public REST API.
+"""Portfolio API tool   fetches live data from the portfolio website's public REST API.
 
 Instead of duplicating the portfolio database schema, this tool makes HTTP GET requests
 to the portfolio's existing public endpoints. This ensures the agent always gets the
@@ -24,8 +24,7 @@ from app.core.retry import retry_with_backoff
 # 5 minutes
 _api_cache = TTLCache(default_ttl=300)
 
-# ─── API Endpoint Mapping ──────────────────────────────────────────
-
+# API Endpoint Mapping
 _CATEGORY_ENDPOINTS = {
     "profile": "/profile",
     "projects": "/projects",
@@ -36,8 +35,7 @@ _CATEGORY_ENDPOINTS = {
 }
 
 
-# ─── HTTP Fetch Layer ──────────────────────────────────────────────
-
+# HTTP Fetch Layer
 async def _fetch_portfolio_endpoint(url: str) -> httpx.Response:
     """Make a GET request to a portfolio API endpoint."""
     async with httpx.AsyncClient(timeout=15.0) as client:
@@ -51,8 +49,7 @@ async def _fetch_portfolio_endpoint(url: str) -> httpx.Response:
         return response
 
 
-# ─── Response Formatters ───────────────────────────────────────────
-
+# Response Formatters
 def _format_profile(data: dict) -> str:
     """Format the profile API response into readable text."""
     lines = [f"# {data.get('name', 'Anurag Basuri')}'s Profile\n"]
@@ -201,13 +198,13 @@ def _format_journey(data: list) -> str:
                 desc = desc[:500] + "..."
             lines.append(f"**Description**: {desc}")
 
-        # Education-specific
+        # Education specific
         if j.get("degree"):
             lines.append(f"**Degree**: {j['degree']}" + (f" in {j['fieldOfStudy']}" if j.get("fieldOfStudy") else ""))
         if j.get("grade"):
             lines.append(f"**Grade**: {j['grade']}")
 
-        # Work-specific
+        # Work specific
         if j.get("employmentType"):
             lines.append(f"**Employment Type**: {j['employmentType']}")
         if j.get("workMode"):
@@ -327,8 +324,7 @@ _FORMATTERS = {
 }
 
 
-# ─── The Tool ──────────────────────────────────────────────────────
-
+# The Tool
 @tool
 async def portfolio_api_tool(category: str) -> str:
     """Fetch live data from Anurag's portfolio website.

@@ -29,7 +29,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not user or not chat or not message_text:
         return
 
-    # ─── Auth / Filtering ───
+    # Auth / Filtering
     allowed_ids = settings.telegram_allowed_ids
     if allowed_ids and user.id not in allowed_ids:
         agent_logger.warn("TELEGRAM", f"Unauthorized access attempt from user {user.id}")
@@ -42,7 +42,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     elif not allowed_ids:
         agent_logger.warn("TELEGRAM", "No TELEGRAM_ALLOWED_USER_IDS set. Operating in PUBLIC mode!")
 
-    # ─── Session Mapping ───
+    # Session Mapping
     # We use tg_chat_{chat.id} as the session_id so we get separate history per chat
     session_id = f"tg_chat_{chat.id}"
 
@@ -54,7 +54,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         "message_preview": message_text[:50]
     })
 
-    # ─── Process Message ───
+    # Process Message
     try:
         # Send typing action to Telegram while LLM processes
         await context.bot.send_chat_action(chat_id=chat.id, action=ChatAction.TYPING)
@@ -69,7 +69,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
         reply = response.reply
 
-        # ─── Format & Send ───
+        # Format & Send
         # Telegram MarkdownV2 requires aggressive escaping, so we use HTML or plain text.
         # Fallback to plain text if Markdown/HTML parsing fails.
         try:

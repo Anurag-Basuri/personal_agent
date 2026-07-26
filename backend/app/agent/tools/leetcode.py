@@ -1,4 +1,4 @@
-"""LeetCode stats tool — fetch profile via official GraphQL API."""
+"""LeetCode stats tool   fetch profile via official GraphQL API."""
 
 import httpx
 from langchain_core.tools import tool

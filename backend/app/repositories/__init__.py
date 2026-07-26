@@ -1,1 +1,1 @@
-# Repository layer — data access abstraction
+# Repository layer data access abstraction

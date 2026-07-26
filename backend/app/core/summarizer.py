@@ -14,7 +14,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, SystemMessage
 
 from app.core.logger import agent_logger
 
-# ─── Constants ────────────────────────────────────────────────────
+# Constants
 
 # Trigger summarization after this many messages
 SUMMARIZATION_THRESHOLD = 15
@@ -43,7 +43,7 @@ def build_summarization_prompt(messages: list[BaseMessage]) -> str:
     conversation_text = ""
     for msg in messages:
         if isinstance(msg, SystemMessage):
-            # Skip system prompts — not relevant for summarization
+            # Skip system prompts not relevant for summarization
             continue
         role = "User" if isinstance(msg, HumanMessage) else "Assistant"
         # Truncate very long messages

@@ -160,7 +160,7 @@ async def process_user_message(
         "user_id": user_id,
         "role": role,
         "current_url": current_url,
-        # Default — router will override
+        # Default router will override
         "intent": "tool_use",
         "summary": session_summary,
     }
@@ -168,14 +168,14 @@ async def process_user_message(
     approx_chars = sum(len(str(m.content)) for m in initial_state["messages"])
     agent_logger.debug("LLM", f"Estimated prompt size: {approx_chars} characters", {"session_id": session_id})
 
-    # ─── Invoke LangGraph ───
+    # Invoke LangGraph
     try:
         final_state = await agent_app.ainvoke(initial_state)
     except Exception as e:
         agent_logger.error("SYSTEM", "LangGraph Workflow Failed", e)
         raise e
 
-    # ─── Persist New Messages ───
+    # Persist New Messages
     new_messages_offset = len(history) + 1
 
     # Save the human message
@@ -196,7 +196,7 @@ async def process_user_message(
             final_reply = msg.content
             break
 
-    # ─── Trigger Summarization (Background) ───
+    # Trigger Summarization (Background)
     total_message_count = len(history) + len(new_generated_messages) + 1
     if should_summarize(total_message_count) and user_id:
         agent_logger.info("MEMORY", f"Summarization threshold reached ({total_message_count} msgs)", {

@@ -92,8 +92,7 @@ async def reset_session(
     )
 
 
-# --- Granular CRUD Endpoints ---
-
+# Granular CRUD Endpoints
 @router.get("/history")
 async def get_history(
     session_id: str = Query(..., description="The session ID to retrieve"),
@@ -101,7 +100,7 @@ async def get_history(
     current_user: User = Depends(get_current_user),
     _rate: None = Depends(rate_limit("chat_history")),
 ):
-    """Retrieve fine-grained history for the UI."""
+    """Retrieve fine grained history for the UI."""
     request_id = getattr(request.state, "request_id", "")
 
     session = await session_repo.get_by_session_id_and_user(session_id, current_user.id)
@@ -160,7 +159,7 @@ async def edit_message(
     current_user: User = Depends(get_current_user),
     _rate: None = Depends(rate_limit("chat_message_edit")),
 ):
-    """Edit a message. Useful for correcting typos before a LangGraph re-run."""
+    """Edit a message. Useful for correcting typos before a LangGraph re run."""
     request_id = getattr(request.state, "request_id", "")
 
     session = await message_repo.get_session_for_message(message_id)

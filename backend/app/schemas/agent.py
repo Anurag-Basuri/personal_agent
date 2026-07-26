@@ -30,8 +30,7 @@ class ResetResponseData(BaseModel):
     cleared: bool = True
 
 
-# --- New Granular Control Schemas ---
-
+# New Granular Control Schemas
 class EditMessageRequest(BaseModel):
     """PUT /chat/message/{id} request body"""
     new_content: str = Field(..., min_length=1, description="The updated text content of the message.")

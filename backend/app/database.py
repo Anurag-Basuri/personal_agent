@@ -23,7 +23,7 @@ async_session = async_sessionmaker(
 )
 
 async def get_db():
-    """FastAPI dependency — yields an async DB session per request."""
+    """FastAPI dependency   yields an async DB session per request."""
     async with async_session() as session:
         try:
             yield session

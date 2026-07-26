@@ -5,7 +5,7 @@ A simple, thread-safe cache backed by a Python dictionary.
 No external dependencies (Redis, Memcached) required.
 
 Usage:
-    # 5-minute default
+    # 5 minute default
     cache = TTLCache(default_ttl=300)
     cache.set("user:123:memories", data, ttl=600)
     # None if expired
@@ -56,7 +56,7 @@ class TTLCache:
 
             value, expiry = entry
             if time.time() > expiry:
-                # Expired — lazy delete
+                # Expired lazy delete
                 del self._store[key]
                 self._misses += 1
                 return default
@@ -139,5 +139,5 @@ class TTLCache:
         }
 
 
-# ─── Application-wide cache singleton ────────────────────────────
+# Application wide cache singleton
 app_cache = TTLCache(default_ttl=300, max_size=500)

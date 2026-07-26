@@ -12,8 +12,7 @@ import logging
 import time
 from typing import Any
 
-# ─── Setup Python Logger ─────────────────────────────────────────
-
+# Setup Python Logger
 logger = logging.getLogger("agent")
 
 
@@ -39,7 +38,7 @@ def _setup_logger() -> None:
 _setup_logger()
 
 
-# ─── Public API ──────────────────────────────────────────────────
+# Public API
 
 # One of: LLM, TOOL, MEMORY, CTRL, SYSTEM
 LogCategory = str
@@ -52,8 +51,7 @@ def _log(level: int, category: LogCategory, message: str, meta: dict[str, Any] |
 class AgentLogger:
     """Structured logger matching the original Node.js agentLogger interface."""
 
-    # ─── Standard Levels ──────────────────────────────────────
-
+    # Standard Levels
     @staticmethod
     def info(category: LogCategory, message: str, meta: dict[str, Any] | None = None) -> None:
         _log(logging.INFO, category, message, meta)
@@ -80,8 +78,7 @@ class AgentLogger:
     def debug(category: LogCategory, message: str, meta: dict[str, Any] | None = None) -> None:
         _log(logging.DEBUG, category, message, meta)
 
-    # ─── Tool Execution ───────────────────────────────────────
-
+    # Tool Execution
     @staticmethod
     def tool_start(tool_name: str, args: dict[str, Any]) -> float:
         _log(logging.INFO, "TOOL", f"⚡ Executing: {tool_name}", {"args": args})
@@ -115,8 +112,7 @@ class AgentLogger:
             },
         )
 
-    # ─── LLM Invocation ───────────────────────────────────────
-
+    # LLM Invocation
     @staticmethod
     def llm_start(provider: str, model: str) -> float:
         _log(logging.INFO, "LLM", f"🧠 Invoking {provider} ({model})")

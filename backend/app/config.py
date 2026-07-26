@@ -20,44 +20,44 @@ class Settings(BaseSettings):
         extra="ignore",
     )
 
-    # ─── Server ──────────────────────────────────────────────────
+    # Server
     PORT: int = 4000
     DEBUG: bool = False
     CLIENT_URL: str = "http://localhost:3000"       # Agent website origin
     # Portfolio website origin (for CORS)
     PORTFOLIO_URL: str = ""
 
-    # ─── Database ────────────────────────────────────────────────
+    # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./dev.db"
     # Optional: separate portfolio database
     PORTFOLIO_DB_URL: str = ""
 
-    # ─── AI Providers ────────────────────────────────────────────
+    # AI Providers
     HF_TOKEN: str = ""
     GROQ_API_KEY: str = ""
 
-    # ─── External APIs ───────────────────────────────────────────
+    # External APIs
     GITHUB_TOKEN: str = ""
 
-    # ─── Customization / Identity ────────────────────────────────
+    # Customization / Identity
     AGENT_NAME: str = "Agent"
     GITHUB_USERNAME: str = ""
     LEETCODE_USERNAME: str = ""
 
-    # ─── Security & Auth ─────────────────────────────────────────
+    # Security & Auth
     AUTH_SECRET: str = ""
     # Google OAuth Client ID for ID token verification
     AUTH_GOOGLE_CLIENT_ID: str = ""
-    # Base64 AES-GCM 256-bit key
+    # Base64 AES GCM 256 bit key
     OMNI_MEMORY_KEY: str = ""
     # Shared secret for RAG reindex webhook
     REINDEX_SECRET: str = ""
 
-    # ─── RAG Sync ────────────────────────────────────────────────
-    # Background RAG re-ingestion interval
+    # RAG Sync
+    # Background RAG re ingestion interval
     RAG_SYNC_INTERVAL_HOURS: int = 6
 
-    # ─── Telegram Bot ────────────────────────────────────────────
+    # Telegram Bot
     TELEGRAM_BOT_TOKEN: str = ""
     # Comma separated list of allowed Telegram user IDs
     TELEGRAM_ALLOWED_USER_IDS: str = ""
@@ -83,5 +83,5 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    """Singleton settings instance — cached after first call."""
+    """Singleton settings instance   cached after first call."""
     return Settings()

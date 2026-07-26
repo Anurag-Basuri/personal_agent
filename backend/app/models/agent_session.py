@@ -1,4 +1,4 @@
-"""AgentSession model — matches Prisma schema."""
+"""AgentSession model   matches Prisma schema."""
 
 from datetime import datetime
 
@@ -16,7 +16,7 @@ class AgentSession(Base):
 
     # Role tracking for RBAC (GUEST, ADMIN)
     role: Mapped[str] = mapped_column(String, default="GUEST", nullable=False)
-    # Transport tracking for Omni-Memory (WEB, TELEGRAM, WHATSAPP)
+    # Transport tracking for Omni Memory (WEB, TELEGRAM, WHATSAPP)
     transport: Mapped[str] = mapped_column(String, default="WEB", nullable=False)
 
     createdAt: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

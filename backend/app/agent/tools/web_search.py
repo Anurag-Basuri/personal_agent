@@ -1,4 +1,4 @@
-"""Web search tool — general web search via DuckDuckGo HTML (free, no API key needed)."""
+"""Web search tool   general web search via DuckDuckGo HTML (free, no API key needed)."""
 
 import httpx
 from langchain_core.tools import tool

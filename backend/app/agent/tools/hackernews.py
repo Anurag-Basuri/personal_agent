@@ -1,4 +1,4 @@
-"""Hacker News tool — search and trending stories via the Algolia HN API (free, no key)."""
+"""Hacker News tool   search and trending stories via the Algolia HN API (free, no key)."""
 
 import httpx
 from langchain_core.tools import tool

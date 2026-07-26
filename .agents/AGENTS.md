@@ -9,6 +9,8 @@
 - **Python Conventions**: Use type hints, adhere to PEP 8, and format docstrings for all new methods.
 - **Comment Conventions (Server Backend Only)**:
   - **No Inline Comments**: Do NOT place comments on the same line as code (e.g., `y = x + y # qwerty`). All comments must reside on their own dedicated line immediately preceding the code block or statement they describe.
+  - **No Hyphens or Dashes**: Do NOT use hyphens, dashes, em-dashes, or box-drawing horizontal lines (e.g., `-`, `–`, `—`, `─`) in any comments or comment headers of any type.
+  - **No Gaps Before Functions/Blocks**: There must NOT be any blank lines or vertical gaps between a comment and the immediate function, method, class, or code block it belongs to. The comment must be directly adjacent to its target line.
   - **Hierarchical Structure**: Avoid large monolithic block comments inside method or function bodies. Break down extensive explanations and place them as high-level docstrings before the particular methods or functions.
   - **Specific Single-Line Comments**: Within function or method bodies, write very specific, concise single-line comments immediately before the code block describing the step or logic.
 - **Workflow**: Create detailed implementation plans in an artifact before execution for major structural changes. Write code incrementally and atomically.

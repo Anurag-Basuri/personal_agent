@@ -95,11 +95,11 @@ class SlidingWindowCounter:
         return removed
 
 
-# ─── Global counter instance ────────────────────────────────────
+# Global counter instance
 _counter = SlidingWindowCounter()
 
 
-# ─── Endpoint rate limit configs ─────────────────────────────────
+# Endpoint rate limit configs
 
 # Format: {endpoint_name: {role: (max_requests, window_seconds)}}
 ENDPOINT_LIMITS: dict[str, dict[str, tuple[int, int]]] = {
@@ -116,7 +116,7 @@ ENDPOINT_LIMITS: dict[str, dict[str, tuple[int, int]]] = {
         "GUEST": (10, 60),
     },
     "chat_history": {
-        # Read-only, cheap
+        # Read only, cheap
         "ADMIN": (60, 60),
         "GUEST": (20, 60),
     },
@@ -140,7 +140,7 @@ ENDPOINT_LIMITS: dict[str, dict[str, tuple[int, int]]] = {
     },
 }
 
-# LLM budget limits (per-resource, not per-endpoint)
+# LLM budget limits (per resource, not per endpoint)
 LLM_BUDGET_LIMITS: dict[str, tuple[int, int]] = {
     # 100 calls/hour for primary LLM
     "llm_primary": (100, 3600),
@@ -183,7 +183,7 @@ def rate_limit(endpoint: str):
         role_limit = limits.get(role)
 
         if role_limit is None:
-            # No explicit limit defined — use a generous default
+            # No explicit limit defined use a generous default
             role_limit = (60, 60)
 
         max_requests, window = role_limit

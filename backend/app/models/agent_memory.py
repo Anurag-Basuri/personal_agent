@@ -45,7 +45,7 @@ class AgentMemory(Base):
     # The actual memory content
     content: Mapped[str] = mapped_column(Text, nullable=False)
 
-    # Confidence score (0.0 - 1.0) — how confident the extraction was
+    # Confidence score (0.0 * 1.0) how confident the extraction was
     confidence: Mapped[float] = mapped_column(Float, default=1.0)
 
     # Timestamps

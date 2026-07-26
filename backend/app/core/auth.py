@@ -37,10 +37,10 @@ def _verify_google_id_token(token: str) -> dict:
         from google.oauth2 import id_token
 
         # verify_oauth2_token validates:
-        #   - Signature (via Google's public keys)
-        #   - Expiration
-        #   - Issuer (accounts.google.com)
-        #   - Audience (your client ID)
+        # * Signature (via Google's public keys)
+        # * Expiration
+        # * Issuer (accounts.google.com)
+        # * Audience (your client ID)
         payload = id_token.verify_oauth2_token(
             token,
             google_requests.Request(),
@@ -83,7 +83,7 @@ async def get_current_user(
     settings = get_settings()
     token = _extract_bearer_token(request)
 
-    # ─── Dev Mode Bypass ────────────────────────────────────────
+    # Dev Mode Bypass
     if not token and settings.is_debug:
         agent_logger.debug("AUTH", "🔓 DEBUG mode: using dev user (no token provided)")
         return await _get_or_create_user(
@@ -101,7 +101,7 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    # ─── Verify Google ID Token ─────────────────────────────────
+    # Verify Google ID Token
     payload = _verify_google_id_token(token)
 
     email = payload.get("email")

@@ -68,7 +68,7 @@ class MCPManager:
             # The async enter pattern connects the transport and initializes the session
             await self.client.__aenter__()
 
-            # Discover tools from all servers (auto-converted to LangChain format)
+            # Discover tools from all servers (auto converted to LangChain format)
             self._tools = await self.client.get_tools()
 
             self.connected_count = len(enabled_servers)
@@ -88,7 +88,6 @@ class MCPManager:
 
             # We don't raise here, we want the agent to start even if MCP fails
             # The agent will just run with 0 MCP tools, using only its local tools.
-
     async def shutdown(self) -> None:
         """Cleanly disconnect from all servers."""
         if self.client:
@@ -106,7 +105,7 @@ class MCPManager:
                         self._status[name] = "disconnected"
 
     def get_tools(self) -> list[BaseTool]:
-        """Return the list of discovered LangChain-compatible tools."""
+        """Return the list of discovered LangChain compatible tools."""
         return self._tools
 
     def get_status(self) -> dict[str, str]:

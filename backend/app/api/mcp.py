@@ -147,7 +147,7 @@ async def reload_servers(
     user: User = Depends(require_admin),
     _rate: None = Depends(rate_limit("mcp_reload")),
 ):
-    """Disconnect all servers, re-read config, and reconnect."""
+    """Disconnect all servers, re read config, and reconnect."""
     await mcp_manager.shutdown()
     await mcp_manager.startup()
 

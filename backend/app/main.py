@@ -29,8 +29,7 @@ from app.core.exceptions import (
 from app.database import close_db, init_db
 
 
-# ─── Background Session Cleanup ─────────────────────────────────
-
+# Background Session Cleanup
 async def _public_session_cleanup_loop():
     """Periodic background task that deletes inactive public chatbot sessions.
 
@@ -54,7 +53,7 @@ async def _public_session_cleanup_loop():
                     f"🧹 Deleted {deleted} inactive public sessions",
                 )
 
-                # Also clear the in-memory message counters for cleaned sessions
+                # Also clear the in memory message counters for cleaned sessions
                 # (The counter keys will naturally expire, but this is more immediate)
                 counter = get_message_counter()
                 # Note: we can't know exactly which session_ids were deleted here,
@@ -70,7 +69,7 @@ async def _public_session_cleanup_loop():
 
 
 async def _rag_sync_loop():
-    """Periodic background task that re-ingests portfolio data into the vector store.
+    """Periodic background task that re ingests portfolio data into the vector store.
 
     Runs every N hours (configured by RAG_SYNC_INTERVAL_HOURS).
     Acts as a safety net so the agent's knowledge stays current even if
@@ -100,8 +99,7 @@ async def _rag_sync_loop():
             await asyncio.sleep(300)
 
 
-# ─── Lifespan ────────────────────────────────────────────────────
-
+# Lifespan
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle."""
@@ -167,8 +165,7 @@ async def lifespan(app: FastAPI):
     print("[server] Database connection closed")
 
 
-# ─── App Factory ──────────────────────────────────────────────────
-
+# App Factory
 def create_app() -> FastAPI:
     settings = get_settings()
 
@@ -181,9 +178,9 @@ def create_app() -> FastAPI:
         redoc_url="/redoc",
     )
 
-    # ─── Middleware ───────────────────────────────────────────
+    # Middleware
 
-    # CORS — allow both portfolio domain and agent domain
+    # CORS allow both portfolio domain and agent domain
     allowed_origins = []
     if settings.CLIENT_URL:
         allowed_origins.append(settings.CLIENT_URL)
@@ -202,12 +199,12 @@ def create_app() -> FastAPI:
     from app.middlewares.request_id import RequestIdMiddleware
     app.add_middleware(RequestIdMiddleware)
 
-    # ─── Exception Handlers ──────────────────────────────────
+    # Exception Handlers
     app.add_exception_handler(ApiError, api_error_handler)
     app.add_exception_handler(ValidationError, validation_error_handler)
     app.add_exception_handler(Exception, generic_error_handler)
 
-    # ─── Routers ─────────────────────────────────────────────
+    # Routers
     from app.api.admin import router as admin_router
     from app.api.agent import router as agent_router
     from app.api.health import router as health_router

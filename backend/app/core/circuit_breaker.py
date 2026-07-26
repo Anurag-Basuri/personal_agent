@@ -74,7 +74,7 @@ class CircuitBreaker:
         Raises CircuitOpenError if the circuit is OPEN and cooldown
         hasn't expired yet.
         """
-        # triggers auto-transition check
+        # triggers auto transition check
         current_state = self.state
 
         if current_state == "OPEN":
@@ -90,7 +90,7 @@ class CircuitBreaker:
             raise
 
     def _on_success(self) -> None:
-        """Record a successful call — reset failure count."""
+        """Record a successful call   reset failure count."""
         if self._state == "HALF_OPEN":
             agent_logger.info(
                 "CIRCUIT",
@@ -101,12 +101,12 @@ class CircuitBreaker:
         self._success_count += 1
 
     def _on_failure(self, error: Exception) -> None:
-        """Record a failed call — possibly trip to OPEN."""
+        """Record a failed call   possibly trip to OPEN."""
         self._failure_count += 1
         self._last_failure_time = time.time()
 
         if self._state == "HALF_OPEN":
-            # Probe failed — go back to OPEN
+            # Probe failed go back to OPEN
             self._state = "OPEN"
             agent_logger.warn(
                 "CIRCUIT",

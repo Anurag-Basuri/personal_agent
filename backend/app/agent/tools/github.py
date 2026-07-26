@@ -1,4 +1,4 @@
-"""GitHub Activity tool — fetch user profile stats and recent events."""
+"""GitHub Activity tool   fetch user profile stats and recent events."""
 
 import httpx
 from langchain_core.tools import tool
@@ -36,7 +36,7 @@ async def _fetch_github_data(username: str, headers: dict) -> dict:
 
 @tool
 async def github_tool() -> str:
-    """Fetch the developer's live GitHub profile stats (followers, repos) and recent open-source activity.
+    """Fetch the developer's live GitHub profile stats (followers, repos) and recent open source activity.
     Use this when the user asks about my GitHub activity, commits, or overall coding presence."""
     settings = get_settings()
     username = settings.GITHUB_USERNAME

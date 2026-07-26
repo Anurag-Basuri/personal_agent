@@ -16,7 +16,7 @@ from app.agent.tools.web_search import web_search_tool
 from app.agent.tools.wikipedia import wikipedia_tool
 
 agent_tools = [
-    # Portfolio data tools (API-driven — fetches from portfolio website)
+    # Portfolio data tools (API driven fetches from portfolio website)
     portfolio_api_tool,
     github_tool,
     github_repo_tool,
@@ -31,7 +31,7 @@ agent_tools = [
 
 
 def get_public_tools() -> list:
-    """Return only portfolio-safe tools for the public chatbot.
+    """Return only portfolio safe tools for the public chatbot.
 
     This is the restricted toolset used by /api/public/* endpoints.
     Intentionally excludes MCP-discovered tools and any future

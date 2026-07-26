@@ -49,7 +49,7 @@ def _build_graph(call_model_node, call_tools_node):
     workflow.add_node("agent", call_model_node)
     workflow.add_node("tools", call_tools_node)
 
-    # Set the entry point — always start with intent classification
+    # Set the entry point always start with intent classification
     workflow.set_entry_point("router")
 
     # Router always flows into the agent

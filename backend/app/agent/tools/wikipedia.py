@@ -1,4 +1,4 @@
-"""Wikipedia tool — knowledge lookup via the free Wikipedia API."""
+"""Wikipedia tool   knowledge lookup via the free Wikipedia API."""
 
 import httpx
 from langchain_core.tools import tool

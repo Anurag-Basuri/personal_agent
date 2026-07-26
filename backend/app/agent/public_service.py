@@ -28,13 +28,11 @@ from app.core.memory import get_message_history
 from app.rag.context import get_base_portfolio_context
 
 
-# ─── Constants ───────────────────────────────────────────────────
-
+# Constants
 PUBLIC_SESSION_MESSAGE_CAP = 20
 
 
-# ─── Response Dataclass ─────────────────────────────────────────
-
+# Response Dataclass
 @dataclass
 class PublicChatResponse:
     """Return type for the public chat service."""
@@ -44,10 +42,9 @@ class PublicChatResponse:
     messages_remaining: int
 
 
-# ─── Message Counter ────────────────────────────────────────────
-
+# Message Counter
 class SessionMessageCounter:
-    """In-memory counter for messages per public session.
+    """In memory counter for messages per public session.
 
     Tracks how many user messages have been sent per session_id.
     Thread-safe via simple dict (single-process async server).
@@ -84,8 +81,7 @@ def get_message_counter() -> SessionMessageCounter:
     return _message_counter
 
 
-# ─── Service Function ───────────────────────────────────────────
-
+# Service Function
 async def process_public_message(
     message: str,
     session_id: str,
@@ -114,7 +110,7 @@ async def process_public_message(
     """
     request_start = time.time()
 
-    # ─── Message Cap Check ───
+    # Message Cap Check
     counter = get_message_counter()
     current_count = counter.get_count(session_id)
 
@@ -132,11 +128,11 @@ async def process_public_message(
         "message_preview": message[:80],
     })
 
-    # ─── Load Session History ───
+    # Load Session History
     memory = get_message_history(session_id, user_id=None, role="GUEST")
     history = await memory.get_messages()
 
-    # ─── Build System Prompt ───
+    # Build System Prompt
     portfolio_context = await get_base_portfolio_context(query=message)
 
     location_context = ""
@@ -156,19 +152,19 @@ async def process_public_message(
 
     human_msg = HumanMessage(content=message)
 
-    # ─── Initialize LangGraph State ───
+    # Initialize LangGraph State
     initial_state: AgentState = {
         "messages": [system_prompt, *history, human_msg],
         "session_id": session_id,
         "user_id": None,
         "role": "GUEST",
         "current_url": current_url,
-        # Default — router will override
+        # Default router will override
         "intent": "tool_use",
         "summary": "",
     }
 
-    # ─── Invoke LangGraph (Public Agent) ───
+    # Invoke LangGraph (Public Agent)
     public_agent = build_public_agent()
 
     try:
@@ -177,7 +173,7 @@ async def process_public_message(
         agent_logger.error("PUBLIC", "Public LangGraph Workflow Failed", e)
         raise
 
-    # ─── Persist Messages ───
+    # Persist Messages
     await memory.add_message(human_msg)
 
     new_messages_offset = len(history) + 1
@@ -187,14 +183,14 @@ async def process_public_message(
     for msg in new_generated_messages:
         await memory.add_message(msg)
 
-    # ─── Extract Final Reply ───
+    # Extract Final Reply
     final_reply = ""
     for msg in reversed(final_messages):
         if msg.type == "ai":
             final_reply = msg.content
             break
 
-    # ─── Increment Counter ───
+    # Increment Counter
     counter.increment(session_id)
     remaining = counter.get_remaining(session_id)
 

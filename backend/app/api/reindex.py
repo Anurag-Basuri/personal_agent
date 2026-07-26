@@ -34,7 +34,7 @@ async def _run_ingestion_background():
 async def trigger_reindex(
     x_reindex_secret: str = Header(..., alias="X-Reindex-Secret"),
 ):
-    """Trigger a RAG vector store re-ingestion.
+    """Trigger a RAG vector store re ingestion.
 
     Protected by a shared secret header. Call this from your portfolio
     CMS after any data update (profile save, project publish, etc.).
@@ -50,7 +50,7 @@ async def trigger_reindex(
     if x_reindex_secret != settings.REINDEX_SECRET:
         raise HTTPException(status_code=403, detail="Invalid reindex secret.")
 
-    # Fire and forget — don't block the webhook response
+    # Fire and forget don't block the webhook response
     asyncio.create_task(_run_ingestion_background())
 
     agent_logger.info("RAG", "🔄 Reindex triggered via webhook — running in background")

@@ -1,4 +1,4 @@
-"""GitHub Repo README tool — fetch raw README markdown from any repo."""
+"""GitHub Repo README tool   fetch raw README markdown from any repo."""
 
 import httpx
 from langchain_core.tools import tool
@@ -22,7 +22,7 @@ async def github_repo_tool(owner: str, repo: str) -> str:
     """Reads the raw technical README and architecture documentation from any public GitHub repository.
     Crucial for answering deep technical questions like 'How did you build X?' or 'What features does project Y have?'.
     ALWAYS use search_projects FIRST to find the githubUrl. 
-    Then extract the owner and repo from the URL (e.g., https://github.com/Anurag-Basuri/BuyIt -> owner='Anurag-Basuri', repo='BuyIt')."""
+    Then extract the owner and repo from the URL (e.g., https://github.com/Anurag Basuri/BuyIt  > owner='Anurag Basuri', repo='BuyIt')."""
     
     cache_key = f"readme:{owner}/{repo}"
     cached = _readme_cache.get(cache_key)

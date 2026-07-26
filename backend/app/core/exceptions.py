@@ -17,9 +17,7 @@ from fastapi import Request
 from fastapi.responses import JSONResponse
 from pydantic import ValidationError
 
-# ─── Exception Classes ──────────────────────────────────────────
-
-
+# Exception Classes
 class ApiError(Exception):
     """Base exception for all API errors."""
 
@@ -36,43 +34,41 @@ class ApiError(Exception):
 
 
 class BadRequestError(ApiError):
-    """400 — Malformed request or validation failure."""
+    """400   Malformed request or validation failure."""
 
     def __init__(self, message: str = "Bad request", errors: list[str] | None = None):
         super().__init__(400, message, errors)
 
 
 class NotFoundError(ApiError):
-    """404 — Resource not found."""
+    """404   Resource not found."""
 
     def __init__(self, message: str = "Resource not found"):
         super().__init__(404, message)
 
 
 class RateLimitError(ApiError):
-    """429 — Too many requests."""
+    """429   Too many requests."""
 
     def __init__(self, message: str = "Too many requests. Please try again later."):
         super().__init__(429, message)
 
 
 class ServiceUnavailableError(ApiError):
-    """503 — Upstream service down."""
+    """503   Upstream service down."""
 
     def __init__(self, message: str = "Service temporarily unavailable"):
         super().__init__(503, message)
 
 
 class AgentError(ApiError):
-    """500 — Agent-specific processing failure."""
+    """500   Agent specific processing failure."""
 
     def __init__(self, message: str = "Agent failed to process request", errors: list[str] | None = None):
         super().__init__(500, message, errors)
 
 
-# ─── Response Builder ────────────────────────────────────────────
-
-
+# Response Builder
 def _error_response(status_code: int, message: str, errors: list[str], request_id: str) -> JSONResponse:
     return JSONResponse(
         status_code=status_code,
@@ -87,9 +83,7 @@ def _error_response(status_code: int, message: str, errors: list[str], request_i
     )
 
 
-# ─── FastAPI Exception Handlers ──────────────────────────────────
-
-
+# FastAPI Exception Handlers
 def _get_request_id(request: Request) -> str:
     """Get or create a request ID for tracing."""
     return getattr(request.state, "request_id", str(uuid.uuid4()))
@@ -117,7 +111,7 @@ async def validation_error_handler(request: Request, exc: ValidationError) -> JS
 
 
 async def generic_error_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Catch-all for unhandled exceptions."""
+    """Catch all for unhandled exceptions."""
     return _error_response(
         status_code=500,
         message="Unexpected server error",

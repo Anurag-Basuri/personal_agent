@@ -1,4 +1,4 @@
-"""LangGraph nodes: Intent Router, LLM invocation (6-layer cascade), and Tool Execution.
+"""LangGraph nodes: Intent Router, LLM invocation (6 layer cascade), and Tool Execution.
 
 Resilience patterns applied:
   - 5 independent Circuit Breakers (one per LLM tier)
@@ -28,10 +28,9 @@ from app.core.rate_limiter import check_llm_budget
 from app.core.retry import retry_with_backoff
 
 
-# ─── Circuit Breakers (one per LLM tier) ─────────────────────────
+# Circuit Breakers (one per LLM tier)
 # Each breaker tracks failures independently. If Tier 1 trips OPEN,
 # Tier 2 is unaffected and the cascade skips to it instantly.
-
 _llm_breakers: dict[int, CircuitBreaker] = {
     1: CircuitBreaker(
         name="LLM_Tier1_GitHub_GPT4o",
@@ -66,11 +65,10 @@ _llm_breakers: dict[int, CircuitBreaker] = {
 }
 
 
-# ─── Layer 6: Static Fallback Message ────────────────────────────
+# Layer 6: Static Fallback Message
 # This is the safety net. If all 5 LLM tiers fail (rate limits,
 # network errors, circuit breakers all OPEN), this message is
 # returned to the user. It NEVER fails because it's pure Python.
-
 STATIC_FALLBACK_MESSAGE = (
     "I'm temporarily unable to process your request as all my AI providers "
     "are experiencing issues. Please try again in a few minutes. "
@@ -78,8 +76,7 @@ STATIC_FALLBACK_MESSAGE = (
 )
 
 
-# ─── Keywords for fast intent classification ─────────────────────
-
+# Keywords for fast intent classification
 _GREETING_PATTERNS = {
     "hi", "hello", "hey", "howdy", "sup", "yo", "what's up",
     "good morning", "good evening", "good afternoon", "greetings",
@@ -113,7 +110,7 @@ async def route_intent(state: AgentState) -> dict:
     if not user_msg:
         return {"intent": "tool_use"}
 
-    # Fast keyword match — no LLM call needed for obvious intents
+    # Fast keyword match no LLM call needed for obvious intents
     cleaned = user_msg.rstrip("!?.,:;")
 
     if cleaned in _GREETING_PATTERNS or any(cleaned.startswith(g) for g in _GREETING_PATTERNS):
@@ -148,7 +145,7 @@ def make_call_model(tools_getter: Callable[[], list] = get_all_tools):
         role = state.get("role", "GUEST")
         intent = state.get("intent", "tool_use")
 
-        # ─── Role-Based Tool Filtering ───
+        # Role Based Tool Filtering
         allowed_tools = []
         for t in tools_getter():
             if getattr(t, "requires_admin", False) and role != "ADMIN":
@@ -162,7 +159,7 @@ def make_call_model(tools_getter: Callable[[], list] = get_all_tools):
         # Get all available providers with tools bound
         providers = get_bound_providers(allowed_tools)
 
-        # ─── Cascade through tiers ───
+        # Cascade through tiers
         for provider in providers:
             tier = provider.tier
             breaker = _llm_breakers.get(tier)
@@ -201,7 +198,7 @@ def make_call_model(tools_getter: Callable[[], list] = get_all_tools):
                         operation_name=f"LLM:Tier{tier}:{provider.model_name}",
                     )
 
-                # ─── Success! ───
+                # Success!
                 tool_calls = getattr(response, "tool_calls", [])
                 agent_logger.llm_success(start, len(tool_calls) > 0, len(tool_calls))
                 system_health.mark_up(tier_label)
@@ -213,7 +210,7 @@ def make_call_model(tools_getter: Callable[[], list] = get_all_tools):
                 return {"messages": [response]}
 
             except CircuitOpenError:
-                # Circuit is OPEN — skip instantly to next tier (no network delay)
+                # Circuit is OPEN skip instantly to next tier (no network delay)
                 agent_logger.warn(
                     "LLM",
                     f"🔴 Tier {tier} ({provider.provider_name}) circuit OPEN — skipping",
@@ -222,7 +219,7 @@ def make_call_model(tools_getter: Callable[[], list] = get_all_tools):
                 continue
 
             except Exception as e:
-                # Retries exhausted or hard error — fall to next tier
+                # Retries exhausted or hard error fall to next tier
                 agent_logger.llm_error(start, e)
                 agent_logger.warn(
                     "LLM",
@@ -232,7 +229,7 @@ def make_call_model(tools_getter: Callable[[], list] = get_all_tools):
                 system_health.mark_down(tier_label)
                 continue
 
-        # ─── Layer 6: Static Fallback ───
+        # Layer 6: Static Fallback
         # All 5 tiers failed. Return a hardcoded message instead of crashing.
         agent_logger.error(
             "LLM",
@@ -246,7 +243,7 @@ def make_call_model(tools_getter: Callable[[], list] = get_all_tools):
     return _call_model
 
 
-# Default call_model uses get_all_tools (backward-compatible)
+# Default call_model uses get_all_tools (backward compatible)
 call_model = make_call_model(get_all_tools)
 
 
@@ -316,5 +313,5 @@ def make_call_tools(tools_getter: Callable[[], list] = get_all_tools):
     return _call_tools
 
 
-# Default call_tools uses get_all_tools (backward-compatible)
+# Default call_tools uses get_all_tools (backward compatible)
 call_tools = make_call_tools(get_all_tools)

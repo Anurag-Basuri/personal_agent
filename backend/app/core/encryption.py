@@ -43,7 +43,7 @@ def _get_key() -> bytes:
 
 
 def encrypt_string(data: str) -> str:
-    """Encrypts a string using AES-GCM and returns a base64 encoded token containing the nonce and ciphertext."""
+    """Encrypts a string using AES GCM and returns a base64 encoded token containing the nonce and ciphertext."""
     if not data:
         return data
 

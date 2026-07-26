@@ -26,8 +26,7 @@ from app.config import get_settings
 from app.core.logger import agent_logger
 
 
-# ─── Provider Dataclass ──────────────────────────────────────────
-
+# Provider Dataclass
 @dataclass
 class LLMProvider:
     """Describes a single LLM in the fallback chain."""
@@ -36,14 +35,13 @@ class LLMProvider:
     tier: int
     # "GitHub", "Groq", "HuggingFace"
     provider_name: str
-    # e.g., "openai/gpt-4o"
+    # e.g., "openai/gpt 4o"
     model_name: str
     # The LangChain LLM instance (unbound)
     llm: BaseChatModel
 
 
-# ─── Placeholder values that should be skipped ───────────────────
-
+# Placeholder values that should be skipped
 _PLACEHOLDER_VALUES = {
     "", "your_huggingface_api_key", "your_gemini_api_key_here",
     "your_huggingface_deployment_token", "your-api-key-here",
@@ -52,8 +50,7 @@ _PLACEHOLDER_VALUES = {
 }
 
 
-# ─── Module state ────────────────────────────────────────────────
-
+# Module state
 _providers: list[LLMProvider] = []
 _initialized: bool = False
 
@@ -75,7 +72,7 @@ def _init_providers() -> None:
 
     settings = get_settings()
 
-    # ─── Tier 1, 2, 3: GitHub Models ─────────────────────────────
+    # Tier 1, 2, 3: GitHub Models
     if _is_valid_key(settings.GITHUB_TOKEN):
         from langchain_openai import ChatOpenAI
 
@@ -108,7 +105,7 @@ def _init_providers() -> None:
             "LLM", "⚠️ GITHUB_TOKEN not set — Tiers 1-3 (GitHub Models) skipped",
         )
 
-    # ─── Tier 4: Groq ────────────────────────────────────────────
+    # Tier 4: Groq
     if _is_valid_key(settings.GROQ_API_KEY):
         try:
             from langchain_groq import ChatGroq
@@ -130,7 +127,7 @@ def _init_providers() -> None:
             "LLM", "⚠️ GROQ_API_KEY not set — Tier 4 (Groq) skipped",
         )
 
-    # ─── Tier 5: HuggingFace ─────────────────────────────────────
+    # Tier 5: HuggingFace
     if _is_valid_key(settings.HF_TOKEN):
         try:
             from langchain_openai import ChatOpenAI
@@ -154,7 +151,7 @@ def _init_providers() -> None:
             "LLM", "⚠️ HF_TOKEN not set — Tier 5 (HuggingFace) skipped",
         )
 
-    # ─── Summary ─────────────────────────────────────────────────
+    # Summary
     if _providers:
         tier_summary = ", ".join(
             f"T{p.tier}:{p.provider_name}/{p.model_name}" for p in _providers
@@ -169,8 +166,7 @@ def _init_providers() -> None:
         )
 
 
-# ─── Public API ──────────────────────────────────────────────────
-
+# Public API
 def get_providers() -> list[LLMProvider]:
     """
     Return the ordered list of available LLM providers.

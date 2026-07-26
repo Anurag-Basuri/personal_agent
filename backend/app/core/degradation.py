@@ -21,17 +21,17 @@ class DegradationLevel(StrEnum):
 
     # Everything operational
     FULL = "full"
-    # Vector store down — fallback context
+    # Vector store down fallback context
     NO_RAG = "no_rag"
-    # MCP servers down — local tools only
+    # MCP servers down local tools only
     NO_MCP = "no_mcp"
-    # All external tools failing — LLM knowledge only
+    # All external tools failing LLM knowledge only
     NO_TOOLS = "no_tools"
-    # Primary LLM tier down — using secondary+
+    # Primary LLM tier down using secondary+
     FALLBACK_LLM = "fallback"
     # Multiple subsystems down
     DEGRADED = "degraded"
-    # No LLM available — static fallback only
+    # No LLM available static fallback only
     UNAVAILABLE = "unavailable"
 
 
@@ -43,15 +43,15 @@ class SystemHealth:
 
     def __init__(self):
         self.subsystems: dict[str, bool] = {
-            # GitHub Models — GPT-4o
+            # GitHub Models GPT 4o
             "llm_tier_1": True,
-            # GitHub Models — Llama 3.3 70B
+            # GitHub Models Llama 3.3 70B
             "llm_tier_2": True,
-            # GitHub Models — GPT-4o-mini
+            # GitHub Models GPT 4o mini
             "llm_tier_3": True,
-            # Groq — Llama 3.1 8B
+            # Groq Llama 3.1 8B
             "llm_tier_4": True,
-            # HuggingFace — Qwen 2.5 72B
+            # HuggingFace Qwen 2.5 72B
             "llm_tier_5": True,
             "rag": True,
             "mcp": True,
@@ -95,11 +95,11 @@ class SystemHealth:
         up = self.subsystems
         llm_up = self._llm_tiers_up
 
-        # Total LLM failure — all tiers down, running on static Layer 6
+        # Total LLM failure all tiers down, running on static Layer 6
         if llm_up == 0:
             return DegradationLevel.UNAVAILABLE
 
-        # Count non-LLM subsystems that are down
+        # Count non LLM subsystems that are down
         non_llm_down = sum(
             1 for k, v in up.items()
             if not k.startswith("llm_tier_") and not v
@@ -116,7 +116,7 @@ class SystemHealth:
         if total_down >= 3:
             return DegradationLevel.DEGRADED
 
-        # Single-category failures
+        # Single category failures
         if llm_down > 0 and non_llm_down == 0:
             return DegradationLevel.FALLBACK_LLM
 
@@ -133,7 +133,7 @@ class SystemHealth:
 
     @property
     def available_capabilities(self) -> list[str]:
-        """Return a human-readable list of what's currently working."""
+        """Return a human readable list of what's currently working."""
         up = self.subsystems
         caps = []
 

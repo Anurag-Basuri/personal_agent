@@ -1,4 +1,4 @@
-"""Contact form tool — submits visitor inquiries via the portfolio's public API.
+"""Contact form tool   submits visitor inquiries via the portfolio's public API.
 
 Instead of writing directly to the database, this tool makes a POST request
 to the portfolio's /api/v1/contact endpoint, which handles sanitization,
@@ -31,7 +31,7 @@ async def _submit_contact(url: str, payload: dict) -> httpx.Response:
 async def contact_tool(name: str, email: str, subject: str, message: str) -> str:
     """Submit an inquiry, job offer, or contact message to Anurag via his portfolio's contact form.
     You MUST ask the user for their name, email, and message explicitly before calling this tool.
-    The subject should be auto-generated based on context (e.g., 'Job Inquiry via AI Agent')."""
+    The subject should be auto generated based on context (e.g., 'Job Inquiry via AI Agent')."""
     settings = get_settings()
     portfolio_url = settings.PORTFOLIO_URL
 

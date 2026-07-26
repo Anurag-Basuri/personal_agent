@@ -125,7 +125,7 @@ def get_message_history(
     role: str = "GUEST",
     transport: str = "WEB",
 ) -> AsyncMessageHistory:
-    """Factory — returns an async message history for the given session."""
+    """Factory   returns an async message history for the given session."""
     return AsyncMessageHistory(session_id, user_id, role, transport)
 
 

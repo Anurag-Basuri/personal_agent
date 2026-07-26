@@ -31,9 +31,9 @@ class EncryptedString(TypeDecorator):
         return decrypted
 
 
-# ─── Conditional pgvector Import ─────────────────────────────────
+# Conditional pgvector Import
 # pgvector is only available when using PostgreSQL. On SQLite, we use a
-# nullable Text column as a no-op placeholder for the embedding field.
+# nullable Text column as a no op placeholder for the embedding field.
 _vector_column_type = None
 try:
     from app.config import get_settings as _get_settings
@@ -63,9 +63,9 @@ class AgentMessage(Base):
     # The actual message text, completely encrypted in the database
     content: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
 
-    # Mathematical Representation for Omni-Memory Semantic Search
+    # Mathematical Representation for Omni Memory Semantic Search
     # On PostgreSQL: Vector(768) column for pgvector similarity search
-    # On SQLite: nullable Text column (no-op, embeddings disabled)
+    # On SQLite: nullable Text column (no op, embeddings disabled)
     if _vector_column_type is not None:
         embedding = mapped_column(_vector_column_type, nullable=True)
     else:
