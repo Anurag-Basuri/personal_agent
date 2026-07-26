@@ -47,7 +47,8 @@ class CircuitBreaker:
         self.expected_exceptions = expected_exceptions
 
         # Internal state
-        self._state: str = "CLOSED"  # CLOSED | OPEN | HALF_OPEN
+        # CLOSED | OPEN | HALF_OPEN
+        self._state: str = "CLOSED"
         self._failure_count: int = 0
         self._last_failure_time: float = 0.0
         self._success_count: int = 0
@@ -73,7 +74,8 @@ class CircuitBreaker:
         Raises CircuitOpenError if the circuit is OPEN and cooldown
         hasn't expired yet.
         """
-        current_state = self.state  # triggers auto-transition check
+        # triggers auto-transition check
+        current_state = self.state
 
         if current_state == "OPEN":
             self._total_rejections += 1

@@ -104,15 +104,20 @@ _counter = SlidingWindowCounter()
 # Format: {endpoint_name: {role: (max_requests, window_seconds)}}
 ENDPOINT_LIMITS: dict[str, dict[str, tuple[int, int]]] = {
     "chat": {
-        "ADMIN": (20, 60),      # 20 req/min for owner
-        "GUEST": (5, 60),       # 5 req/min for portfolio visitors
+        # 20 req/min for owner
+        "ADMIN": (20, 60),
+        # 5 req/min for portfolio visitors
+        "GUEST": (5, 60),
     },
     "public_chat": {
-        "ADMIN": (30, 60),      # Admin testing the public endpoint
-        "GUEST": (10, 60),      # 10 req/min per IP for public visitors
+        # Admin testing the public endpoint
+        "ADMIN": (30, 60),
+        # 10 req/min per IP for public visitors
+        "GUEST": (10, 60),
     },
     "chat_history": {
-        "ADMIN": (60, 60),      # Read-only, cheap
+        # Read-only, cheap
+        "ADMIN": (60, 60),
         "GUEST": (20, 60),
     },
     "chat_reset": {
@@ -124,8 +129,10 @@ ENDPOINT_LIMITS: dict[str, dict[str, tuple[int, int]]] = {
         "GUEST": (5, 60),
     },
     "mcp_reload": {
-        "ADMIN": (5, 60),       # Prevents reconnection storms
-        "GUEST": (0, 60),       # Guests can't access MCP admin
+        # Prevents reconnection storms
+        "ADMIN": (5, 60),
+        # Guests can't access MCP admin
+        "GUEST": (0, 60),
     },
     "admin": {
         "ADMIN": (30, 60),
@@ -135,9 +142,12 @@ ENDPOINT_LIMITS: dict[str, dict[str, tuple[int, int]]] = {
 
 # LLM budget limits (per-resource, not per-endpoint)
 LLM_BUDGET_LIMITS: dict[str, tuple[int, int]] = {
-    "llm_primary": (100, 3600),     # 100 calls/hour for primary LLM
-    "llm_fallback": (200, 3600),    # 200 calls/hour for fallback
-    "tool_execution": (50, 3600),   # 50 tool calls/hour per tool
+    # 100 calls/hour for primary LLM
+    "llm_primary": (100, 3600),
+    # 200 calls/hour for fallback
+    "llm_fallback": (200, 3600),
+    # 50 tool calls/hour per tool
+    "tool_execution": (50, 3600),
 }
 
 
@@ -214,7 +224,8 @@ def check_llm_budget(resource: str, identifier: str = "global") -> bool:
     """
     limits = LLM_BUDGET_LIMITS.get(resource)
     if not limits:
-        return True  # No limit defined
+        # No limit defined
+        return True
 
     max_calls, window = limits
     key = f"budget:{identifier}:{resource}"

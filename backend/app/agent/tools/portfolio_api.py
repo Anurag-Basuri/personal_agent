@@ -21,7 +21,8 @@ from app.core.cache import TTLCache
 from app.core.retry import retry_with_backoff
 
 # Cache API responses to avoid hammering the portfolio server
-_api_cache = TTLCache(default_ttl=300)  # 5 minutes
+# 5 minutes
+_api_cache = TTLCache(default_ttl=300)
 
 # ─── API Endpoint Mapping ──────────────────────────────────────────
 

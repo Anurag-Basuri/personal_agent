@@ -5,9 +5,11 @@ A simple, thread-safe cache backed by a Python dictionary.
 No external dependencies (Redis, Memcached) required.
 
 Usage:
-    cache = TTLCache(default_ttl=300)  # 5-minute default
+    # 5-minute default
+    cache = TTLCache(default_ttl=300)
     cache.set("user:123:memories", data, ttl=600)
-    result = cache.get("user:123:memories")   # None if expired
+    # None if expired
+    result = cache.get("user:123:memories")
     cache.delete("user:123:memories")
     cache.delete_pattern("user:123:*")
 """
@@ -99,7 +101,8 @@ class TTLCache:
         if not pattern.endswith("*"):
             return self.delete(pattern) and 1 or 0
 
-        prefix = pattern[:-1]  # Remove the trailing *
+        # Remove the trailing *
+        prefix = pattern[:-1]
         count = 0
         with self._lock:
             keys_to_delete = [k for k in self._store if k.startswith(prefix)]

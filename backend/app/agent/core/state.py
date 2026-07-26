@@ -15,10 +15,12 @@ class AgentState(TypedDict):
     messages: Annotated[list[BaseMessage], add_messages]
     session_id: str
     user_id: str | None
-    role: str  # e.g., "GUEST" or "ADMIN"
+    # e.g., "GUEST" or "ADMIN"
+    role: str
     current_url: str | None
     # Intent classification from the router node
-    intent: str  # "tool_use", "direct_reply", "greeting", "meta_question"
+    # "tool_use", "direct_reply", "greeting", "meta_question"
+    intent: str
     # Conversation summary injected from memory
     summary: str | None
 

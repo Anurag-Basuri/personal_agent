@@ -43,7 +43,8 @@ async def _public_session_cleanup_loop():
 
     while True:
         try:
-            await asyncio.sleep(30 * 60)  # 30 minutes
+            # 30 minutes
+            await asyncio.sleep(30 * 60)
             deleted = await session_repo.delete_inactive_public_sessions(
                 max_inactivity_minutes=60,
             )
@@ -64,7 +65,8 @@ async def _public_session_cleanup_loop():
         except Exception as e:
             from app.core.logger import agent_logger
             agent_logger.warn("CLEANUP", f"Session cleanup error (non-fatal): {e}")
-            await asyncio.sleep(60)  # Retry in 1 minute on error
+            # Retry in 1 minute on error
+            await asyncio.sleep(60)
 
 
 async def _rag_sync_loop():
@@ -78,7 +80,8 @@ async def _rag_sync_loop():
     from app.rag.vector_store import RAG_AVAILABLE
 
     if not RAG_AVAILABLE:
-        return  # No point running if RAG isn't available
+        # No point running if RAG isn't available
+        return
 
     settings = get_settings()
     interval_seconds = settings.RAG_SYNC_INTERVAL_HOURS * 3600
@@ -93,7 +96,8 @@ async def _rag_sync_loop():
             break
         except Exception as e:
             agent_logger.warn("RAG", f"Periodic RAG sync error (non-fatal): {e}")
-            await asyncio.sleep(300)  # Retry in 5 minutes on error
+            # Retry in 5 minutes on error
+            await asyncio.sleep(300)
 
 
 # ─── Lifespan ────────────────────────────────────────────────────

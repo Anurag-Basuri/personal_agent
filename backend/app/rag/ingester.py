@@ -249,7 +249,8 @@ async def run_ingestion():
     # Clear existing documents before re-ingesting to prevent duplicates
     try:
         # Delete all existing documents from the collection
-        await vector_store.adelete(ids=None)  # Clear all
+        # Clear all
+        await vector_store.adelete(ids=None)
         agent_logger.info("RAG", "  Cleared old vector store documents")
     except Exception as e:
         agent_logger.warn("RAG", f"  Could not clear old documents (non-critical): {e}")

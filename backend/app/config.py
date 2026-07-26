@@ -24,11 +24,13 @@ class Settings(BaseSettings):
     PORT: int = 4000
     DEBUG: bool = False
     CLIENT_URL: str = "http://localhost:3000"       # Agent website origin
-    PORTFOLIO_URL: str = ""                          # Portfolio website origin (for CORS)
+    # Portfolio website origin (for CORS)
+    PORTFOLIO_URL: str = ""
 
     # ─── Database ────────────────────────────────────────────────
     DATABASE_URL: str = "sqlite+aiosqlite:///./dev.db"
-    PORTFOLIO_DB_URL: str = ""  # Optional: separate portfolio database
+    # Optional: separate portfolio database
+    PORTFOLIO_DB_URL: str = ""
 
     # ─── AI Providers ────────────────────────────────────────────
     HF_TOKEN: str = ""
@@ -44,16 +46,21 @@ class Settings(BaseSettings):
 
     # ─── Security & Auth ─────────────────────────────────────────
     AUTH_SECRET: str = ""
-    AUTH_GOOGLE_CLIENT_ID: str = ""  # Google OAuth Client ID for ID token verification
-    OMNI_MEMORY_KEY: str = ""       # Base64 AES-GCM 256-bit key
-    REINDEX_SECRET: str = ""        # Shared secret for RAG reindex webhook
+    # Google OAuth Client ID for ID token verification
+    AUTH_GOOGLE_CLIENT_ID: str = ""
+    # Base64 AES-GCM 256-bit key
+    OMNI_MEMORY_KEY: str = ""
+    # Shared secret for RAG reindex webhook
+    REINDEX_SECRET: str = ""
 
     # ─── RAG Sync ────────────────────────────────────────────────
-    RAG_SYNC_INTERVAL_HOURS: int = 6  # Background RAG re-ingestion interval
+    # Background RAG re-ingestion interval
+    RAG_SYNC_INTERVAL_HOURS: int = 6
 
     # ─── Telegram Bot ────────────────────────────────────────────
     TELEGRAM_BOT_TOKEN: str = ""
-    TELEGRAM_ALLOWED_USER_IDS: str = "" # Comma separated list of allowed Telegram user IDs
+    # Comma separated list of allowed Telegram user IDs
+    TELEGRAM_ALLOWED_USER_IDS: str = ""
 
     @property
     def telegram_allowed_ids(self) -> list[int]:

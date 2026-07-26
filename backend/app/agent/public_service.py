@@ -163,7 +163,8 @@ async def process_public_message(
         "user_id": None,
         "role": "GUEST",
         "current_url": current_url,
-        "intent": "tool_use",  # Default — router will override
+        # Default — router will override
+        "intent": "tool_use",
         "summary": "",
     }
 

@@ -16,8 +16,10 @@ from app.core.logger import agent_logger
 
 # ─── Constants ────────────────────────────────────────────────────
 
-SUMMARIZATION_THRESHOLD = 15  # Trigger summarization after this many messages
-MAX_CONTEXT_MESSAGES = 20     # Maximum messages to send to LLM (keep recent + summary)
+# Trigger summarization after this many messages
+SUMMARIZATION_THRESHOLD = 15
+# Maximum messages to send to LLM (keep recent + summary)
+MAX_CONTEXT_MESSAGES = 20
 
 _SUMMARIZE_PROMPT = """You are a conversation summarizer. Analyze the following conversation between a user and an AI agent. Produce two outputs in valid JSON:
 
@@ -41,9 +43,11 @@ def build_summarization_prompt(messages: list[BaseMessage]) -> str:
     conversation_text = ""
     for msg in messages:
         if isinstance(msg, SystemMessage):
-            continue  # Skip system prompts — not relevant for summarization
+            # Skip system prompts — not relevant for summarization
+            continue
         role = "User" if isinstance(msg, HumanMessage) else "Assistant"
-        content = str(msg.content)[:500]  # Truncate very long messages
+        # Truncate very long messages
+        content = str(msg.content)[:500]
         conversation_text += f"{role}: {content}\n"
 
     return _SUMMARIZE_PROMPT + conversation_text

@@ -19,13 +19,20 @@ from app.core.logger import agent_logger
 class DegradationLevel(StrEnum):
     """Ordered severity levels for system degradation."""
 
-    FULL = "full"               # Everything operational
-    NO_RAG = "no_rag"           # Vector store down — fallback context
-    NO_MCP = "no_mcp"           # MCP servers down — local tools only
-    NO_TOOLS = "no_tools"       # All external tools failing — LLM knowledge only
-    FALLBACK_LLM = "fallback"   # Primary LLM tier down — using secondary+
-    DEGRADED = "degraded"       # Multiple subsystems down
-    UNAVAILABLE = "unavailable" # No LLM available — static fallback only
+    # Everything operational
+    FULL = "full"
+    # Vector store down — fallback context
+    NO_RAG = "no_rag"
+    # MCP servers down — local tools only
+    NO_MCP = "no_mcp"
+    # All external tools failing — LLM knowledge only
+    NO_TOOLS = "no_tools"
+    # Primary LLM tier down — using secondary+
+    FALLBACK_LLM = "fallback"
+    # Multiple subsystems down
+    DEGRADED = "degraded"
+    # No LLM available — static fallback only
+    UNAVAILABLE = "unavailable"
 
 
 class SystemHealth:
@@ -36,11 +43,16 @@ class SystemHealth:
 
     def __init__(self):
         self.subsystems: dict[str, bool] = {
-            "llm_tier_1": True,     # GitHub Models — GPT-4o
-            "llm_tier_2": True,     # GitHub Models — Llama 3.3 70B
-            "llm_tier_3": True,     # GitHub Models — GPT-4o-mini
-            "llm_tier_4": True,     # Groq — Llama 3.1 8B
-            "llm_tier_5": True,     # HuggingFace — Qwen 2.5 72B
+            # GitHub Models — GPT-4o
+            "llm_tier_1": True,
+            # GitHub Models — Llama 3.3 70B
+            "llm_tier_2": True,
+            # GitHub Models — GPT-4o-mini
+            "llm_tier_3": True,
+            # Groq — Llama 3.1 8B
+            "llm_tier_4": True,
+            # HuggingFace — Qwen 2.5 72B
+            "llm_tier_5": True,
             "rag": True,
             "mcp": True,
             "database": True,

@@ -41,7 +41,8 @@ _setup_logger()
 
 # ─── Public API ──────────────────────────────────────────────────
 
-LogCategory = str  # One of: LLM, TOOL, MEMORY, CTRL, SYSTEM
+# One of: LLM, TOOL, MEMORY, CTRL, SYSTEM
+LogCategory = str
 
 
 def _log(level: int, category: LogCategory, message: str, meta: dict[str, Any] | None = None) -> None:

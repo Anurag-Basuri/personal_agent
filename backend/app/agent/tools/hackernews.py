@@ -56,7 +56,8 @@ async def hackernews_tool(query: str = "") -> str:
                     if story:
                         stories.append(story)
                 except Exception:
-                    continue  # Skip failed individual stories
+                    # Skip failed individual stories
+                    continue
 
             if not stories:
                 return "Could not fetch top Hacker News stories right now."

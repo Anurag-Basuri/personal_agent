@@ -74,7 +74,8 @@ class AgentMessage(Base):
     # Store tool calls or results. Also encrypted.
     tool_calls: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
     tool_call_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    name: Mapped[str | None] = mapped_column(String, nullable=True)  # Tool name for tool messages
+    # Tool name for tool messages
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
 
     tokens_used: Mapped[int] = mapped_column(default=0)
 

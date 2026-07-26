@@ -115,7 +115,8 @@ async def get_history(
         MessageResponseItem(
             id=m.id,
             role=m.role,
-            content=m.content or "",  # Transparently decrypted via TypeDecorator
+            # Transparently decrypted via TypeDecorator
+            content=m.content or "",
             created_at=m.createdAt.isoformat(),
         )
         for m in db_messages

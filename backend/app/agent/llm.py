@@ -32,10 +32,14 @@ from app.core.logger import agent_logger
 class LLMProvider:
     """Describes a single LLM in the fallback chain."""
 
-    tier: int               # 1 through 5
-    provider_name: str      # "GitHub", "Groq", "HuggingFace"
-    model_name: str         # e.g., "openai/gpt-4o"
-    llm: BaseChatModel      # The LangChain LLM instance (unbound)
+    # 1 through 5
+    tier: int
+    # "GitHub", "Groq", "HuggingFace"
+    provider_name: str
+    # e.g., "openai/gpt-4o"
+    model_name: str
+    # The LangChain LLM instance (unbound)
+    llm: BaseChatModel
 
 
 # ─── Placeholder values that should be skipped ───────────────────

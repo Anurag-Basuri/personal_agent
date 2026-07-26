@@ -160,7 +160,8 @@ async def process_user_message(
         "user_id": user_id,
         "role": role,
         "current_url": current_url,
-        "intent": "tool_use",  # Default — router will override
+        # Default — router will override
+        "intent": "tool_use",
         "summary": session_summary,
     }
 
@@ -182,7 +183,8 @@ async def process_user_message(
 
     # Save everything Graph generated (AI / Tool messages)
     final_messages = final_state["messages"]
-    new_generated_messages = final_messages[new_messages_offset + 1:]  # +1 because system prompt is at [0]
+    # +1 because system prompt is at [0]
+    new_generated_messages = final_messages[new_messages_offset + 1:]
 
     for msg in new_generated_messages:
         await memory.add_message(msg)

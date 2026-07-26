@@ -7,6 +7,10 @@
 - **Caching**: Wrap read-heavy database calls with the `TTLCache` to prevent performance degradation. Ensure cache is invalidated upon writes.
 - **Rate Limiting**: Protect new FastAPI endpoints with the `rate_limit` dependency from `app.core.rate_limiter`.
 - **Python Conventions**: Use type hints, adhere to PEP 8, and format docstrings for all new methods.
+- **Comment Conventions (Server Backend Only)**:
+  - **No Inline Comments**: Do NOT place comments on the same line as code (e.g., `y = x + y # qwerty`). All comments must reside on their own dedicated line immediately preceding the code block or statement they describe.
+  - **Hierarchical Structure**: Avoid large monolithic block comments inside method or function bodies. Break down extensive explanations and place them as high-level docstrings before the particular methods or functions.
+  - **Specific Single-Line Comments**: Within function or method bodies, write very specific, concise single-line comments immediately before the code block describing the step or logic.
 - **Workflow**: Create detailed implementation plans in an artifact before execution for major structural changes. Write code incrementally and atomically.
 - **Documentation Context**: Always read and maintain the context of the four primary project documentation files (`README.md`, `PROGRESS.md`, `ROADMAP.md`, and `SYSTEM_DESIGN.md`). Whenever you implement new features or architectural patterns, you must proactively update these files accordingly, or at the very least, explicitly inform the user that these files need updates to reflect the changes.
 
