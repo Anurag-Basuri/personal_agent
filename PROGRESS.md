@@ -4,9 +4,9 @@ This file tracks completion status against the [ROADMAP.md](./ROADMAP.md).
 
 ## Current Status
 
-- **Done**: ~55%
-- **In Progress**: 0%
-- **Remaining**: ~45%
+- **Done**: ~65%
+- **In Progress**: ~10% (Frontend UI integration next)
+- **Remaining**: ~25%
 
 ---
 
@@ -29,23 +29,23 @@ This file tracks completion status against the [ROADMAP.md](./ROADMAP.md).
 | Phase 11: Multi-Mode Agent | ⬜ Not Started | |
 | Phase 12: Reliability & Safety | ✅ Done | Repositories, Circuit Breakers, Retry, Rate Limiting, TTLCache |
 | Phase 13: UX & Product Polish | ⬜ Not Started | |
-| Phase 14: Cost Optimizations | ⬜ Not Started | |
-| Phase 15: Public/Private Split | ⬜ Not Started | Optional |
+| Phase 14: Cost Optimizations | ✅ Done | 6-Layer Fallback Cascade implemented (GitHub -> Groq -> HuggingFace) |
+| Phase 15: Public/Private Split | ✅ Done | Complete 3-Way Split (Public Widget, Agent Website, Admin Exclusive) |
 
 ---
 
 ## What's Already Built
 
 ### Backend (`backend/`)
-- FastAPI server with `/chat`, `/chat/reset`, `/health`, `/admin`, and `/admin/mcp` routes
+- Strict 3-Way physical route split: `/api/public/*` (widget), `/api/agent/*` (user website), and `/api/admin/*` (admin exclusive)
+- 6-Layer LLM Fallback Cascade (GitHub Models GPT-4o -> Llama-3.3-70B -> GPT-4o-mini -> Groq Llama-3.1 -> HuggingFace -> Static Fallback)
+- Live REST API tools fetching dynamic data from Vercel (`portfolio_url`) + background RAG webhook re-indexing (`POST /api/admin/reindex`)
 - LangGraph DAG agent loop with strict routing and node transitions
-- Dual-LLM failover: Primary LLM (with Circuit Breaker) → Fallback LLM
 - Tooling via Model Context Protocol (MCP) and dynamic tool loading
-- SQLAlchemy/PostgreSQL persistence for chat sessions (Repository Pattern)
-- Multi-tier Rate Limiting (per-user, per-endpoint, per-resource)
-- In-memory TTLCache with auto-invalidation
-- Structured logging via `agent_logger`
-- AES-GCM 256-bit deep privacy memory encryption
+- SQLAlchemy/PostgreSQL persistence for chat sessions with Repository Pattern enforcement
+- Multi-tier Rate Limiting (per-user, per-endpoint, per-resource) and in-memory TTLCache with auto-invalidation
+- Structured logging via `agent_logger` and AES-GCM 256-bit deep privacy memory encryption
+- Enforced clean coding style: zero inline comments, zero hyphens/dashes in comments, and zero vertical gaps before functions
 
 ### Frontend (`frontend/`)
 - Next.js app with chat widget
@@ -56,7 +56,7 @@ This file tracks completion status against the [ROADMAP.md](./ROADMAP.md).
 
 ## Next Milestone
 
-**Add Third-Party MCP Servers** — Connect external MCP tools (Brave Search, GitHub MCP, etc.) via the admin API. Infrastructure is built, just needs real servers.
+**Portfolio Integration & Frontend UI Polish** — Fix the `/api/v1/profile` 500 error on the Vercel portfolio backend, embed the public chatbot widget into the live portfolio website, and connect the Next.js personal agent website to our completed 3-way backend endpoints.
 
 ---
 

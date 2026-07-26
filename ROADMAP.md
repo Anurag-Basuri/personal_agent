@@ -683,7 +683,7 @@ Make the assistant feel premium and purposeful.
 
 ---
 
-## Phase 14: Cost & Performance Optimizations
+## Phase 14: Cost & Performance Optimizations ✅ (Done)
 
 ### Goal
 
@@ -705,7 +705,7 @@ Reduce latency and cost without losing quality.
 
 ---
 
-## Phase 15: Public vs Private Agent Split (Optional)
+## Phase 15: Public vs Private Agent Split ✅ (Done)
 
 ### Goal
 
