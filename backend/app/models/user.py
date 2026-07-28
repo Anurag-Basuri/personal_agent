@@ -19,6 +19,9 @@ class User(Base):
     # Role tracking for RBAC (GUEST, ADMIN)
     role: Mapped[str] = mapped_column(String, default="GUEST", nullable=False)
 
+    # Manual Auth (nullable for OAuth users)
+    hashed_password: Mapped[str | None] = mapped_column(String, nullable=True)
+
     createdAt: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     sessions = relationship("AgentSession", back_populates="user", cascade="all, delete-orphan")
