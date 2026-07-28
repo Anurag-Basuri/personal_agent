@@ -2,7 +2,6 @@
 Google OAuth 2.0 Authentication for FastAPI.
 
 Verifies Google ID tokens sent as Bearer tokens from the Next.js frontend.
-In DEBUG mode, creates a dev user when no token is present for easy testing.
 """
 
 import uuid
@@ -21,7 +20,7 @@ def _extract_bearer_token(request: Request) -> str | None:
     """Extract Bearer token from Authorization header."""
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
-        return auth_header[7:].strip()
+        return auth_header[7:].strip() 
     return None
 
 
@@ -76,9 +75,6 @@ async def get_current_user(
     FastAPI Dependency to authenticate users via Google OAuth 2.0 ID tokens.
 
     Expects: Authorization: Bearer <google_id_token>
-
-    In DEBUG mode, if no token is present, a dev user is auto-created
-    so the server can be tested without the frontend running.
     """
     settings = get_settings()
     token = _extract_bearer_token(request)

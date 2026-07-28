@@ -49,8 +49,8 @@ class Settings(BaseSettings):
     AUTH_SECRET: str = ""
     # Google OAuth Client ID for ID token verification
     AUTH_GOOGLE_CLIENT_ID: str = ""
-    # Base64 AES GCM 256 bit key
-    OMNI_MEMORY_KEY: str = ""
+
+
     # Shared secret for RAG reindex webhook
     REINDEX_SECRET: str = ""
 

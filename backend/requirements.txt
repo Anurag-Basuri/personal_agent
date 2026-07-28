@@ -32,10 +32,11 @@ cryptography>=41.0.0
 # Google OAuth 2.0 ID Token Verification
 google-auth>=2.29.0
 
-# PostgreSQL / Vector RAG (optional — only active when DATABASE_URL is postgres)
+# PostgreSQL / Vector RAG (Neon PostgreSQL with pgvector)
 asyncpg>=0.30.0
 pgvector>=0.3.0
 langchain-postgres>=0.0.12
+sentence-transformers>=3.0.0
 
 # Utilities
 python-dotenv>=1.0.0

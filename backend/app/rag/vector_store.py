@@ -37,13 +37,13 @@ def get_neon_vector_store(collection_name: str = "portfolio_knowledge"):
     try:
         from langchain_postgres.vectorstores import PGVector
 
-        db_url = settings.DATABASE_URL.replace("+asyncpg", "")
-
         return PGVector(
-            connection=db_url,
+            connection=settings.DATABASE_URL,
             embeddings=get_embeddings(),
             collection_name=collection_name,
             use_jsonb=True,
+            async_mode=True,
+            create_extension=False,
         )
     except Exception as e:
         agent_logger.error("RAG", f"Failed to initialize PGVector store: {e}")
