@@ -90,7 +90,7 @@ def mock_settings():
         GITHUB_USERNAME="test-user",
         LEETCODE_USERNAME="test-user",
         AUTH_SECRET="test-secret",
-        OMNI_MEMORY_KEY="",
+
         HF_TOKEN="",
         GROQ_API_KEY="",
         GITHUB_TOKEN="",

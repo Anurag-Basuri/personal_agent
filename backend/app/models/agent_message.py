@@ -5,30 +5,11 @@ from typing import Any
 
 from sqlalchemy import DateTime, ForeignKey, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy.types import TypeDecorator
 
-from app.core.encryption import decrypt_string, encrypt_string
 from app.models.base import Base
 
 
-class EncryptedString(TypeDecorator):
-    """Transparently encrypts value on save, decrypts on load."""
-    impl = Text
-    cache_ok = True
 
-    def process_bind_param(self, value: Any | None, dialect: Any) -> str | None:
-        if value is None:
-            return None
-        # Convert objects like list/dict (e.g. tool calls) to string before encryption
-        if not isinstance(value, str):
-            value = json.dumps(value)
-        return encrypt_string(value)
-
-    def process_result_value(self, value: str | None, dialect: Any) -> Any | None:
-        if value is None:
-            return None
-        decrypted = decrypt_string(value)
-        return decrypted
 
 
 # Conditional pgvector Import
@@ -60,8 +41,8 @@ class AgentMessage(Base):
     # "user", "ai", "system", "tool"
     role: Mapped[str] = mapped_column(String, nullable=False)
 
-    # The actual message text, completely encrypted in the database
-    content: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+    # The actual message text
+    content: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     # Mathematical Representation for Omni Memory Semantic Search
     # On PostgreSQL: Vector(768) column for pgvector similarity search
@@ -71,8 +52,8 @@ class AgentMessage(Base):
     else:
         embedding: Mapped[str | None] = mapped_column(Text, nullable=True)
 
-    # Store tool calls or results. Also encrypted.
-    tool_calls: Mapped[str | None] = mapped_column(EncryptedString, nullable=True)
+    # Store tool calls or results.
+    tool_calls: Mapped[str | None] = mapped_column(Text, nullable=True)
     tool_call_id: Mapped[str | None] = mapped_column(String, nullable=True)
     # Tool name for tool messages
     name: Mapped[str | None] = mapped_column(String, nullable=True)
