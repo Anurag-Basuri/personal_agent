@@ -32,6 +32,10 @@ cryptography>=41.0.0
 # Google OAuth 2.0 ID Token Verification
 google-auth>=2.29.0
 
+# Password Hashing and JWT
+passlib[bcrypt]>=1.7.4
+PyJWT>=2.1.0
+
 # PostgreSQL / Vector RAG (Neon PostgreSQL with pgvector)
 asyncpg>=0.30.0
 pgvector>=0.3.0

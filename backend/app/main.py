@@ -210,9 +210,13 @@ def create_app() -> FastAPI:
     from app.api.mcp import router as mcp_router
     from app.api.public import router as public_router
     from app.api.reindex import router as reindex_router
+    from app.api.auth import router as auth_router
 
     # Public portfolio chatbot (no auth)
     app.include_router(public_router)
+
+    # Internal auth endpoints
+    app.include_router(auth_router)
 
     # Authenticated endpoints
     app.include_router(health_router)
