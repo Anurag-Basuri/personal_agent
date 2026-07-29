@@ -526,105 +526,79 @@ synthesize_reply → END
 
 ---
 
-## Phase 9: WhatsApp Integration
+## Phase 9: WhatsApp Notification Engine
 
 ### Goal
 
-Add WhatsApp as a third transport channel.
-
-### What You'll Learn
-
-- Twilio / Meta WhatsApp Business API
-- Webhook verification
-- Media message handling
+Integrate WhatsApp using a free service (CallMeBot) to push proactive notifications from the agent to your phone.
 
 ### Tasks
 
-#### 9.1 — API Setup
-
-- **Option A**: Twilio WhatsApp Sandbox (free for dev)
-- **Option B**: Meta WhatsApp Business Cloud API (free tier: 1000 messages/month)
-- Configure webhook endpoint
-
-#### 9.2 — Transport Layer
-
-- Create `backend/transports/whatsapp.ts`
-- Map incoming WhatsApp messages → `processUserMessage()` → reply
-- Use phone number as session identifier
-- Handle text, image, document messages
-
-#### 9.3 — Rich Messaging
-
-- Use WhatsApp interactive messages: buttons, lists, quick replies
-- Format agent responses for mobile readability
+- Set up CallMeBot API key
+- Create `backend/transports/whatsapp.py` (or as a standalone MCP tool `send_whatsapp`)
+- Build the **Cron Automation Endpoint** (`/api/admin/automations/run`)
+- Set up cron-job.org to ping the endpoint every 15-30 minutes, keeping the Render free tier awake and triggering proactive checks.
 
 ### Acceptance Criteria
 
-- Send a WhatsApp message → get agent response
-- Session memory works across messages
-- Rich formatting and buttons for confirmations
+- Agent can proactively send you a WhatsApp message when triggered by the cron job.
 
 ---
 
-## Phase 10: Calendar & Scheduling
+## Phase 10: The Google Workspace & Finance Brain
 
 ### Goal
 
-Integrate Google Calendar for scheduling and availability management.
-
-### What You'll Learn
-
-- Google Calendar API, OAuth2
-- Date/time handling and timezone awareness
-- Booking workflows
+Allow the agent to manage your inbox and track your finances via Google Sheets.
 
 ### Tasks
 
-- Set up Google Calendar API + OAuth2
-- `check_availability` — Show free slots for a given date/range
-- `create_event` — Book a meeting (title, time, attendees, description)
-- `list_events` — Show upcoming events
-- `cancel_event` — Cancel an existing event
-- Timezone handling (user's timezone from memory or explicit)
-
-### Acceptance Criteria
-
-- "Am I free tomorrow at 3pm?" → accurate availability check
-- "Schedule a meeting with X on Friday at 2pm" → event created, confirmation shown
-- "What's on my calendar this week?" → formatted event list
+- Build **Gmail MCP Server**: Tools for `read_inbox`, `draft_email`. (Send email requires human-in-the-loop confirmation on WhatsApp/Telegram).
+- Build **Google Sheets MCP Server**: Tools to log expenses, habits, or data into specific spreadsheets.
 
 ---
 
-## Phase 11: Multi-Mode Agent
+## Phase 11: "Second Brain" Notion Integration
 
 ### Goal
 
-Allow switching between specialized behavior modes.
-
-### Modes
-
-| Mode | Behavior | Tools Available |
-|---|---|---|
-| **Portfolio** | Strict factual answers about your work | portfolio, github, leetcode |
-| **Recruiter** | Highlight skills, pitch achievements | portfolio, github, contact |
-| **Assistant** | Full personal ops | all tools |
-| **Research** | Web search, summarization | web_search, scrape, wikipedia, news |
+Connect the agent to Notion to manage your study notes, tasks, and knowledge base.
 
 ### Tasks
 
-- Add `mode` parameter to request payload
-- Create separate system prompt templates per mode
-- Limit available tools per mode
-- UI toggle or `/mode` command to switch
-
-### Acceptance Criteria
-
-- Mode switch changes agent behavior predictably
-- Tool availability is correctly scoped per mode
+- Set up Notion Integration API
+- Build **Notion MCP Server**: Tools for `search_pages`, `create_flashcard`, `append_to_notes`, `read_database`.
 
 ---
 
-## Phase 12: Reliability, Observability & Safety
+## Phase 12: Advanced DevOps & Auto-Debugging
+
+### Goal
+
+Proactively monitor your deployments and debug them.
+
+### Tasks
+
+- Build **DevOps MCP Server**: Connects to Vercel and Render APIs to check deployment status.
+- Integrate **Sentry** or **GitHub Actions**: If a build fails, the agent fetches the raw logs, uses the LLM to identify the failing line of code, and sends you a WhatsApp message with the fix.
+
+---
+
+## Phase 13: Browser Automation (Swiggy, Zomato, Blinkit)
+
+### Goal
+
+Give the agent the ability to interact with platforms that don't have public APIs using headless browser automation.
+
+### Tasks
+
+- Build a **Browser Automation MCP Server** (using Puppeteer/Playwright).
+- Teach the agent to log into Swiggy/Zomato/Blinkit via the headless browser to check order status, fetch past orders, or search for items.
+- *Note: Ordering items autonomously is extremely complex due to OTPs and payments, so the initial goal is tracking, searching, and price comparison.*
+
+---
+
+## Phase 14: Reliability, Observability & Safety
 
 ### Goal
 

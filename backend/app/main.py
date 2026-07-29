@@ -211,6 +211,7 @@ def create_app() -> FastAPI:
     from app.api.public import router as public_router
     from app.api.reindex import router as reindex_router
     from app.api.auth import router as auth_router
+    from app.api.automations import router as automations_router
 
     # Public portfolio chatbot (no auth)
     app.include_router(public_router)
@@ -224,6 +225,9 @@ def create_app() -> FastAPI:
     app.include_router(admin_router)
     app.include_router(mcp_router)
     app.include_router(reindex_router)
+
+    # Cron automation endpoint (secret protected, no JWT auth)
+    app.include_router(automations_router)
 
     return app
 
