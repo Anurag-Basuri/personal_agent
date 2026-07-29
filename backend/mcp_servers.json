@@ -22,6 +22,14 @@
         "NETLIFY_PAT": "${NETLIFY_PAT}"
       },
       "enabled": true
+    },
+    "render": {
+      "transport": "sse",
+      "url": "https://mcp.render.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${RENDER_API_KEY}"
+      },
+      "enabled": true
     }
   }
 }

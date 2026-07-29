@@ -53,14 +53,22 @@ class MCPManager:
                     resolved_args = []
                     for arg in server_cfg["args"]:
                         if "${" in arg:
-                            # Basic string replacement for ${VAR}
                             for key in os.environ:
                                 if f"${{{key}}}" in arg:
-                                    arg = arg.replace(f"${{{key}}}", os.environ[key])
-                            # If there are unresolved vars that weren't in os.environ, they'll remain or we can clear them
-                            # For simplicity, if we see ${...} still, we can leave it or wipe it. We'll leave it.
+                                    arg = arg.replace(f"${{{key}}}", os.environ.get(key, ""))
                         resolved_args.append(arg)
                     server_cfg["args"] = resolved_args
+                    
+                if "headers" in server_cfg:
+                    resolved_headers = {}
+                    for k, v in server_cfg["headers"].items():
+                        if isinstance(v, str) and "${" in v:
+                            for key in os.environ:
+                                if f"${{{key}}}" in v:
+                                    v = v.replace(f"${{{key}}}", os.environ.get(key, ""))
+                        resolved_headers[k] = v
+                    server_cfg["headers"] = resolved_headers
+                    
             return servers
         except Exception as e:
             agent_logger.error("MCP", f"Failed to parse {self.config_path}", e)
