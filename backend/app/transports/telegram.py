@@ -106,3 +106,53 @@ def build_telegram_app() -> Application | None:
     except Exception as e:
         agent_logger.error("TELEGRAM", f"Failed to build Telegram application: {e}", e)
         return None
+
+
+async def send_telegram_push(text: str) -> dict:
+    """
+    Send a push notification to the admin's Telegram chat.
+
+    This is independent of the polling based bot handler above.
+    It uses the raw Telegram Bot API to initiate an outbound message,
+    so the agent can proactively notify the admin without waiting for
+    an incoming message first.
+    """
+    import httpx
+    from app.core.retry import retry_with_backoff
+
+    settings = get_settings()
+
+    if not settings.TELEGRAM_BOT_TOKEN or not settings.TELEGRAM_ADMIN_CHAT_ID:
+        agent_logger.warn("TELEGRAM", "Push not configured (missing BOT_TOKEN or ADMIN_CHAT_ID)")
+        return {"status": "skipped", "detail": "Telegram push not configured"}
+
+    url = f"https://api.telegram.org/bot{settings.TELEGRAM_BOT_TOKEN}/sendMessage"
+
+    async def _do_send() -> httpx.Response:
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            return await client.post(url, json={
+                "chat_id": settings.TELEGRAM_ADMIN_CHAT_ID,
+                "text": text,
+            })
+
+    try:
+        response = await retry_with_backoff(
+            _do_send,
+            max_retries=2,
+            base_delay=2.0,
+            retryable_exceptions=(TimeoutError, ConnectionError, httpx.TimeoutException),
+            operation_name="Telegram:Push",
+        )
+
+        if response.status_code == 200:
+            agent_logger.info("TELEGRAM", "✅ Push notification sent successfully")
+            return {"status": "sent", "detail": "Message delivered via Telegram"}
+
+        agent_logger.warn("TELEGRAM", f"Telegram API returned HTTP {response.status_code}", {
+            "response": response.text[:200]
+        })
+        return {"status": "failed", "detail": f"HTTP {response.status_code}"}
+
+    except Exception as e:
+        agent_logger.error("TELEGRAM", f"Failed to send push notification: {e}")
+        return {"status": "error", "detail": str(e)}
