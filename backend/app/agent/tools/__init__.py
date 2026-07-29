@@ -14,6 +14,11 @@ from app.agent.tools.portfolio_api import portfolio_api_tool
 from app.agent.tools.weather import weather_tool
 from app.agent.tools.web_search import web_search_tool
 from app.agent.tools.wikipedia import wikipedia_tool
+from app.agent.tools.notify import (
+    broadcast_notification,
+    send_telegram_notification,
+    send_whatsapp_notification,
+)
 
 agent_tools = [
     # Portfolio data tools (API driven fetches from portfolio website)
@@ -27,6 +32,10 @@ agent_tools = [
     wikipedia_tool,
     hackernews_tool,
     web_search_tool,
+    # Admin only notification tools
+    send_telegram_notification,
+    send_whatsapp_notification,
+    broadcast_notification,
 ]
 
 
@@ -34,10 +43,10 @@ def get_public_tools() -> list:
     """Return only portfolio safe tools for the public chatbot.
 
     This is the restricted toolset used by /api/public/* endpoints.
-    Intentionally excludes MCP-discovered tools and any future
-    admin-only tools (email, calendar, tasks).
+    Intentionally excludes MCP-discovered tools and any admin only
+    tools (notifications, email, calendar, tasks).
     """
-    return list(agent_tools)
+    return [t for t in agent_tools if not getattr(t, "requires_admin", False)]
 
 
 def get_all_tools() -> list:

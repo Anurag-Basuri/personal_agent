@@ -62,6 +62,15 @@ class Settings(BaseSettings):
     TELEGRAM_BOT_TOKEN: str = ""
     # Comma separated list of allowed Telegram user IDs
     TELEGRAM_ALLOWED_USER_IDS: str = ""
+    # Your personal Telegram chat ID for push notifications
+    TELEGRAM_ADMIN_CHAT_ID: str = ""
+
+    # WhatsApp (CallMeBot)
+    CALLMEBOT_PHONE: str = ""
+    CALLMEBOT_API_KEY: str = ""
+
+    # Automation (cron triggered proactive checks)
+    AUTOMATION_SECRET: str = ""
 
     @property
     def telegram_allowed_ids(self) -> list[int]:
