@@ -1,3 +1,27 @@
 {
-  "servers": {}
+  "servers": {
+    "vercel": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "vercel-mcp",
+        "VERCEL_API_KEY=${VERCEL_TOKEN}"
+      ],
+      "env": {
+        "VERCEL_TOKEN": "${VERCEL_TOKEN}"
+      },
+      "enabled": true
+    },
+    "netlify": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@netlify/mcp"
+      ],
+      "env": {
+        "NETLIFY_PAT": "${NETLIFY_PAT}"
+      },
+      "enabled": true
+    }
+  }
 }

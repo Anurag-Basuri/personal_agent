@@ -35,7 +35,33 @@ class MCPManager:
         try:
             with open(self.config_path, encoding="utf-8") as f:
                 data = json.load(f)
-                return data.get("servers", {})
+                
+            servers = data.get("servers", {})
+            # Interpolate env vars like {VERCEL_TOKEN} or standard env loading
+            for name, server_cfg in servers.items():
+                if "env" in server_cfg:
+                    resolved_env = {}
+                    for k, v in server_cfg["env"].items():
+                        if v.startswith("${") and v.endswith("}"):
+                            env_var_name = v[2:-1]
+                            resolved_env[k] = os.environ.get(env_var_name, "")
+                        else:
+                            resolved_env[k] = v
+                    server_cfg["env"] = resolved_env
+                
+                if "args" in server_cfg:
+                    resolved_args = []
+                    for arg in server_cfg["args"]:
+                        if "${" in arg:
+                            # Basic string replacement for ${VAR}
+                            for key in os.environ:
+                                if f"${{{key}}}" in arg:
+                                    arg = arg.replace(f"${{{key}}}", os.environ[key])
+                            # If there are unresolved vars that weren't in os.environ, they'll remain or we can clear them
+                            # For simplicity, if we see ${...} still, we can leave it or wipe it. We'll leave it.
+                        resolved_args.append(arg)
+                    server_cfg["args"] = resolved_args
+            return servers
         except Exception as e:
             agent_logger.error("MCP", f"Failed to parse {self.config_path}", e)
             return {}
@@ -52,7 +78,11 @@ class MCPManager:
                 # Ensure transport is specified, default to stdio
                 if "transport" not in config:
                     config["transport"] = "stdio"
-                enabled_servers[name] = config
+                    
+                # MultiServerMCPClient does not accept arbitrary fields like 'enabled'
+                client_config = dict(config)
+                client_config.pop("enabled", None)
+                enabled_servers[name] = client_config
                 self._status[name] = "connecting"
             else:
                 self._status[name] = "disabled"
@@ -64,9 +94,6 @@ class MCPManager:
             agent_logger.info("MCP", f"Connecting to {len(enabled_servers)} servers...")
             # MultiServerMCPClient handles connecting to multiple servers concurrently
             self.client = MultiServerMCPClient(enabled_servers)
-
-            # The async enter pattern connects the transport and initializes the session
-            await self.client.__aenter__()
 
             # Discover tools from all servers (auto converted to LangChain format)
             self._tools = await self.client.get_tools()
@@ -92,7 +119,7 @@ class MCPManager:
         """Cleanly disconnect from all servers."""
         if self.client:
             try:
-                await self.client.__aexit__(None, None, None)
+                # MultiServerMCPClient does not expose __aexit__, we can just clear it
                 agent_logger.info("MCP", "Disconnected from MCP servers.")
             except Exception as e:
                 agent_logger.error("MCP", "Error during MCP shutdown", e)
