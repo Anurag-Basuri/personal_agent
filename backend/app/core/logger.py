@@ -2,33 +2,96 @@
 Structured agent logger.
 
 Provides categorized, timestamped logging for the entire agent pipeline.
-Categories: LLM, TOOL, MEMORY, CTRL, SYSTEM
+Categories: LLM, TOOL, MEMORY, CTRL, SYSTEM, MCP, STARTUP
 """
 
 from __future__ import annotations
 
 import json
 import logging
+import sys
 import time
 from typing import Any
 
-# Setup Python Logger
+
 logger = logging.getLogger("agent")
 
 
+# ANSI color codes
+class _Colors:
+    """ANSI escape sequences for terminal coloring."""
+
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    DIM = "\033[2m"
+
+    RED = "\033[31m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"
+    MAGENTA = "\033[35m"
+    CYAN = "\033[36m"
+    WHITE = "\033[37m"
+
+    BG_RED = "\033[41m"
+    BG_GREEN = "\033[42m"
+    BG_YELLOW = "\033[43m"
+    BG_BLUE = "\033[44m"
+    BG_MAGENTA = "\033[45m"
+    BG_CYAN = "\033[46m"
+
+    BRIGHT_GREEN = "\033[92m"
+    BRIGHT_YELLOW = "\033[93m"
+    BRIGHT_RED = "\033[91m"
+    BRIGHT_CYAN = "\033[96m"
+    BRIGHT_MAGENTA = "\033[95m"
+
+
+_LEVEL_STYLES = {
+    "DEBUG": f"{_Colors.DIM}DBG{_Colors.RESET}",
+    "INFO": f"{_Colors.BRIGHT_GREEN}INF{_Colors.RESET}",
+    "WARNING": f"{_Colors.BRIGHT_YELLOW}WRN{_Colors.RESET}",
+    "ERROR": f"{_Colors.BRIGHT_RED}ERR{_Colors.RESET}",
+    "CRITICAL": f"{_Colors.BG_RED}{_Colors.WHITE}CRT{_Colors.RESET}",
+}
+
+_CATEGORY_STYLES = {
+    "LLM": f"{_Colors.MAGENTA}LLM{_Colors.RESET}",
+    "MCP": f"{_Colors.CYAN}MCP{_Colors.RESET}",
+    "TOOL": f"{_Colors.BLUE}TOOL{_Colors.RESET}",
+    "MEMORY": f"{_Colors.GREEN}MEM{_Colors.RESET}",
+    "CTRL": f"{_Colors.YELLOW}CTRL{_Colors.RESET}",
+    "SYSTEM": f"{_Colors.WHITE}SYS{_Colors.RESET}",
+    "STARTUP": f"{_Colors.BRIGHT_CYAN}BOOT{_Colors.RESET}",
+    "CLEANUP": f"{_Colors.DIM}CLN{_Colors.RESET}",
+    "RAG": f"{_Colors.GREEN}RAG{_Colors.RESET}",
+    "AUTH": f"{_Colors.YELLOW}AUTH{_Colors.RESET}",
+    "API": f"{_Colors.BLUE}API{_Colors.RESET}",
+}
+
+
 class _StructuredFormatter(logging.Formatter):
-    """Compact structured formatter: [timestamp] [LEVEL] [Agent:CATEGORY] message | meta"""
+    """Compact structured formatter with ANSI colors and aligned columns."""
 
     def format(self, record: logging.LogRecord) -> str:
-        ts = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(record.created))
+        ts = time.strftime("%H:%M:%S", time.localtime(record.created))
+        ts_dim = f"{_Colors.DIM}{ts}{_Colors.RESET}"
+
+        level = _LEVEL_STYLES.get(record.levelname, record.levelname)
+
         category = getattr(record, "category", "SYSTEM")
+        cat_styled = _CATEGORY_STYLES.get(category, f"{_Colors.DIM}{category}{_Colors.RESET}")
+
         meta = getattr(record, "meta", None)
-        meta_str = f" | {json.dumps(meta, default=str)}" if meta else ""
-        return f"[{ts}] [{record.levelname}] [Agent:{category}] {record.getMessage()}{meta_str}"
+        meta_str = ""
+        if meta:
+            meta_str = f" {_Colors.DIM}{json.dumps(meta, default=str)}{_Colors.RESET}"
+
+        return f" {ts_dim} {level} [{cat_styled}] {record.getMessage()}{meta_str}"
 
 
 def _setup_logger() -> None:
-    handler = logging.StreamHandler()
+    handler = logging.StreamHandler(sys.stdout)
     handler.setFormatter(_StructuredFormatter())
     logger.addHandler(handler)
     logger.setLevel(logging.DEBUG)
@@ -38,9 +101,7 @@ def _setup_logger() -> None:
 _setup_logger()
 
 
-# Public API
-
-# One of: LLM, TOOL, MEMORY, CTRL, SYSTEM
+# One of: LLM, TOOL, MEMORY, CTRL, SYSTEM, MCP, STARTUP, CLEANUP, RAG, AUTH, API
 LogCategory = str
 
 
@@ -49,7 +110,7 @@ def _log(level: int, category: LogCategory, message: str, meta: dict[str, Any] |
 
 
 class AgentLogger:
-    """Structured logger matching the original Node.js agentLogger interface."""
+    """Structured logger with categorized, colored output."""
 
     # Standard Levels
     @staticmethod
@@ -90,7 +151,7 @@ class AgentLogger:
         _log(
             logging.INFO,
             "TOOL",
-            f"✅ {tool_name} completed",
+            f"✅ {tool_name} completed ({duration_ms}ms)",
             {
                 "duration_ms": duration_ms,
                 "output_length": len(output_preview),
@@ -104,7 +165,7 @@ class AgentLogger:
         _log(
             logging.ERROR,
             "TOOL",
-            f"❌ {tool_name} FAILED",
+            f"❌ {tool_name} FAILED ({duration_ms}ms)",
             {
                 "duration_ms": duration_ms,
                 "error_name": type(error).__name__,
@@ -146,6 +207,34 @@ class AgentLogger:
                 "is_rate_limit": "429" in str(error) or "Quota" in str(error),
             },
         )
+
+    # Startup helpers
+    @staticmethod
+    def section(title: str) -> None:
+        """Print a visual section divider during startup."""
+        C = _Colors
+        line = f"\n {C.DIM}{'─' * 52}{C.RESET}"
+        header = f" {C.BOLD}{C.BRIGHT_CYAN}▸ {title}{C.RESET}"
+        print(line)
+        print(header)
+
+    @staticmethod
+    def status_line(label: str, value: str, ok: bool = True) -> None:
+        """Print a key/value status line with color indicator."""
+        C = _Colors
+        dot = f"{C.BRIGHT_GREEN}●{C.RESET}" if ok else f"{C.BRIGHT_RED}●{C.RESET}"
+        print(f"   {dot} {C.DIM}{label:<20}{C.RESET} {value}")
+
+    @staticmethod
+    def banner() -> None:
+        """Print a compact startup banner."""
+        C = _Colors
+        print()
+        print(f"  {C.BOLD}{C.BRIGHT_CYAN}╔══════════════════════════════════════════════════╗{C.RESET}")
+        print(f"  {C.BOLD}{C.BRIGHT_CYAN}║{C.RESET}   {C.BOLD}🤖 Personal Agent API{C.RESET}                            {C.BOLD}{C.BRIGHT_CYAN}║{C.RESET}")
+        print(f"  {C.BOLD}{C.BRIGHT_CYAN}║{C.RESET}   {C.DIM}AI powered assistant with tool calling & RAG{C.RESET}     {C.BOLD}{C.BRIGHT_CYAN}║{C.RESET}")
+        print(f"  {C.BOLD}{C.BRIGHT_CYAN}╚══════════════════════════════════════════════════╝{C.RESET}")
+        print()
 
 
 agent_logger = AgentLogger()

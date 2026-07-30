@@ -68,6 +68,50 @@ class AgentError(ApiError):
         super().__init__(500, message, errors)
 
 
+class ConflictError(ApiError):
+    """409 - Conflict."""
+
+    def __init__(self, message: str = "Resource conflict"):
+        super().__init__(409, message)
+
+
+class AuthenticationError(ApiError):
+    """401 - Unauthorized."""
+
+    def __init__(self, message: str = "Authentication required"):
+        super().__init__(401, message)
+
+
+class ForbiddenError(ApiError):
+    """403 - Forbidden."""
+
+    def __init__(self, message: str = "Permission denied"):
+        super().__init__(403, message)
+
+
+class ExternalServiceError(ApiError):
+    """502 - Bad Gateway."""
+
+    def __init__(self, message: str = "External service error"):
+        super().__init__(502, message)
+
+
+def classify_and_raise(error: Exception) -> None:
+    """Classify common errors (like rate limits/timeouts) and raise the correct ApiError."""
+    from app.core.logger import agent_logger
+    error_msg = str(error)
+
+    is_rate_limit = "Quota" in error_msg or "429" in error_msg
+    is_timeout = "timeout" in error_msg.lower() or "TimeoutError" in error_msg
+
+    if is_rate_limit:
+        raise RateLimitError("I'm currently experiencing high demand. Please try again in a few moments!")
+    elif is_timeout:
+        raise ServiceUnavailableError("The request timed out. Please try again.")
+
+    raise AgentError(message=error_msg or "Failed to process request")
+
+
 # Response Builder
 def _error_response(status_code: int, message: str, errors: list[str], request_id: str) -> JSONResponse:
     return JSONResponse(
@@ -111,10 +155,37 @@ async def validation_error_handler(request: Request, exc: ValidationError) -> JS
 
 
 async def generic_error_handler(request: Request, exc: Exception) -> JSONResponse:
-    """Catch all for unhandled exceptions."""
+    """Catch-all for unhandled exceptions."""
+    from app.core.logger import agent_logger
+    from app.config import get_settings
+
+    settings = get_settings()
+    request_id = _get_request_id(request)
+
+    # Log the full exception traceback server-side
+    agent_logger.error("SYSTEM", f"Unhandled Exception in {request.url.path}", exc, {"request_id": request_id})
+
+    # Classify known errors
+    exc_type = type(exc).__name__
+
+    if exc_type == "IntegrityError":
+        return _error_response(409, "Resource conflict", [], request_id)
+    if exc_type in ("OperationalError", "InterfaceError", "DatabaseError"):
+        return _error_response(503, "Database is temporarily unavailable", [], request_id)
+    if exc_type in ("ConnectTimeout", "ReadTimeout", "TimeoutError"):
+        return _error_response(504, "Upstream service timeout", [], request_id)
+    if exc_type == "CircuitOpenError":
+        return _error_response(503, "Service temporarily unavailable due to high failure rate", [], request_id)
+
+    # For pure 500s, sanitize the message unless in debug mode
+    message = "Unexpected server error"
+    if settings.is_debug:
+        message = f"{exc_type}: {str(exc)}"
+
     return _error_response(
         status_code=500,
-        message="Unexpected server error",
-        errors=[str(exc)] if str(exc) else [],
-        request_id=_get_request_id(request),
+        message=message,
+        errors=[],
+        request_id=request_id,
     )
+

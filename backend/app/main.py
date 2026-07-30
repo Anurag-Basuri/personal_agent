@@ -13,7 +13,13 @@ FastAPI application factory.
 from __future__ import annotations
 
 import asyncio
+import logging
 from contextlib import asynccontextmanager
+
+# Suppress noisy third party loggers before anything else imports them
+for _noisy in ("sqlalchemy.engine", "httpx", "httpcore", "watchfiles", "langgraph"):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 
 from dotenv import load_dotenv
 # Load .env into os.environ so MCP client and other OS-level tools can access them
@@ -107,71 +113,122 @@ async def _rag_sync_loop():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup / shutdown lifecycle."""
+    import time as _time
+
+    from app.core.logger import agent_logger, _Colors
+
+    boot_start = _time.time()
     settings = get_settings()
-    print(f"[server] Starting Personal Agent API (port={settings.PORT})")
+    C = _Colors
 
-    # Init DB tables
+    agent_logger.banner()
+
+    # Database
+    agent_logger.section("Database")
     await init_db()
-    print("[server] Database initialized")
+    db_type = "PostgreSQL" if settings.is_postgres else "SQLite"
+    agent_logger.status_line("Engine", db_type)
+    agent_logger.status_line("Status", "Tables verified")
 
-    # Eagerly initialize LLMs so startup logs are accurate
+    # LLM Cascade
+    agent_logger.section("LLM Cascade")
     from app.agent.llm import init_llms_eagerly, get_provider_info
     init_llms_eagerly()
     providers = get_provider_info()
-    print(f"[server] LLM cascade: {len(providers)} tiers configured")
+    for p in providers:
+        agent_logger.status_line(f"Tier {p['tier']}", f"{p['provider']}/{p['model']}")
+    if not providers:
+        agent_logger.status_line("Status", "No LLM providers configured!", ok=False)
 
-    # Initialize MCP Client
+    # MCP Servers
+    agent_logger.section("MCP Servers")
     from app.mcp.client import mcp_manager
     try:
         await mcp_manager.startup()
-        print(f"[server] MCP: {mcp_manager.connected_count} servers connected, {len(mcp_manager.get_tools())} tools discovered")
+        status = mcp_manager.get_status()
+        connected = [n for n, s in status.items() if s == "connected"]
+        failed = [n for n, s in status.items() if s == "error"]
+        disabled = [n for n, s in status.items() if s == "disabled"]
+
+        for name in connected:
+            agent_logger.status_line(name, "connected")
+        for name in failed:
+            agent_logger.status_line(name, "failed", ok=False)
+        for name in disabled:
+            agent_logger.status_line(name, f"{C.DIM}disabled{C.RESET}", ok=False)
+
+        tool_count = len(mcp_manager.get_tools())
+        print(f"\n   {C.DIM}Total:{C.RESET} {len(connected)} connected, {len(failed)} failed, {tool_count} tools")
     except Exception as e:
-        print(f"[server] MCP startup failed or partially failed: {e}")
-        # We don't want a failing MCP server to crash the whole FastAPI application on boot
-        pass
+        agent_logger.status_line("Status", f"Startup error: {e}", ok=False)
 
-    # Initialize Telegram Bot
-    from app.transports.telegram import build_telegram_app
-    telegram_app = build_telegram_app()
-    if telegram_app:
-        await telegram_app.initialize()
-        await telegram_app.start()
-        await telegram_app.updater.start_polling()
-        print("[server] Telegram bot started and polling")
+    # Transports
+    agent_logger.section("Transports")
+    try:
+        from app.transports.telegram import build_telegram_app
+        telegram_app = build_telegram_app()
+        if telegram_app:
+            await telegram_app.initialize()
+            await telegram_app.start()
+            await telegram_app.updater.start_polling()
+            agent_logger.status_line("Telegram", "Polling")
+        else:
+            agent_logger.status_line("Telegram", "Not configured", ok=False)
+    except Exception as e:
+        telegram_app = None
+        agent_logger.status_line("Telegram", f"Failed: {e}", ok=False)
 
-    # Start background tasks
+    # Background Tasks
+    agent_logger.section("Background Tasks")
     cleanup_task = asyncio.create_task(_public_session_cleanup_loop())
-    print("[server] Public session cleanup task started (every 30 min)")
+    agent_logger.status_line("Session Cleanup", "every 30 min")
 
-    rag_sync_task = asyncio.create_task(_rag_sync_loop())
-    interval = settings.RAG_SYNC_INTERVAL_HOURS
-    print(f"[server] RAG background sync task started (every {interval}h)")
+    try:
+        rag_sync_task = asyncio.create_task(_rag_sync_loop())
+        interval = settings.RAG_SYNC_INTERVAL_HOURS
+        agent_logger.status_line("RAG Sync", f"every {interval}h")
+    except Exception as e:
+        rag_sync_task = None
+        agent_logger.status_line("RAG Sync", f"Failed to start: {e}", ok=False)
+
+    # Boot complete
+    boot_ms = round((_time.time() - boot_start) * 1000)
+    print(f"\n {C.DIM}{'─' * 52}{C.RESET}")
+    print(f" {C.BOLD}{C.BRIGHT_GREEN}✓ Ready{C.RESET} {C.DIM}in {boot_ms}ms{C.RESET}")
+    print(f" {C.DIM}  http://127.0.0.1:{settings.PORT}{C.RESET}")
+    print(f" {C.DIM}{'─' * 52}{C.RESET}\n")
 
     yield
 
-    # Cancel background tasks
+    # Shutdown
+    print(f"\n {C.DIM}{'─' * 52}{C.RESET}")
+    print(f" {C.BOLD}{C.BRIGHT_YELLOW}⏻ Shutting down...{C.RESET}")
+
     cleanup_task.cancel()
-    rag_sync_task.cancel()
+    if rag_sync_task:
+        rag_sync_task.cancel()
     for task in [cleanup_task, rag_sync_task]:
+        if not task: continue
         try:
             await task
         except asyncio.CancelledError:
             pass
-    print("[server] Background tasks stopped")
+    agent_logger.status_line("Background tasks", "stopped")
 
     # Shutdown MCP connections
     await mcp_manager.shutdown()
-    print("[server] MCP connections closed")
+    agent_logger.status_line("MCP connections", "closed")
 
     # Shutdown
     if telegram_app:
         await telegram_app.updater.stop()
         await telegram_app.stop()
         await telegram_app.shutdown()
-        print("[server] Telegram bot stopped")
+        agent_logger.status_line("Telegram bot", "stopped")
 
     await close_db()
-    print("[server] Database connection closed")
+    agent_logger.status_line("Database", "closed")
+    print(f" {C.DIM}{'─' * 52}{C.RESET}\n")
 
 
 # App Factory
@@ -209,11 +266,27 @@ def create_app() -> FastAPI:
         ],
     )
 
-    # Request ID middleware
+    # Request ID middleware (first so others can use it)
     from app.middlewares.request_id import RequestIdMiddleware
     app.add_middleware(RequestIdMiddleware)
+    
+    # Request logging middleware
+    from app.middlewares.request_logging import RequestLoggingMiddleware
+    app.add_middleware(RequestLoggingMiddleware)
 
     # Exception Handlers
+    from fastapi import HTTPException, Request
+    from app.core.exceptions import _error_response, _get_request_id
+    
+    async def custom_http_exception_handler(request: Request, exc: HTTPException):
+        return _error_response(
+            status_code=exc.status_code,
+            message=str(exc.detail),
+            errors=[],
+            request_id=_get_request_id(request)
+        )
+
+    app.add_exception_handler(HTTPException, custom_http_exception_handler)
     app.add_exception_handler(ApiError, api_error_handler)
     app.add_exception_handler(ValidationError, validation_error_handler)
     app.add_exception_handler(Exception, generic_error_handler)
