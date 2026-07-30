@@ -113,6 +113,55 @@
         "X-API-Key": "${QUICKCOMMERCE_API_KEY}"
       },
       "enabled": true
+    },
+    "hacker_news": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-q",
+        "mcp-hacker-news"
+      ],
+      "enabled": true
+    },
+    "brave_search": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-q",
+        "@modelcontextprotocol/server-brave-search"
+      ],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      },
+      "enabled": true
+    },
+    "sequential_thinking": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-q",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ],
+      "enabled": true
+    },
+    "puppeteer": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-q",
+        "@modelcontextprotocol/server-puppeteer"
+      ],
+      "enabled": true
+    },
+    "postgres": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-q",
+        "@modelcontextprotocol/server-postgres",
+        "${DATABASE_URL}"
+      ],
+      "enabled": true
     }
   }
 }
