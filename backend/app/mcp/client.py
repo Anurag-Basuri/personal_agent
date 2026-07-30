@@ -4,9 +4,11 @@ MCP Client Manager.
 Connects to all third-party MCP servers defined in mcp_servers.json,
 discovers their tools, and exposes them in LangChain format.
 """
+# MCP config version: 2
 
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from typing import Any
@@ -75,7 +77,11 @@ class MCPManager:
             return {}
 
     async def startup(self) -> None:
-        """Connect to all enabled servers and discover tools."""
+        """Connect to all enabled servers and discover tools.
+
+        Each server is connected independently so a single failing server
+        does not prevent the others from loading successfully.
+        """
         servers = self._load_config()
         if not servers:
             return
@@ -83,11 +89,9 @@ class MCPManager:
         enabled_servers = {}
         for name, config in servers.items():
             if config.get("enabled", True):
-                # Ensure transport is specified, default to stdio
                 if "transport" not in config:
                     config["transport"] = "stdio"
-                    
-                # MultiServerMCPClient does not accept arbitrary fields like 'enabled'
+
                 client_config = dict(config)
                 client_config.pop("enabled", None)
                 enabled_servers[name] = client_config
@@ -98,31 +102,41 @@ class MCPManager:
         if not enabled_servers:
             return
 
-        try:
-            agent_logger.info("MCP", f"Connecting to {len(enabled_servers)} servers...")
-            # MultiServerMCPClient handles connecting to multiple servers concurrently
-            self.client = MultiServerMCPClient(enabled_servers)
+        agent_logger.info("MCP", f"Connecting to {len(enabled_servers)} servers...")
 
-            # Discover tools from all servers (auto converted to LangChain format)
-            self._tools = await self.client.get_tools()
-
-            self.connected_count = len(enabled_servers)
-            for name in enabled_servers:
+        # Connect to each server independently so one failure doesn't crash the rest
+        for name, server_config in enabled_servers.items():
+            try:
+                single_client = MultiServerMCPClient({name: server_config})
+                # 15 second timeout per server to prevent indefinite hangs
+                tools = await asyncio.wait_for(
+                    single_client.get_tools(server_name=name),
+                    timeout=15.0,
+                )
+                self._tools.extend(tools)
                 self._status[name] = "connected"
+                self.connected_count += 1
+                agent_logger.info(
+                    "MCP",
+                    f"Server '{name}' connected: {len(tools)} tools discovered",
+                )
+            except asyncio.TimeoutError:
+                self._status[name] = "error"
+                agent_logger.warn("MCP", f"Server '{name}' timed out after 15s")
+            except Exception as e:
+                self._status[name] = "error"
+                agent_logger.warn("MCP", f"Server '{name}' failed to connect: {e}")
 
-            agent_logger.info("MCP", f"Successfully discovered {len(self._tools)} tools from {self.connected_count} servers.")
+        if self.connected_count > 0:
+            agent_logger.info(
+                "MCP",
+                f"Successfully discovered {len(self._tools)} tools from {self.connected_count} servers.",
+            )
             system_health.mark_up("mcp")
-
-        except Exception as e:
-            agent_logger.error("MCP", "Failed to start MCP connections", e)
-            # Mark all attempting servers as failed
-            for name in enabled_servers:
-                if self._status.get(name) == "connecting":
-                    self._status[name] = "error"
+        else:
+            agent_logger.warn("MCP", "All MCP servers failed to connect.")
             system_health.mark_down("mcp")
 
-            # We don't raise here, we want the agent to start even if MCP fails
-            # The agent will just run with 0 MCP tools, using only its local tools.
     async def shutdown(self) -> None:
         """Cleanly disconnect from all servers."""
         if self.client:

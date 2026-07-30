@@ -4,11 +4,13 @@
       "command": "npx",
       "args": [
         "-y",
+        "-q",
         "vercel-mcp",
         "VERCEL_API_KEY=${VERCEL_TOKEN}"
       ],
       "env": {
-        "VERCEL_TOKEN": "${VERCEL_TOKEN}"
+        "VERCEL_TOKEN": "${VERCEL_TOKEN}",
+        "DOTENV_QUIET": "true"
       },
       "enabled": true
     },
@@ -16,15 +18,17 @@
       "command": "npx",
       "args": [
         "-y",
+        "-q",
         "@netlify/mcp"
       ],
       "env": {
-        "NETLIFY_PAT": "${NETLIFY_PAT}"
+        "NETLIFY_PAT": "${NETLIFY_PAT}",
+        "DOTENV_QUIET": "true"
       },
       "enabled": true
     },
     "render": {
-      "transport": "sse",
+      "transport": "streamable_http",
       "url": "https://mcp.render.com/mcp",
       "headers": {
         "Authorization": "Bearer ${RENDER_API_KEY}"
@@ -35,6 +39,7 @@
       "command": "npx",
       "args": [
         "-y",
+        "-q",
         "@modelcontextprotocol/server-github"
       ],
       "env": {
@@ -46,11 +51,14 @@
       "command": "npx",
       "args": [
         "-y",
+        "-q",
         "mcp-google-multi"
       ],
       "env": {
         "GOOGLE_CLIENT_ID": "${GOOGLE_CLIENT_ID}",
-        "GOOGLE_CLIENT_SECRET": "${GOOGLE_CLIENT_SECRET}"
+        "GOOGLE_CLIENT_SECRET": "${GOOGLE_CLIENT_SECRET}",
+        "GOOGLE_ACCOUNTS": "${GOOGLE_ACCOUNTS}",
+        "DOTENV_QUIET": "true"
       },
       "enabled": true
     }

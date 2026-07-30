@@ -15,6 +15,10 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
+# Load .env into os.environ so MCP client and other OS-level tools can access them
+load_dotenv()
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
@@ -118,8 +122,13 @@ async def lifespan(app: FastAPI):
 
     # Initialize MCP Client
     from app.mcp.client import mcp_manager
-    await mcp_manager.startup()
-    print(f"[server] MCP: {mcp_manager.connected_count} servers connected, {len(mcp_manager.get_tools())} tools discovered")
+    try:
+        await mcp_manager.startup()
+        print(f"[server] MCP: {mcp_manager.connected_count} servers connected, {len(mcp_manager.get_tools())} tools discovered")
+    except Exception as e:
+        print(f"[server] MCP startup failed or partially failed: {e}")
+        # We don't want a failing MCP server to crash the whole FastAPI application on boot
+        pass
 
     # Initialize Telegram Bot
     from app.transports.telegram import build_telegram_app

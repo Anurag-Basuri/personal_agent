@@ -17,6 +17,7 @@ build/
 
 # Temporary Scripts
 /test_*.py
+scratch_*
 
 # Database
 *.db
