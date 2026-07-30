@@ -61,6 +61,58 @@
         "DOTENV_QUIET": "true"
       },
       "enabled": true
+    },
+    "zomato": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-q",
+        "mcp-remote",
+        "https://mcp-server.zomato.com/mcp"
+      ],
+      "transport": "stdio",
+      "enabled": true
+    },
+    "swiggy_food": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-q",
+        "mcp-remote",
+        "https://mcp.swiggy.com/food"
+      ],
+      "transport": "stdio",
+      "enabled": true
+    },
+    "swiggy_instamart": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-q",
+        "mcp-remote",
+        "https://mcp.swiggy.com/im"
+      ],
+      "transport": "stdio",
+      "enabled": true
+    },
+    "swiggy_dineout": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-q",
+        "mcp-remote",
+        "https://mcp.swiggy.com/dineout"
+      ],
+      "transport": "stdio",
+      "enabled": true
+    },
+    "quickcommerce": {
+      "transport": "streamable_http",
+      "url": "https://api.quickcommerceapi.com/mcp",
+      "headers": {
+        "X-API-Key": "${QUICKCOMMERCE_API_KEY}"
+      },
+      "enabled": true
     }
   }
 }

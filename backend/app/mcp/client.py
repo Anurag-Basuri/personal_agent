@@ -108,10 +108,10 @@ class MCPManager:
         for name, server_config in enabled_servers.items():
             try:
                 single_client = MultiServerMCPClient({name: server_config})
-                # 15 second timeout per server to prevent indefinite hangs
+                # 30 second timeout per server (OAuth servers like Zomato/Swiggy need extra time)
                 tools = await asyncio.wait_for(
                     single_client.get_tools(server_name=name),
-                    timeout=15.0,
+                    timeout=30.0,
                 )
                 self._tools.extend(tools)
                 self._status[name] = "connected"
@@ -122,7 +122,7 @@ class MCPManager:
                 )
             except asyncio.TimeoutError:
                 self._status[name] = "error"
-                agent_logger.warn("MCP", f"Server '{name}' timed out after 15s")
+                agent_logger.warn("MCP", f"Server '{name}' timed out after 30s")
             except Exception as e:
                 self._status[name] = "error"
                 agent_logger.warn("MCP", f"Server '{name}' failed to connect: {e}")
