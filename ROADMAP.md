@@ -53,11 +53,21 @@ Next.js frontend + Express backend working end-to-end.
 
 ---
 
-## Phase 1: True RAG Pipeline (Priority: 🥇)
+## Phase 1: True RAG Pipeline ✅ (Done)
 
 ### Goal
 
 Replace the static `context.builder.ts` (which just reads a DB row) with a real retrieval-augmented generation pipeline. **This is the #1 learning priority.**
+
+### Completed
+
+- [x] PGVector extension on PostgreSQL (Neon)
+- [x] Document ingester with recursive chunking (`backend/app/rag/ingester.py`)
+- [x] HuggingFace `all-MiniLM-L6-v2` embeddings
+- [x] Semantic similarity search with top-k retrieval
+- [x] Context builder feeds RAG results into system prompt
+- [x] Graceful degradation when vector store is unavailable
+- [x] Background re-ingestion via `/api/admin/reindex` webhook
 
 ### What You'll Learn
 
@@ -124,11 +134,21 @@ Replace the static `context.builder.ts` (which just reads a DB row) with a real 
 
 ---
 
-## Phase 2: Telegram Bot Integration (Priority: 🥈)
+## Phase 2: Telegram Bot Integration ✅ (Done)
 
 ### Goal
 
 Give the agent a second interface beyond the web widget. Users (including you) can chat with the agent on Telegram.
+
+### Completed
+
+- [x] Telegram bot created via BotFather
+- [x] Transport layer (`backend/app/transports/telegram.py`)
+- [x] Polling mode for development
+- [x] Whitelist authentication via `TELEGRAM_ALLOWED_USER_IDS`
+- [x] Session memory persists across Telegram messages
+- [x] Command handlers (`/start`, `/reset`)
+- [x] Startup isolation (bot failure doesn't crash server)
 
 ### What You'll Learn
 
@@ -244,11 +264,20 @@ Teach the agent to read, draft, and send emails. This is where the agent starts 
 
 ---
 
-## Phase 4: MCP Server Architecture (Priority: High)
+## Phase 4: MCP Server Architecture ✅ (Done)
 
 ### Goal
 
 Refactor tools into proper **Model Context Protocol** servers, learning the industry-standard pattern.
+
+### Completed
+
+- [x] MCP client dynamically loads tools from remote servers (`backend/app/mcp/client.py`)
+- [x] Configuration via `mcp_servers.json` (supports stdio, streamable_http, SSE transports)
+- [x] 17 MCP servers connected (Vercel, Netlify, Render, GitHub, Google, Zomato, Swiggy x3, QuickCommerce, HackerNews, DuckDuckGo, Sequential Thinking, Puppeteer, Postgres, Linear, Todoist, Notion)
+- [x] Admin CRUD API for managing MCP servers at runtime (`/api/admin/mcp`)
+- [x] Hot-reload: add/remove servers without restart
+- [x] Custom local MCP wrappers for unreliable remote servers (QuickCommerce)
 
 ### What You'll Learn
 
@@ -299,11 +328,21 @@ Refactor tools into proper **Model Context Protocol** servers, learning the indu
 
 ---
 
-## Phase 5: Persistent Memory & Summarization
+## Phase 5: Persistent Memory & Summarization ✅ (Done)
 
 ### Goal
 
 Upgrade from simple chat history to intelligent, long-term memory.
+
+### Completed
+
+- [x] `AgentMemory` model in PostgreSQL (type, content, confidence, source_session)
+- [x] `AgentMessage` model with per-message persistence
+- [x] Conversation summarization every 15+ messages using cheapest LLM tier
+- [x] Preference extraction with confidence scores
+- [x] Persistent memories injected into system prompt
+- [x] Session summary used to trim old messages
+- [x] AES-256-GCM encryption on all stored messages
 
 ### What You'll Learn
 
@@ -360,11 +399,22 @@ Upgrade from simple chat history to intelligent, long-term memory.
 
 ---
 
-## Phase 6: Public API Integrations
+## Phase 6: Public API Integrations ✅ (Done)
 
 ### Goal
 
 Expand the agent's toolbox with useful real-world APIs. Each integration is a new tool that teaches API patterns.
+
+### Completed
+
+| Tool | Source | Status |
+|---|---|---|
+| `get_weather` | Open-Meteo API | ✅ Built-in tool |
+| `search_hackernews` | HN Algolia API + MCP | ✅ Built-in + MCP |
+| `search_wikipedia` | Wikipedia API | ✅ Built-in tool |
+| `web_search` | DuckDuckGo MCP | ✅ MCP server |
+| `github` | GitHub API | ✅ Built-in + MCP |
+| `scrape_url` | Puppeteer MCP | ✅ MCP server |
 
 ### What You'll Learn
 
@@ -403,11 +453,19 @@ Expand the agent's toolbox with useful real-world APIs. Each integration is a ne
 
 ---
 
-## Phase 7: Task & Note Management
+## Phase 7: Task & Note Management ✅ (Done via MCP)
 
 ### Goal
 
 Give the agent personal productivity capabilities — todos, reminders, notes.
+
+### Completed
+
+- [x] **Todoist MCP** — Full task CRUD via `@doist/todoist-mcp`
+- [x] **Linear MCP** — Issue/project management via `@mseep/linear-mcp`
+- [x] **Notion MCP** — Notes, databases, pages via `@notionhq/notion-mcp-server`
+
+> Instead of building custom DB models for tasks/notes, we connected to industry-standard productivity tools via MCP servers. This gives the agent real-world task management without reinventing the wheel.
 
 ### What You'll Learn
 
@@ -468,11 +526,21 @@ model Note {
 
 ---
 
-## Phase 8: LangGraph Migration (Advanced)
+## Phase 8: LangGraph Migration ✅ (Done)
 
 ### Goal
 
 Replace the simple while-loop agent with a proper LangGraph state machine for complex workflows.
+
+### Completed
+
+- [x] Full LangGraph DAG with `route_intent` → `call_model` → `call_tools` → `should_continue` loop
+- [x] `AgentState` TypedDict with messages, session_id, user_id, role, intent, summary
+- [x] Intent classification: greeting / meta_question / tool_use
+- [x] 6-layer LLM cascade with independent circuit breakers per tier
+- [x] Static Layer 6 fallback (pure Python, never crashes)
+- [x] LLM budget checks per tier
+- [x] Factory functions `make_call_model()` / `make_call_tools()` for injecting restricted toolsets (public chatbot)
 
 ### What You'll Learn
 
@@ -526,11 +594,19 @@ synthesize_reply → END
 
 ---
 
-## Phase 9: WhatsApp Notification Engine
+## Phase 9: WhatsApp Notification Engine ✅ (Done)
 
 ### Goal
 
 Integrate WhatsApp using a free service (CallMeBot) to push proactive notifications from the agent to your phone.
+
+### Completed
+
+- [x] CallMeBot API integration (`backend/app/transports/whatsapp.py`)
+- [x] Unified notifier pipeline (`backend/app/transports/notifier.py`) — sends to both Telegram + WhatsApp
+- [x] `notify_admin` tool available to the agent
+- [x] Cron automation endpoint (`/api/admin/automations/run`)
+- [x] Test notification endpoint (`/api/admin/automations/notify/test`)
 
 ### Tasks
 
@@ -545,24 +621,32 @@ Integrate WhatsApp using a free service (CallMeBot) to push proactive notificati
 
 ---
 
-## Phase 10: The Google Workspace & Finance Brain
+## Phase 10: The Google Workspace & Finance Brain 🔄 (Partial)
+## Phase 10: The Google Workspace & Finance Brain ✅ (Done)
 
 ### Goal
 
 Allow the agent to manage your inbox and track your finances via Google Sheets.
 
-### Tasks
+### Completed
 
-- Build **Gmail MCP Server**: Tools for `read_inbox`, `draft_email`. (Send email requires human-in-the-loop confirmation on WhatsApp/Telegram).
-- Build **Google Sheets MCP Server**: Tools to log expenses, habits, or data into specific spreadsheets.
+- [x] Google MCP server configured (`mcp-google-multi`)
+- [x] OAuth flow completion and live testing
+- [x] Gmail, Calendar, and Drive access implemented
+- [x] Human-in-the-loop confirmation for sending emails
 
 ---
 
-## Phase 11: "Second Brain" Notion Integration
+## Phase 11: "Second Brain" Notion Integration ✅ (Done)
 
 ### Goal
 
 Connect the agent to Notion to manage your study notes, tasks, and knowledge base.
+
+### Completed
+
+- [x] Notion MCP server connected (`@notionhq/notion-mcp-server`)
+- [x] Tools available: search pages, create entries, read databases
 
 ### Tasks
 
@@ -571,11 +655,18 @@ Connect the agent to Notion to manage your study notes, tasks, and knowledge bas
 
 ---
 
-## Phase 12: Advanced DevOps & Auto-Debugging
+## Phase 12: Advanced DevOps & Auto-Debugging ✅ (Done)
 
 ### Goal
 
 Proactively monitor your deployments and debug them.
+
+### Completed
+
+- [x] Vercel MCP server (`vercel-mcp`) — deployment status, logs, environment management
+- [x] Netlify MCP server (`@netlify/mcp`) — site management
+- [x] Render MCP server (via streamable_http) — service monitoring
+- [ ] Sentry/GitHub Actions integration (deferred)
 
 ### Tasks
 
@@ -584,11 +675,18 @@ Proactively monitor your deployments and debug them.
 
 ---
 
-## Phase 13: Browser Automation (Swiggy, Zomato, Blinkit)
+## Phase 13: Browser Automation & Delivery Apps ✅ (Done)
 
 ### Goal
 
-Give the agent the ability to interact with platforms that don't have public APIs using headless browser automation.
+Give the agent the ability to interact with platforms that don't have public APIs using headless browser automation and MCP.
+
+### Completed
+
+- [x] Puppeteer MCP server (`@modelcontextprotocol/server-puppeteer`)
+- [x] Zomato MCP (official `mcp-server.zomato.com`)
+- [x] Swiggy MCP — Food, Instamart, Dineout (official `mcp.swiggy.com`)
+- [x] QuickCommerce custom local wrapper (`custom_mcps/quickcommerce.py`)
 
 ### Tasks
 
@@ -598,11 +696,38 @@ Give the agent the ability to interact with platforms that don't have public API
 
 ---
 
-## Phase 14: Reliability, Observability & Safety
+## Phase 14: Reliability, Observability & Safety ✅ (Done)
 
 ### Goal
 
 Make the agent production-grade.
+
+### Completed
+
+#### Structured Logging & Observability
+- [x] ANSI colored, categorized structured logging (`agent_logger`)
+- [x] Request ID middleware (UUID per request)
+- [x] Request Logging middleware (duration tracking, safety net)
+- [x] Clean startup banner with sectioned boot sequence
+- [x] Tool call latency tracking
+
+#### Error Handling
+- [x] Centralized exception hierarchy (8 ApiError subclasses)
+- [x] `classify_and_raise` utility for consistent error classification
+- [x] DB error mapping (IntegrityError → 409, OperationalError → 503, TimeoutError → 504)
+- [x] Sanitized production errors (no traceback leaks)
+- [x] HTTPException → standard JSON envelope handler
+- [x] Startup failure isolation (Telegram/RAG sync can fail without crashing server)
+
+#### Resilience
+- [x] 5 independent Circuit Breakers (one per LLM tier)
+- [x] Retry with exponential backoff + jitter
+- [x] Graceful degradation system (`SystemHealth` singleton)
+- [x] Static Layer 6 fallback (pure Python, never crashes)
+
+#### Rate Limiting
+- [x] Per-IP, per-session, per-user, per-endpoint rate limits
+- [x] LLM budget tracking per session
 
 ### Tasks
 
@@ -657,7 +782,7 @@ Make the assistant feel premium and purposeful.
 
 ---
 
-## Phase 14: Cost & Performance Optimizations ✅ (Done)
+## Phase 14b: Cost & Performance Optimizations ✅ (Done)
 
 ### Goal
 
@@ -670,6 +795,41 @@ Reduce latency and cost without losing quality.
 - **Token trimming**: Limit conversation context via summarization before sending to LLM
 - **Streaming responses**: Stream LLM output to frontend for perceived speed
 - **Connection pooling**: Reuse HTTP connections for external APIs
+
+### Future Backend/Infrastructure
+- Complete serverless deployment pipeline for the neural layer.
+- True multi-tenant memory stores if expanding beyond personal use.
+
+---
+
+## 🔮 Future Expansions & Innovative MCP Ideas (Phase X)
+
+### Goal
+Transform the agent from a digital assistant into a physical and digital omnipresent orchestrator.
+
+### The "Physical World" Integration (Home Assistant & IoT)
+- Connect a **Home Assistant MCP** for physical agency.
+- Automate workspace lighting, DND modes, and ambient music based on developer state (e.g., "I'm locking in for a deep work session").
+
+### The "Second Brain" Sync (Obsidian / Advanced Notion)
+- Connect a local **Obsidian vault** or expand Notion integration.
+- Run nightly cron jobs where the agent reads GitHub commits, calendar events, and completed tasks to auto-generate a comprehensive daily journal entry.
+
+### The "Financial Dashboard" (Crypto & Wealth)
+- Integrate **Alpha Vantage** or **CoinMarketCap MCP** servers.
+- Allow the agent to fetch live crypto/stock prices, cross-reference with Google Sheets, and generate formatted Markdown tables of net worth on demand.
+
+### The "Social Media Manager" (Twitter / LinkedIn)
+- Integrate **Twitter/X API MCP** or Puppeteer-based social automation.
+- Automatically draft professional tweets summarizing technical challenges whenever a major feature is pushed to GitHub, requiring only a "Yes" to publish.
+
+### The "Entertainment & Media" (Spotify & YouTube)
+- Integrate **Spotify MCP** and **YouTube Transcript MCP**.
+- Enable the agent to summarize 2-hour technical podcasts from a URL and add interesting frameworks directly to a "To Learn" Notion board.
+
+### Local Code Execution & Sandbox (Jupyter / Docker MCP)
+- Provide the LLM with a sandboxed Python runtime.
+- Allow the agent to write, execute, and test its own data visualization scripts (e.g., graphing GitHub commit history) and return the generated images in chat.
 
 ### Acceptance Criteria
 
@@ -704,15 +864,17 @@ Keep a safe public portfolio agent while running a powerful private personal age
 
 Ordered by **learning value** and **dependency chain**:
 
-| Order | Phase | Est. Time | Key Skill |
+| Order | Phase | Status | Key Skill |
 |---|---|---|---|
-| 1️⃣ | Phase 1: True RAG | 5-7 days | Embeddings, vector stores, retrieval |
-| 2️⃣ | Phase 2: Telegram Bot | 2-3 days | Multi-transport, webhooks |
-| 3️⃣ | Phase 3: Email Agent | 5-7 days | Gmail API, tool orchestration, confirmation UX |
-| 4️⃣ | Phase 5: Memory & Summarization | 3-4 days | LangChain memory, preference extraction |
-| 5️⃣ | Phase 6: Public API Tools | 3-4 days | API integration patterns (quick wins) |
-| 6️⃣ | Phase 7: Task Management | 2-3 days | CRUD tools, personal productivity |
-| 7️⃣ | Phase 4: MCP Architecture | 4-5 days | MCP protocol, dynamic tool discovery |
-| 8️⃣ | Phase 8: LangGraph | 5-7 days | State machines, advanced orchestration |
-| 9️⃣ | Phase 12: Reliability & Safety | 3-4 days | Production hardening |
-| 🔟 | Phase 9-11, 13-15 | Ongoing | Polish, additional transports, optimization |
+| 1️⃣ | Phase 1: True RAG | ✅ Done | Embeddings, vector stores, retrieval |
+| 2️⃣ | Phase 2: Telegram Bot | ✅ Done | Multi-transport, webhooks |
+| 3️⃣ | Phase 3: Email Agent | ⬜ Not Started | Gmail API, tool orchestration, confirmation UX |
+| 4️⃣ | Phase 5: Memory & Summarization | ✅ Done | Summarization, preference extraction |
+| 5️⃣ | Phase 6: Public API Tools | ✅ Done | API integration patterns |
+| 6️⃣ | Phase 7: Task Management | ✅ Done (MCP) | Todoist, Linear, Notion |
+| 7️⃣ | Phase 4: MCP Architecture | ✅ Done | MCP protocol, dynamic tool discovery |
+| 8️⃣ | Phase 8: LangGraph | ✅ Done | State machines, 6-layer cascade |
+| 9️⃣ | Phase 14: Reliability & Safety | ✅ Done | Centralized error handling, circuit breakers |
+| 🔟 | Phase 9: WhatsApp | ✅ Done | CallMeBot, notifier pipeline |
+| 1️⃣1️⃣ | Phase 10-13: Integrations | ✅ Mostly Done | MCP servers, browser automation |
+| 🔲 | Frontend & UX Polish | ⬜ Not Started | Rich cards, suggestion chips, onboarding |

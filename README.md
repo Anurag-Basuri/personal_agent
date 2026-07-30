@@ -2,7 +2,7 @@
 
 # 🧠 Autonomous Personal Agent
 
-**An industry-grade, autonomous AI assistant embedded directly into a modern developer portfolio.** Built with strict Domain-Driven Design, LangGraph State Machines, and Deep-Privacy encryptions.
+**An industry-grade, autonomous AI assistant embedded directly into a modern developer portfolio.** Built with strict Domain-Driven Design, LangGraph State Machines, a 6-Layer LLM Cascade, 17 MCP servers, and Deep-Privacy encryption.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Stack](https://img.shields.io/badge/Stack-Next.js%20%7C%20FastAPI%20%7C%20LangGraph-black?style=flat&logo=react)](https://github.com/)
@@ -26,8 +26,9 @@ When embedded into a portfolio site (**Public Mode**), it acts as an intelligent
 ### 1. The LangGraph State Machine
 We rejected standard LangChain `create_react_agent` `while-loops`. They are prone to infinite loops and impossible to pause for human-in-the-loop approvals.
 Instead, this agent runs on a strict **LangGraph Directed Acyclic Graph (DAG)**. 
-*   **The Router Node**: Evaluates user inputs and mathematically decides if a LangChain tool must be invoked or if a direct chat response is sufficient.
+*   **The Router Node**: Evaluates user inputs and classifies intent (greeting / meta_question / tool_use) to skip tools when unnecessary.
 *   **RBAC Layer**: Injected dynamically at the node level. If the user invokes a tool tagged with `requires_admin` (but isn't authenticated), the State Machine physically routes the packet into an exception wrapper, making prompt-injection hacking impossible.
+*   **6-Layer LLM Cascade**: GitHub Models (GPT-4o → Llama-3.3-70B → GPT-4o-mini) → Groq (Llama-3.1-8B) → HuggingFace (Qwen2.5-72B) → Static Python fallback. Each tier has an independent circuit breaker.
 
 ### 2. Omni-Memory & Deep Privacy 🔒
 Most AI platforms log transcripts in plaintext. This project enforces an **Omni-Memory** architecture.
@@ -42,13 +43,37 @@ Rather than fracturing data by using MongoDB for users and ChromaDB for vectors,
 ---
 
 ## 🛠️ The Agentic Toolbelt
-The AI is completely autonomous and capable of deciding when to call external logic functions:
-1.  `github`: Uses the GitHub API to dynamically scan your open source commits, PRs, and metrics.
-2.  `leetcode`: Scrapes competitive programming statistics and algorithmic competencies dynamically.
-3.  `portfolio`: Executes semantic vector searches against your cached database resume.
-4.  `contact`: Bypasses external form submissions by authenticating and writing secure inquiries directly into the admin database for user feedback.
+The AI is completely autonomous and capable of deciding when to call external logic functions.
 
-*(Each tool is abstracted so it automatically queries the identity parameters provided in your `.env`.)*
+### 10 Built-in Tools
+1.  `github` — Uses the GitHub API to dynamically scan your open source commits, PRs, and metrics.
+2.  `github_repos` — Fetches repository READMEs and project details.
+3.  `leetcode` — Scrapes competitive programming statistics and algorithmic competencies dynamically.
+4.  `portfolio` — Executes semantic vector searches against your cached database resume.
+5.  `contact` — Writes secure inquiries directly into the admin database for user feedback.
+6.  `weather` — Current weather and forecasts via Open-Meteo.
+7.  `wikipedia` — Knowledge lookup from Wikipedia.
+8.  `web_search` — DuckDuckGo web search for general queries.
+9.  `notify_admin` — Push notifications to admin via Telegram + WhatsApp.
+10. `portfolio_api` — Live data from the Vercel portfolio backend.
+
+### 17 MCP Servers
+| Server | Purpose |
+|---|---|
+| Vercel, Netlify, Render | DevOps: deployment monitoring, logs, environment management |
+| GitHub | Repository management, PRs, issues |
+| Google | Gmail, Calendar, Drive access |
+| Zomato | Restaurant search and ordering |
+| Swiggy (x3) | Food, Instamart, Dineout |
+| QuickCommerce | Blinkit, Zepto, BigBasket price comparison |
+| HackerNews | Tech news and trending stories |
+| DuckDuckGo | Web search |
+| Sequential Thinking | Complex reasoning chains |
+| Puppeteer | Headless browser automation |
+| Postgres | Direct database access for admin |
+| Linear | Issue and project management |
+| Todoist | Task management |
+| Notion | Notes, databases, knowledge base |
 
 ---
 
@@ -57,11 +82,13 @@ The AI is completely autonomous and capable of deciding when to call external lo
 The platform is completely decoupled to ensure standard MVC / Domain-Driven constraints.
 
 #### API & Backend (FastAPI / `Python 3.11`)
-*   **`/api`**: External HTTP REST boundaries.
-*   **`/agent`**: The Neural Layer (LangGraph logic, Nodes, Models).
-*   **`/core`**: Auth.js stateless edge decoding, GCM Cryptography, Error Handlers.
-*   **`/rag`**: The Vector Embedding and PostgreSQL contextual mechanisms.
-*   **`/middlewares`**: Traffic monitoring and unique Request ID generation logic.
+*   **`/api`**: External HTTP REST boundaries (public, agent, admin 3-way split).
+*   **`/agent`**: The Neural Layer (LangGraph logic, Nodes, 6-Layer LLM Cascade).
+*   **`/core`**: Auth, Encryption, Error Handlers, Circuit Breakers, Rate Limiting, Caching.
+*   **`/rag`**: The Vector Embedding and PGVector contextual mechanisms.
+*   **`/mcp`**: MCP client for dynamic tool discovery from 17 servers.
+*   **`/transports`**: Telegram Bot + WhatsApp notifications.
+*   **`/middlewares`**: Request ID, Request Logging, CORS.
 
 #### Client & Interface (`Next.js 15+`)
 *   Fully server-side rendered App Router architecture.
@@ -119,11 +146,19 @@ This system allows you to completely reskin the AI's personality and authenticat
 | :--- | :--- | :--- |
 | `AGENT_NAME` | The dynamic fallback name injected into the System Prompts. | Optional |
 | `GITHUB_USERNAME` | The identifier the `github` tool uses to calculate open source metrics. | Optional |
+| `GITHUB_TOKEN` | GitHub personal access token for API + MCP. | Optional |
 | `LEETCODE_USERNAME` | The string the `leetcode` tool scrapes for algorithmic power. | Optional |
 | `DATABASE_URL` | The Neon Postgres Database targeting your environment. Must prefix with `postgresql+asyncpg://` | **Critical** |
 | `AUTH_SECRET` | Next.js Auth.js cryptographic signing string. Must match exactly in both frontend and backend directories. | **Critical** |
-| `OMNI_MEMORY_KEY` | 32-Byte Secret Key powering the AES-GCM deep privacy algorithm. Generatable via `import os, base64`. | **Critical** |
-| `GEMINI_API_KEY` | HuggingFace or Gemini native developer key to orchestrate the internal LangGraph engine. | **Critical** |
+| `OMNI_MEMORY_KEY` | 32-Byte Secret Key powering the AES-GCM deep privacy algorithm. | **Critical** |
+| `HF_TOKEN` | HuggingFace API key for LLM Tier 5 (Qwen2.5-72B). | **Critical** |
+| `GROQ_API_KEY` | Groq API key for LLM Tier 4 (Llama-3.1-8B). | Recommended |
+| `TELEGRAM_BOT_TOKEN` | Telegram Bot token from BotFather. | Optional |
+| `TELEGRAM_ALLOWED_USER_IDS` | Comma-separated list of allowed Telegram user IDs. | Optional |
+| `CALLMEBOT_PHONE` | WhatsApp number for CallMeBot notifications. | Optional |
+| `CALLMEBOT_API_KEY` | CallMeBot API key. | Optional |
+| `AUTOMATION_SECRET` | Shared secret for cron-triggered automation endpoints. | Optional |
+| `REINDEX_SECRET` | Shared secret for the RAG reindex webhook. | Optional |
 
 ---
 

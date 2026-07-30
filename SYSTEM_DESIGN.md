@@ -1024,18 +1024,24 @@ Every operation is logged with category, timestamp, and structured metadata:
 ```
 ApiError (base)
 ├── BadRequestError (400)
+├── AuthenticationError (401)
+├── ForbiddenError (403)
 ├── NotFoundError (404)
+├── ConflictError (409)
 ├── RateLimitError (429)
-├── ServiceUnavailableError (503)
-└── AgentError (500)
+├── AgentError (500)
+├── ExternalServiceError (502)
+└── ServiceUnavailableError (503)
 ```
 
 Every error response includes:
 - `success: false`
-- `message` (user-facing)
+- `message` (user-facing, sanitized in production)
 - `errors` (detail array)
 - `request_id` (for tracing)
 - `timestamp` (ISO 8601)
+
+The generic exception handler automatically classifies database errors (`IntegrityError` → 409, `OperationalError` → 503), timeout errors (→ 504), and circuit breaker rejections (→ 503). A shared `classify_and_raise()` utility centralizes rate-limit and timeout detection across all routes.
 
 ---
 
@@ -1073,40 +1079,44 @@ graph LR
 ### What's Built vs What's Coming
 
 ````carousel
-### ✅ Implemented (~50% of Vision)
+### ✅ Implemented (~75% of Vision)
 
 | System | Status |
 |--------|--------|
-| LangGraph State Machine | ✅ Full DAG with conditional routing |
-| Dual-LLM Failover | ✅ HuggingFace + Gemini |
-| 9 Agent Tools | ✅ GitHub, LeetCode, Portfolio, Contact, Weather, Wikipedia, HN, Web Search, GitHub Repos |
+| LangGraph State Machine | ✅ Full DAG with intent routing + conditional edges |
+| 6-Layer LLM Cascade | ✅ GitHub Models (3 tiers) → Groq → HuggingFace → Static Fallback |
+| 10 Built-in Agent Tools | ✅ GitHub, GitHub Repos, LeetCode, Portfolio, Contact, Weather, Wikipedia, Web Search, Notify |
+| 17 MCP Servers | ✅ Vercel, Netlify, Render, GitHub, Google, Zomato, Swiggy x3, QuickCommerce, HackerNews, DDG, Sequential Thinking, Puppeteer, Postgres, Linear, Todoist, Notion |
 | AES-256-GCM Encryption | ✅ Transparent via TypeDecorator |
-| RAG Pipeline | ✅ Ingester + PGVector + semantic search |
+| RAG Pipeline | ✅ Ingester + PGVector + semantic search + auto-sync |
 | Telegram Bot | ✅ Polling mode with whitelist auth |
+| WhatsApp Notifications | ✅ CallMeBot + unified notifier pipeline |
 | Conversation Summarization | ✅ Auto-trigger at 15+ messages |
 | Preference Extraction | ✅ With confidence scores |
 | Google OAuth | ✅ ID token verification |
 | RBAC at Node Level | ✅ Tool filtering by role |
-| Structured Logging | ✅ Categorized with durations |
+| Structured Logging | ✅ ANSI colored, categorized, startup banner |
+| Centralized Error Handling | ✅ 8 exception subclasses, DB mapping, production sanitization |
+| Request Logging Middleware | ✅ Duration tracking + safety net |
 | Granular Message CRUD | ✅ Edit/delete individual messages |
 | Admin Dashboard | ✅ Next.js 16 with Framer Motion |
-| MCP Architecture | ✅ Dynamic tool loading |
-| Resilience Layer | ✅ Circuit Breaker, Retry, Degradation |
+| Admin MCP Management | ✅ CRUD API + hot-reload |
+| Resilience Layer | ✅ 5 Circuit Breakers, Retry, Degradation |
 | Caching | ✅ Thread-safe TTLCache with invalidation |
 | Repository Pattern | ✅ Centralized DB access singletons |
 | Custom Rate Limiting | ✅ Identity-aware & LLM budgeting |
+| Cron Automation | ✅ Automation endpoint + test notifications |
 <!-- slide -->
 ### 🔮 Coming Next
 
 | Phase | System | What It Adds |
 |-------|--------|-------------|
-| **Phase 3** | **Email Agent** | Gmail API read/send, draft preview, human-in-the-loop confirmation |
-| **Phase 7** | **Task Management** | Natural language CRUD for todos + reminders with `node-cron` |
-| **Phase 9** | **WhatsApp Bot** | Third transport via Twilio/Meta Business API |
-| **Phase 10** | **Calendar** | Google Calendar API — availability checks, event booking |
-| **Phase 11** | **Multi-Mode Agent** | Portfolio / Recruiter / Assistant / Research mode switching |
-| **Phase 13** | **UX Polish** | Suggestion chips, rich cards, typing indicators, onboarding |
-| **Phase 14** | **Cost Optimization** | Model routing (cheap/fast vs expensive/smart), streaming, caching |
+| **Phase 3** | **Email Agent** | Custom Gmail tools (read/send/draft), human-in-the-loop confirmation |
+| **Phase 10** | **Google Workspace** | Complete OAuth flow, Calendar integration testing |
+| **Frontend** | **Portfolio Widget** | Embed public chatbot into live portfolio website |
+| **Frontend** | **Agent Website** | Connect Next.js to completed 3-way backend endpoints |
+| **UX Polish** | **Rich UI** | Suggestion chips, rich cards, typing indicators, onboarding |
+| **Streaming** | **SSE Responses** | Stream LLM output for perceived speed |
 ````
 
 ### The Ultimate Vision
