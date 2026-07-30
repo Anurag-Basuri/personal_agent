@@ -162,6 +162,42 @@
         "${DATABASE_URL}"
       ],
       "enabled": true
+    },
+    "linear": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-q",
+        "@timkimhd/linear-mcp-server"
+      ],
+      "env": {
+        "LINEAR_API_KEY": "${LINEAR_API_KEY}"
+      },
+      "enabled": true
+    },
+    "todoist": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-q",
+        "@nguyenvanduocit/todoist-mcp-server"
+      ],
+      "env": {
+        "TODOIST_API_TOKEN": "${TODOIST_API_TOKEN}"
+      },
+      "enabled": true
+    },
+    "notion": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "-q",
+        "@notionhq/notion-mcp-server"
+      ],
+      "env": {
+        "OPENAPI_MCP_HEADERS": "{\"Authorization\": \"Bearer ${NOTION_TOKEN}\", \"Notion-Version\": \"2022-06-28\"}"
+      },
+      "enabled": true
     }
   }
 }
