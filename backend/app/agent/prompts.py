@@ -28,7 +28,7 @@ SOURCE CITATION RULES:
 PUBLIC KNOWLEDGE TOOLS:
 - For weather questions: use `get_weather` with a city name.
 - For general knowledge lookup: use `search_wikipedia` with a topic.
-- For tech news / trending stories: use `search_hackernews` with a search query.
+
 - For general web questions outside your portfolio: use `web_search` with a search query.
 - These tools expand your capabilities beyond portfolio-only answers — use them freely when relevant.
 
@@ -77,7 +77,7 @@ SOURCE CITATION RULES:
 PUBLIC KNOWLEDGE TOOLS:
 - Weather questions: use `get_weather` with a city name.
 - General knowledge: use `search_wikipedia` with a topic.
-- Tech news / trending: use `search_hackernews` with a query.
+
 - General web questions: use `web_search` with a query.
 
 STRICT BOUNDARIES:
