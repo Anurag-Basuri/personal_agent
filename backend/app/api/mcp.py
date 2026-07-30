@@ -21,10 +21,21 @@ from app.models.user import User
 router = APIRouter(prefix="/api/admin/mcp", tags=["Admin MCP"])
 
 class MCPServerConfig(BaseModel):
+    """Configuration for adding or updating an MCP server.
+
+    Supports all transport types:
+      stdio: requires command + args
+      streamable_http: requires url (+ optional headers)
+      sse: requires url (+ optional headers)
+    """
+
     name: str = Field(..., description="Unique name of the MCP server")
-    command: str = Field(..., description="Command to run (e.g., npx, python)")
+    transport: str = Field("stdio", description="Transport type: stdio, streamable_http, or sse")
+    command: str | None = Field(None, description="Command to run (required for stdio transport)")
     args: list[str] = Field(default_factory=list, description="Arguments for the command")
     env: dict[str, str] = Field(default_factory=dict, description="Environment variables (e.g., API keys)")
+    url: str | None = Field(None, description="Server URL (required for streamable_http/sse transport)")
+    headers: dict[str, str] = Field(default_factory=dict, description="HTTP headers (for streamable_http/sse)")
     description: str | None = Field(None, description="Optional description of the server")
     enabled: bool = Field(True, description="Whether the server is enabled")
 

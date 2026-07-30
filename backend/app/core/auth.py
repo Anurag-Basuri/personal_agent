@@ -4,23 +4,19 @@ Google OAuth 2.0 Authentication for FastAPI.
 Verifies Google ID tokens sent as Bearer tokens from the Next.js frontend.
 """
 
-import uuid
-
-from fastapi import Depends, HTTPException, Request, status
-from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.future import select
+from fastapi import HTTPException, Request, status
 
 from app.config import get_settings
 from app.core.logger import agent_logger
-from app.database import get_db
 from app.models.user import User
+from app.repositories.user_repo import user_repo
 
 
 def _extract_bearer_token(request: Request) -> str | None:
     """Extract Bearer token from Authorization header."""
     auth_header = request.headers.get("Authorization", "")
     if auth_header.startswith("Bearer "):
-        return auth_header[7:].strip() 
+        return auth_header[7:].strip()
     return None
 
 
@@ -36,9 +32,8 @@ def _verify_jwt_token(token: str) -> dict:
 
     try:
         import jwt
-        
+
         # Decode the token using the shared AUTH_SECRET
-        # We don't verify audience/issuer here since it's an internal NextAuth token
         payload = jwt.decode(
             token,
             settings.AUTH_SECRET,
@@ -67,23 +62,22 @@ def _verify_jwt_token(token: str) -> dict:
         )
 
 
-async def get_current_user(
-    request: Request,
-    db: AsyncSession = Depends(get_db),
-) -> User:
+async def get_current_user(request: Request) -> User:
     """
     FastAPI Dependency to authenticate users via NextAuth JWT tokens.
 
     Expects: Authorization: Bearer <nextauth_jwt_token>
+
+    Uses UserRepository for all database operations instead of
+    injecting a raw SQLAlchemy session.
     """
     settings = get_settings()
     token = _extract_bearer_token(request)
 
     # Dev Mode Bypass
     if not token and settings.is_debug:
-        agent_logger.debug("AUTH", "🔓 DEBUG mode: using dev user (no token provided)")
-        return await _get_or_create_user(
-            db,
+        agent_logger.debug("AUTH", "DEBUG mode: using dev user (no token provided)")
+        return await user_repo.get_or_create(
             email="dev@localhost",
             name="Dev User",
             picture="",
@@ -110,31 +104,7 @@ async def get_current_user(
     name = payload.get("name", "")
     picture = payload.get("picture", "")
 
-    return await _get_or_create_user(db, email=email, name=name, picture=picture)
+    return await user_repo.get_or_create(
+        email=email, name=name, picture=picture,
+    )
 
-
-async def _get_or_create_user(
-    db: AsyncSession,
-    email: str,
-    name: str = "",
-    picture: str = "",
-    role: str = "GUEST",
-) -> User:
-    """Find existing user by email or create a new one."""
-    result = await db.execute(select(User).where(User.email == email))
-    user = result.scalar_one_or_none()
-
-    if not user:
-        user = User(
-            id=str(uuid.uuid4()),
-            email=email,
-            name=name,
-            picture=picture,
-            role=role,
-        )
-        db.add(user)
-        await db.commit()
-        await db.refresh(user)
-        agent_logger.info("AUTH", f"✨ New user created: {email}", {"role": role})
-
-    return user

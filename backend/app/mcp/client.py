@@ -4,7 +4,6 @@ MCP Client Manager.
 Connects to all third-party MCP servers defined in mcp_servers.json,
 discovers their tools, and exposes them in LangChain format.
 """
-# MCP config version: 2
 
 from __future__ import annotations
 
@@ -25,22 +24,23 @@ class MCPManager:
 
     def __init__(self, config_path: str = "mcp_servers.json"):
         self.config_path = config_path
-        self.client: MultiServerMCPClient | None = None
+        self._clients: list[MultiServerMCPClient] = []
         self._tools: list[BaseTool] = []
         self._status: dict[str, str] = {}
         self.connected_count: int = 0
 
     def _load_config(self) -> dict[str, Any]:
+        """Load and interpolate MCP server configuration from JSON file."""
         if not os.path.exists(self.config_path):
             agent_logger.warn("MCP", f"Config {self.config_path} not found. MCP disabled.")
             return {}
         try:
             with open(self.config_path, encoding="utf-8") as f:
                 data = json.load(f)
-                
+
             servers = data.get("servers", {})
-            # Interpolate env vars like {VERCEL_TOKEN} or standard env loading
             for name, server_cfg in servers.items():
+                # Resolve environment variables in env block
                 if "env" in server_cfg:
                     resolved_env = {}
                     for k, v in server_cfg["env"].items():
@@ -50,7 +50,8 @@ class MCPManager:
                         else:
                             resolved_env[k] = v
                     server_cfg["env"] = resolved_env
-                
+
+                # Resolve environment variables in args
                 if "args" in server_cfg:
                     resolved_args = []
                     for arg in server_cfg["args"]:
@@ -60,7 +61,8 @@ class MCPManager:
                                     arg = arg.replace(f"${{{key}}}", os.environ.get(key, ""))
                         resolved_args.append(arg)
                     server_cfg["args"] = resolved_args
-                    
+
+                # Resolve environment variables in headers
                 if "headers" in server_cfg:
                     resolved_headers = {}
                     for k, v in server_cfg["headers"].items():
@@ -70,7 +72,7 @@ class MCPManager:
                                     v = v.replace(f"${{{key}}}", os.environ.get(key, ""))
                         resolved_headers[k] = v
                     server_cfg["headers"] = resolved_headers
-                    
+
             return servers
         except Exception as e:
             agent_logger.error("MCP", f"Failed to parse {self.config_path}", e)
@@ -81,6 +83,7 @@ class MCPManager:
 
         Each server is connected independently so a single failing server
         does not prevent the others from loading successfully.
+        Client handles are stored in self._clients for proper shutdown.
         """
         servers = self._load_config()
         if not servers:
@@ -104,15 +107,16 @@ class MCPManager:
 
         agent_logger.info("MCP", f"Connecting to {len(enabled_servers)} servers...")
 
-        # Connect to each server independently so one failure doesn't crash the rest
         for name, server_config in enabled_servers.items():
             try:
                 single_client = MultiServerMCPClient({name: server_config})
-                # 30 second timeout per server (OAuth servers like Zomato/Swiggy need extra time)
+                # 30 second timeout per server (OAuth servers need extra time)
                 tools = await asyncio.wait_for(
                     single_client.get_tools(server_name=name),
                     timeout=30.0,
                 )
+                # Track client handle for proper shutdown
+                self._clients.append(single_client)
                 self._tools.extend(tools)
                 self._status[name] = "connected"
                 self.connected_count += 1
@@ -138,20 +142,30 @@ class MCPManager:
             system_health.mark_down("mcp")
 
     async def shutdown(self) -> None:
-        """Cleanly disconnect from all servers."""
-        if self.client:
+        """Cleanly disconnect from all servers by closing tracked client handles."""
+        if not self._clients:
+            return
+
+        agent_logger.info("MCP", f"Shutting down {len(self._clients)} MCP clients...")
+
+        for client in self._clients:
             try:
-                # MultiServerMCPClient does not expose __aexit__, we can just clear it
-                agent_logger.info("MCP", "Disconnected from MCP servers.")
+                # MultiServerMCPClient may expose __aexit__ or close methods
+                if hasattr(client, "__aexit__"):
+                    await client.__aexit__(None, None, None)
+                elif hasattr(client, "close"):
+                    await client.close()
             except Exception as e:
-                agent_logger.error("MCP", "Error during MCP shutdown", e)
-            finally:
-                self.client = None
-                self._tools = []
-                self.connected_count = 0
-                for name in self._status:
-                    if self._status[name] == "connected":
-                        self._status[name] = "disconnected"
+                agent_logger.warn("MCP", f"Error closing MCP client: {e}")
+
+        self._clients.clear()
+        self._tools.clear()
+        self.connected_count = 0
+        for name in self._status:
+            if self._status[name] == "connected":
+                self._status[name] = "disconnected"
+
+        agent_logger.info("MCP", "All MCP connections closed.")
 
     def get_tools(self) -> list[BaseTool]:
         """Return the list of discovered LangChain compatible tools."""
@@ -164,3 +178,4 @@ class MCPManager:
 
 # Singleton instance
 mcp_manager = MCPManager()
+
