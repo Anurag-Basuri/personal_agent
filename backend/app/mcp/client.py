@@ -105,37 +105,44 @@ class MCPManager:
         if not enabled_servers:
             return
 
-        agent_logger.info("MCP", f"Connecting to {len(enabled_servers)} servers...")
-
-        for name, server_config in enabled_servers.items():
+        agent_logger.info("MCP", f"Connecting to {len(enabled_servers)} servers concurrently...")
+        
+        async def connect_server(name: str, server_config: dict):
             try:
                 single_client = MultiServerMCPClient({name: server_config})
-                # 30 second timeout per server (OAuth servers need extra time)
+                # 90 second timeout per server (npx downloads and OAuth servers need extra time)
                 tools = await asyncio.wait_for(
                     single_client.get_tools(server_name=name),
-                    timeout=30.0,
+                    timeout=90.0,
                 )
-                # Track client handle for proper shutdown
+                return name, single_client, tools, None
+            except asyncio.TimeoutError:
+                return name, None, None, "TimeoutError: Timed out after 90s"
+            except Exception as e:
+                # Unwrap ExceptionGroup from anyio/TaskGroup to show the real error
+                if type(e).__name__ in ("ExceptionGroup", "BaseExceptionGroup"):
+                    sub_errors = [str(exc) for exc in getattr(e, "exceptions", [])]
+                    real_error = " | ".join(sub_errors) if sub_errors else str(e)
+                    if "TimeoutError" in real_error or "Timeout" in real_error:
+                        return name, None, None, "TimeoutError: Timed out during initialization"
+                    else:
+                        return name, None, None, real_error
+                return name, None, None, str(e)
+
+        tasks = [connect_server(name, cfg) for name, cfg in enabled_servers.items()]
+        results = await asyncio.gather(*tasks)
+
+        for name, single_client, tools, error in results:
+            if error:
+                self._status[name] = "error"
+                agent_logger.warn("MCP", f"Server '{name}' failed to connect: {error}")
+            else:
                 self._clients.append(single_client)
                 self._tools.extend(tools)
                 self._status[name] = "connected"
                 self.connected_count += 1
-                agent_logger.info(
-                    "MCP",
-                    f"Server '{name}' connected: {len(tools)} tools discovered",
-                )
-            except asyncio.TimeoutError:
-                self._status[name] = "error"
-                agent_logger.warn("MCP", f"Server '{name}' timed out after 30s")
-            except Exception as e:
-                self._status[name] = "error"
-                agent_logger.warn("MCP", f"Server '{name}' failed to connect: {e}")
 
         if self.connected_count > 0:
-            agent_logger.info(
-                "MCP",
-                f"Successfully discovered {len(self._tools)} tools from {self.connected_count} servers.",
-            )
             system_health.mark_up("mcp")
         else:
             agent_logger.warn("MCP", "All MCP servers failed to connect.")
@@ -150,11 +157,14 @@ class MCPManager:
 
         for client in self._clients:
             try:
-                # MultiServerMCPClient may expose __aexit__ or close methods
-                if hasattr(client, "__aexit__"):
-                    await client.__aexit__(None, None, None)
-                elif hasattr(client, "close"):
-                    await client.close()
+                # MultiServerMCPClient removed context manager support in newer versions.
+                # We check for a close method dynamically to avoid type checker errors
+                # and gracefully handle future changes.
+                close_method = getattr(client, "close", None)
+                if callable(close_method):
+                    res = close_method()
+                    if asyncio.iscoroutine(res):
+                        await res
             except Exception as e:
                 agent_logger.warn("MCP", f"Error closing MCP client: {e}")
 
@@ -178,4 +188,3 @@ class MCPManager:
 
 # Singleton instance
 mcp_manager = MCPManager()
-

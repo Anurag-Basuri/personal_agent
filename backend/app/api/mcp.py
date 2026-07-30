@@ -16,6 +16,7 @@ from app.core.auth import get_current_user
 from app.core.rate_limiter import rate_limit
 from app.core.responses import success_response
 from app.mcp.client import mcp_manager
+from app.core.exceptions import ForbiddenError, ConflictError, NotFoundError
 from app.models.user import User
 
 router = APIRouter(prefix="/api/admin/mcp", tags=["Admin MCP"])
@@ -41,7 +42,7 @@ class MCPServerConfig(BaseModel):
 
 def require_admin(user: User = Depends(get_current_user)) -> User:
     if user.role != "ADMIN":
-        raise HTTPException(status_code=403, detail="Admin access required")
+        raise ForbiddenError("Admin access required")
     return user
 
 def _load_config() -> dict[str, Any]:
@@ -88,7 +89,7 @@ async def add_server(server: MCPServerConfig, user: User = Depends(require_admin
         config["servers"] = {}
 
     if server.name in config["servers"]:
-        raise HTTPException(status_code=400, detail=f"Server '{server.name}' already exists")
+        raise ConflictError(f"Server '{server.name}' already exists")
 
     server_dict = server.model_dump(exclude={"name"})
     config["servers"][server.name] = server_dict
@@ -104,14 +105,14 @@ async def update_server(name: str, server: MCPServerConfig, user: User = Depends
     """Update an existing MCP server configuration."""
     config = _load_config()
     if "servers" not in config or name not in config["servers"]:
-        raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
+        raise NotFoundError(f"Server '{name}' not found")
 
     server_dict = server.model_dump(exclude={"name"})
 
     # If the name is changing
     if name != server.name:
         if server.name in config["servers"]:
-            raise HTTPException(status_code=400, detail=f"Target server '{server.name}' already exists")
+            raise ConflictError(f"Target server '{server.name}' already exists")
         del config["servers"][name]
 
     config["servers"][server.name] = server_dict
@@ -127,7 +128,7 @@ async def remove_server(name: str, user: User = Depends(require_admin)):
     """Remove an MCP server from configuration."""
     config = _load_config()
     if "servers" not in config or name not in config["servers"]:
-        raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
+        raise NotFoundError(f"Server '{name}' not found")
 
     del config["servers"][name]
     _save_config(config)
@@ -142,7 +143,7 @@ async def toggle_server(name: str, user: User = Depends(require_admin)):
     """Toggle a server's enabled status."""
     config = _load_config()
     if "servers" not in config or name not in config["servers"]:
-        raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
+        raise NotFoundError(f"Server '{name}' not found")
 
     current_enabled = config["servers"][name].get("enabled", True)
     config["servers"][name]["enabled"] = not current_enabled

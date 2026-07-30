@@ -13,7 +13,7 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from app.agent.public_service import process_public_message
-from app.core.exceptions import AgentError, RateLimitError
+from app.core.exceptions import AgentError, RateLimitError, classify_and_raise
 from app.core.logger import agent_logger
 from app.core.rate_limiter import rate_limit
 from app.core.responses import success_response
@@ -63,23 +63,10 @@ async def public_chat(
         )
 
     except Exception as e:
-        error_msg = str(e)
-        is_rate_limit = "Quota" in error_msg or "429" in error_msg
-        is_timeout = "timeout" in error_msg.lower() or "TimeoutError" in error_msg
-
         agent_logger.error("PUBLIC", "Public chat request failed", e, {
             "session_id": body.session_id[:16] + "...",
-            "category": "RATE_LIMIT" if is_rate_limit else "TIMEOUT" if is_timeout else "INTERNAL",
         })
-
-        if is_rate_limit:
-            raise RateLimitError(
-                "I'm experiencing high demand right now. Please try again in a moment!"
-            )
-
-        raise AgentError(
-            message=error_msg or "Failed to process message",
-        )
+        classify_and_raise(e)
 
 
 @router.get("/health")

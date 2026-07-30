@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
 
 from app.agent.service import process_user_message
 from app.core.auth import get_current_user
-from app.core.exceptions import AgentError, RateLimitError
+from app.core.exceptions import AgentError, RateLimitError, classify_and_raise
 from app.core.logger import agent_logger
 from app.core.memory import clear_session_memory
 from app.core.rate_limiter import rate_limit
@@ -59,19 +59,10 @@ async def send_message(
         )
 
     except Exception as e:
-        error_msg = str(e)
-        is_rate_limit = "Quota" in error_msg or "429" in error_msg
-        is_timeout = "timeout" in error_msg.lower() or "TimeoutError" in error_msg
-
         agent_logger.error("CTRL", "Request failed", e, {
             "session_id": body.sessionId,
-            "category": "RATE_LIMIT" if is_rate_limit else "TIMEOUT" if is_timeout else "INTERNAL",
         })
-
-        if is_rate_limit:
-            raise RateLimitError("I'm currently experiencing high demand. Please try again in a few moments!")
-
-        raise AgentError(message=error_msg or "Agent failed to process message")
+        classify_and_raise(e)
 
 
 @router.post("/reset")

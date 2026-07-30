@@ -93,9 +93,6 @@ def _init_providers() -> None:
                     max_tokens=1000,
                 )
                 _providers.append(LLMProvider(tier, "GitHub", model_id, llm))
-                agent_logger.info("LLM", f"✅ Tier {tier} configured", {
-                    "provider": "GitHub Models", "model": model_id,
-                })
             except Exception as e:
                 agent_logger.error(
                     "LLM", f"Failed to init Tier {tier} ({model_id})", e,
@@ -117,9 +114,6 @@ def _init_providers() -> None:
                 max_tokens=1000,
             )
             _providers.append(LLMProvider(4, "Groq", "llama-3.1-8b-instant", llm))
-            agent_logger.info("LLM", "✅ Tier 4 configured", {
-                "provider": "Groq", "model": "llama-3.1-8b-instant",
-            })
         except Exception as e:
             agent_logger.error("LLM", "Failed to init Tier 4 (Groq)", e)
     else:
@@ -141,9 +135,6 @@ def _init_providers() -> None:
                 max_tokens=1000,
             )
             _providers.append(LLMProvider(5, "HuggingFace", "Qwen2.5-VL-72B-Instruct", llm))
-            agent_logger.info("LLM", "✅ Tier 5 configured", {
-                "provider": "HuggingFace", "model": "Qwen2.5-VL-72B-Instruct",
-            })
         except Exception as e:
             agent_logger.error("LLM", "Failed to init Tier 5 (HuggingFace)", e)
     else:
@@ -151,15 +142,7 @@ def _init_providers() -> None:
             "LLM", "⚠️ HF_TOKEN not set — Tier 5 (HuggingFace) skipped",
         )
 
-    # Summary
-    if _providers:
-        tier_summary = ", ".join(
-            f"T{p.tier}:{p.provider_name}/{p.model_name}" for p in _providers
-        )
-        agent_logger.info(
-            "LLM", f"🚀 {len(_providers)}-layer cascade ready: {tier_summary}",
-        )
-    else:
+    if not _providers:
         agent_logger.error(
             "SYSTEM", "FATAL: No AI providers configured", None,
             {"hint": "Set GITHUB_TOKEN, GROQ_API_KEY, or HF_TOKEN in .env"},
