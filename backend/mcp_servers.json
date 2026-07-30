@@ -58,6 +58,8 @@
         "GOOGLE_CLIENT_ID": "${GOOGLE_CLIENT_ID}",
         "GOOGLE_CLIENT_SECRET": "${GOOGLE_CLIENT_SECRET}",
         "GOOGLE_ACCOUNTS": "${GOOGLE_ACCOUNTS}",
+        "MASTER_KEY": "${MASTER_KEY}",
+        "GOOGLE_PROFILE": "full-writes",
         "DOTENV_QUIET": "true"
       },
       "enabled": true
@@ -107,10 +109,12 @@
       "enabled": true
     },
     "quickcommerce": {
-      "transport": "streamable_http",
-      "url": "https://api.quickcommerceapi.com/mcp",
-      "headers": {
-        "X-API-Key": "${QUICKCOMMERCE_API_KEY}"
+      "command": "python",
+      "args": [
+        "custom_mcps/quickcommerce.py"
+      ],
+      "env": {
+        "QUICKCOMMERCE_API_KEY": "${QUICKCOMMERCE_API_KEY}"
       },
       "enabled": true
     },
@@ -123,16 +127,12 @@
       ],
       "enabled": true
     },
-    "brave_search": {
+    "duckduckgo": {
       "command": "npx",
       "args": [
         "-y",
-        "-q",
-        "@modelcontextprotocol/server-brave-search"
+        "@ericthered926/duckduckgo-mcp-server"
       ],
-      "env": {
-        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
-      },
       "enabled": true
     },
     "sequential_thinking": {
@@ -167,8 +167,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "-q",
-        "@timkimhd/linear-mcp-server"
+        "@mseep/linear-mcp"
       ],
       "env": {
         "LINEAR_API_KEY": "${LINEAR_API_KEY}"
@@ -179,11 +178,10 @@
       "command": "npx",
       "args": [
         "-y",
-        "-q",
-        "@nguyenvanduocit/todoist-mcp-server"
+        "@doist/todoist-mcp"
       ],
       "env": {
-        "TODOIST_API_TOKEN": "${TODOIST_API_TOKEN}"
+        "TODOIST_API_KEY": "${TODOIST_API_TOKEN}"
       },
       "enabled": true
     },
