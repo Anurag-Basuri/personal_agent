@@ -158,6 +158,34 @@ class MemoryRepository:
 
         return saved
 
+    async def delete_all_for_user(self, user_id: str) -> int:
+        """Delete ALL memories (summaries, preferences, facts) for a user.
+
+        Used by the delete-all endpoint to give the user a clean slate.
+        """
+        if not user_id:
+            return 0
+
+        try:
+            from sqlalchemy import delete as sql_delete
+
+            async with async_session() as db:
+                result = await db.execute(
+                    sql_delete(AgentMemory).where(AgentMemory.user_id == user_id)
+                )
+                await db.commit()
+                deleted = result.rowcount or 0
+
+            # Invalidate cache
+            app_cache.delete(f"memories:{user_id}")
+            agent_logger.info("MEMORY", f"Deleted {deleted} memories for user", {
+                "user_id": user_id,
+            })
+            return deleted
+        except Exception as e:
+            agent_logger.error("MEMORY", f"Failed to delete user memories: {e}")
+            return 0
+
 
 # Singleton
 memory_repo = MemoryRepository()

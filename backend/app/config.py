@@ -50,6 +50,10 @@ class Settings(BaseSettings):
     # Google OAuth Client ID for ID token verification
     AUTH_GOOGLE_CLIENT_ID: str = ""
 
+    # Admin Identity
+    ADMIN_ID: str = "anurag"
+    ADMIN_PASSWORD_HASH: str = ""
+    ADMIN_EMAIL: str = ""
 
     # Shared secret for RAG reindex webhook
     REINDEX_SECRET: str = ""

@@ -70,6 +70,32 @@ class UserRepository:
 
             return user
 
+    async def create_with_password(
+        self,
+        email: str,
+        name: str,
+        hashed_password: str,
+    ) -> User:
+        """Create a new user with email/password credentials.
+
+        Always sets role to GUEST. Admin access uses a separate flow.
+        """
+        async with async_session() as db:
+            user = User(
+                id=str(uuid.uuid4()),
+                email=email,
+                name=name,
+                hashed_password=hashed_password,
+                role="GUEST",
+            )
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+            agent_logger.info(
+                "AUTH", f"New user registered: {email}",
+            )
+            return user
+
 
 # Singleton
 user_repo = UserRepository()
