@@ -5,35 +5,32 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 
-class ChatRequest(BaseModel):
-    """POST /chat request body."""
+class AgentChatRequest(BaseModel):
+    """POST /api/agent/chat/ request body.
 
-    message: str = Field(..., min_length=1, max_length=1000, description="User message")
-    sessionId: str = Field(..., min_length=1, description="Session identifier")
+    Note: sessionId is NOT accepted from client.
+    It is auto-generated from the user's account ID.
+    """
+    message: str = Field(..., min_length=1, max_length=2000, description="User message")
     currentUrl: str | None = Field(None, description="Page the user is currently viewing")
 
 
-class ChatResponseData(BaseModel):
-    """Data payload inside success response."""
-
+class AgentChatResponseData(BaseModel):
+    """Data payload inside success response for agent chat."""
     reply: str
-    intents: list[str] = []
     sessionId: str
-
-
-class ResetRequest(BaseModel):
-    """POST /chat/reset request body."""
-    sessionId: str = Field(..., min_length=1, description="Session to clear")
+    messagesRemaining: int
 
 
 class ResetResponseData(BaseModel):
+    """Response for session reset."""
     cleared: bool = True
 
 
-# New Granular Control Schemas
 class EditMessageRequest(BaseModel):
-    """PUT /chat/message/{id} request body"""
+    """PUT /chat/message/{id} request body."""
     new_content: str = Field(..., min_length=1, description="The updated text content of the message.")
+
 
 class MessageResponseItem(BaseModel):
     """Represents a single granular message."""
@@ -41,6 +38,7 @@ class MessageResponseItem(BaseModel):
     role: str
     content: str
     created_at: str
+
 
 class HistoryResponseData(BaseModel):
     """Data payload for /chat/history response."""

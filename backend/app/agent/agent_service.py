@@ -1,13 +1,16 @@
 """
-Admin agent service — the unrestricted admin agent handler.
+Agent service for normal logged-in users.
 
-Used exclusively by admin endpoints and Telegram transport.
-Has access to ALL tools, MCP servers, and Google Workspace.
+Uses the same PUBLIC_PORTFOLIO_PERSONA as the public chatbot, but with:
+  - Persistent memory (preferences, facts, summaries)
+  - Summarization at message thresholds
+  - 50-message-per-session cap
+  - One continuous session per user account
 
-Retrieves granular history, builds context, passes state to LangGraph,
-persists new messages, and triggers conversation summarization + memory extraction.
-
-Uses MemoryRepository for all persistent memory operations.
+Key differences from admin service (service.py):
+  - Restricted to portfolio-safe tools only (no MCP, no admin tools)
+  - Same persona as public chatbot (speaks as Anurag, portfolio-scoped)
+  - Message cap enforcement
 """
 
 from __future__ import annotations
@@ -17,9 +20,9 @@ from dataclasses import dataclass
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
-from app.agent.core.builder import agent_app
+from app.agent.core.builder import build_public_agent
 from app.agent.core.state import AgentState
-from app.agent.prompts import ADMIN_PERSONA
+from app.agent.prompts import PUBLIC_PORTFOLIO_PERSONA
 from app.core.logger import agent_logger
 from app.core.memory import get_message_history
 from app.core.summarizer import (
@@ -31,18 +34,55 @@ from app.core.summarizer import (
 from app.rag.context import get_base_portfolio_context
 from app.repositories.memory_repo import memory_repo
 
+USER_SESSION_MESSAGE_CAP = 50
+
 
 @dataclass
-class AgentResponse:
+class UserAgentResponse:
+    """Return type for the user agent service."""
     reply: str
     session_id: str
+    messages_remaining: int
 
 
-async def _load_user_memories(user_id: str | None) -> str:
+class UserSessionCounter:
+    """In-memory counter for messages per user session.
+
+    Tracks how many user messages have been sent per session_id.
+    Thread-safe via simple dict (single-process async server).
+    """
+
+    def __init__(self) -> None:
+        self._counts: dict[str, int] = {}
+
+    def get_count(self, session_id: str) -> int:
+        """Get current message count for a session."""
+        return self._counts.get(session_id, 0)
+
+    def increment(self, session_id: str) -> int:
+        """Increment and return the new count."""
+        self._counts[session_id] = self._counts.get(session_id, 0) + 1
+        return self._counts[session_id]
+
+    def reset(self, session_id: str) -> None:
+        """Reset a session's counter (called on session reset)."""
+        self._counts.pop(session_id, None)
+
+    def get_remaining(self, session_id: str) -> int:
+        """Return how many messages the session has left."""
+        return max(0, USER_SESSION_MESSAGE_CAP - self.get_count(session_id))
+
+
+_user_message_counter = UserSessionCounter()
+
+
+def get_user_message_counter() -> UserSessionCounter:
+    """Accessor for the user session message counter singleton."""
+    return _user_message_counter
+
+
+async def _load_user_memories(user_id: str) -> str:
     """Load persistent memories (preferences, facts) for the user from AgentMemory."""
-    if not user_id:
-        return ""
-
     memories = await memory_repo.get_user_memories(
         user_id=user_id,
         types=["preference", "fact", "interest"],
@@ -60,25 +100,19 @@ async def _load_user_memories(user_id: str | None) -> str:
     return memory_text
 
 
-async def _load_session_summary(session_id: str, user_id: str | None) -> str:
+async def _load_session_summary(session_id: str, user_id: str) -> str:
     """Load the most recent conversation summary for this session."""
-    if not user_id:
-        return ""
-
     summary = await memory_repo.get_session_summary(user_id, session_id)
     return summary or ""
 
 
 async def _persist_memories(
-    user_id: str | None,
+    user_id: str,
     session_id: str,
     summary: str,
     preferences: list[dict],
 ) -> None:
     """Save extracted summary and preferences to AgentMemory."""
-    if not user_id:
-        return
-
     if summary:
         await memory_repo.save_summary(user_id, session_id, summary)
 
@@ -89,43 +123,51 @@ async def _persist_memories(
     })
 
 
-async def process_user_message(
+async def process_user_agent_message(
     message: str,
     session_id: str,
+    user_id: str,
     current_url: str | None = None,
-    user_id: str | None = None,
-) -> AgentResponse:
+) -> UserAgentResponse:
     """
-    Process a user message through the LangGraph agent pipeline.
+    Process a message from a normal logged-in user.
 
-    1. Load granular history from memory
-    2. Load persistent user memories and session summary
-    3. Build system prompt with portfolio context + memories
-    4. Construct AgentState with intent field
-    5. Invoke LangGraph (router → agent → tools loop)
-    6. Persist only the newly generated messages
-    7. Trigger summarization if message threshold is reached
+    Uses the restricted public agent (portfolio-safe tools only)
+    but with persistent memory and summarization.
+
+    1. Check message cap (50 per session)
+    2. Load session history + persistent memories
+    3. Build system prompt with portfolio RAG context
+    4. Invoke LangGraph with restricted tools
+    5. Persist messages and trigger summarization
+    6. Return reply with remaining message count
     """
     request_start = time.time()
 
-    # We define a default role; ideally this should be passed down from the route (get_current_user)
-    # For now, if we have a user_id, they are at least authenticated.
-    role = "ADMIN" if user_id else "GUEST"
+    # Message Cap Check
+    counter = get_user_message_counter()
+    current_count = counter.get_count(session_id)
 
-    agent_logger.info("SYSTEM", "━━━ New Request (LangGraph) ━━━", {
-        "session_id": session_id,
-        "role": role,
-        "current_url": current_url or "N/A",
+    if current_count >= USER_SESSION_MESSAGE_CAP:
+        return UserAgentResponse(
+            reply=(
+                "You've reached the message limit for this session. "
+                "Please reset your conversation to continue chatting!"
+            ),
+            session_id=session_id,
+            messages_remaining=0,
+        )
+
+    agent_logger.info("AGENT", "New user request", {
+        "session_id": session_id[:20] + "...",
+        "message_number": current_count + 1,
+        "remaining": USER_SESSION_MESSAGE_CAP - current_count - 1,
         "message_preview": message[:80],
     })
 
-    # Load session history
-    memory = get_message_history(session_id, user_id=user_id, role=role)
+    # Load Session History
+    memory = get_message_history(session_id, user_id=user_id, role="GUEST")
     history = await memory.get_messages()
-
-    agent_logger.debug("MEMORY", f"Loaded {len(history)} messages from session history", {
-        "session_id": session_id,
-    })
 
     # Load persistent memories and session summary
     user_memories = await _load_user_memories(user_id)
@@ -137,6 +179,7 @@ async def process_user_message(
 
     # Build context by searching the Vector Database with the user's prompt
     portfolio_context = await get_base_portfolio_context(query=message)
+
     location_context = ""
     if current_url:
         location_context = (
@@ -146,7 +189,7 @@ async def process_user_message(
 
     system_prompt = SystemMessage(
         content=(
-            f"{ADMIN_PERSONA}\n\n"
+            f"{PUBLIC_PORTFOLIO_PERSONA}\n\n"
             f"{user_memories}"
             f"[PORTFOLIO CONTEXT]\n{portfolio_context}\n[END CONTEXT]"
             f"{location_context}"
@@ -160,58 +203,54 @@ async def process_user_message(
         "messages": [system_prompt, *history, human_msg],
         "session_id": session_id,
         "user_id": user_id,
-        "role": role,
+        "role": "GUEST",
         "current_url": current_url,
-        # Default router will override
         "intent": "tool_use",
         "summary": session_summary,
     }
 
-    approx_chars = sum(len(str(m.content)) for m in initial_state["messages"])
-    agent_logger.debug("LLM", f"Estimated prompt size: {approx_chars} characters", {"session_id": session_id})
+    # Invoke LangGraph (Public Agent — restricted tools)
+    public_agent = build_public_agent()
 
-    # Invoke LangGraph
     try:
-        final_state = await agent_app.ainvoke(initial_state)
+        final_state = await public_agent.ainvoke(initial_state)
     except Exception as e:
-        agent_logger.error("SYSTEM", "LangGraph Workflow Failed", e)
-        raise e
+        agent_logger.error("AGENT", "User LangGraph Workflow Failed", e)
+        raise
 
-    # Persist New Messages
-    new_messages_offset = len(history) + 1
-
-    # Save the human message
+    # Persist Messages
     await memory.add_message(human_msg)
 
-    # Save everything Graph generated (AI / Tool messages)
+    new_messages_offset = len(history) + 1
     final_messages = final_state["messages"]
-    # +1 because system prompt is at [0]
     new_generated_messages = final_messages[new_messages_offset + 1:]
 
     for msg in new_generated_messages:
         await memory.add_message(msg)
 
-    # The final displayable reply is the last AIMessage content
+    # Extract Final Reply
     final_reply = ""
     for msg in reversed(final_messages):
         if msg.type == "ai":
             final_reply = msg.content
             break
 
+    # Increment Counter
+    counter.increment(session_id)
+    remaining = counter.get_remaining(session_id)
+
     # Trigger Summarization (Background)
     total_message_count = len(history) + len(new_generated_messages) + 1
-    if should_summarize(total_message_count) and user_id:
+    if should_summarize(total_message_count):
         agent_logger.info("MEMORY", f"Summarization threshold reached ({total_message_count} msgs)", {
             "session_id": session_id,
         })
         try:
-            # Use the cheapest available LLM (last tier) for summarization
             from app.agent.llm import get_providers
             providers = get_providers()
             summarize_llm = providers[-1].llm if providers else None
 
             if summarize_llm:
-                # Build summarization prompt from all messages (excluding system)
                 all_msgs = [m for m in final_messages if m.type != "system"]
                 prompt_text = build_summarization_prompt(all_msgs)
 
@@ -228,14 +267,14 @@ async def process_user_message(
             agent_logger.warn("MEMORY", f"Summarization failed (non-fatal): {e}")
 
     total_duration = round((time.time() - request_start) * 1000)
-    agent_logger.info("SYSTEM", "━━━ Request Complete ━━━", {
-        "session_id": session_id,
+    agent_logger.info("AGENT", "User request complete", {
+        "session_id": session_id[:20] + "...",
         "total_duration_ms": total_duration,
-        "new_messages_added": len(new_generated_messages) + 1,
-        "intent": final_state.get("intent", "unknown"),
+        "messages_remaining": remaining,
     })
 
-    return AgentResponse(
+    return UserAgentResponse(
         reply=str(final_reply) if final_reply else "I couldn't process that properly.",
         session_id=session_id,
+        messages_remaining=remaining,
     )
