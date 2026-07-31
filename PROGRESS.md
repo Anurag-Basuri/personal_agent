@@ -39,7 +39,10 @@ This file tracks completion status against the [ROADMAP.md](./ROADMAP.md).
 ## What's Already Built
 
 ### Backend (`backend/`)
-- Strict 3-Way physical route split: `/api/public/*` (widget), `/api/agent/*` (user website), and `/api/admin/*` (admin exclusive)
+- **Strict 3-Way Physical Route Split**:
+  - `🌐 /api/public/*` (Widget): No auth, 20-message cap, portfolio-safe tools, ephemeral memory.
+  - `👤 /api/agent/*` (User Website): Google OAuth, 50-message cap, portfolio-safe tools, omni-memory (RAG + persistence).
+  - `🔐 /api/admin/*` (Admin Exclusive): Custom auth, unlimited messages, unrestricted toolbelt (MCP/Email/DB).
 - 6-Layer LLM Fallback Cascade (GitHub Models GPT-4o → Llama-3.3-70B → GPT-4o-mini → Groq Llama-3.1 → HuggingFace → Static Fallback)
 - 5 independent Circuit Breakers (one per LLM tier) with automatic HALF_OPEN recovery
 - Centralized error handling: ApiError hierarchy with 8 exception subclasses, `classify_and_raise` utility, request logging middleware, DB error mapping, sanitized production errors

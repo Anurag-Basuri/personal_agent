@@ -46,38 +46,40 @@ Most portfolio "chatbots" are glorified FAQ bots. They pattern-match keywords an
 | **Knowledge** | Static prompts | Live RAG from PGVector + real-time API tool calls |
 | **Self-awareness** | None | Knows what page the user is viewing, navigates their browser |
 
-### The Dual-Mode Philosophy
+### The Tri-Tier Architecture
 
-The agent operates in two fundamentally different modes depending on who's talking:
+The system operates across three strictly segregated tiers, ensuring that public users, authenticated agent users, and the system administrator are completely isolated:
 
 ```mermaid
 graph LR
-    subgraph Public["🌐 PUBLIC MODE (Portfolio Visitors)"]
-        V["Recruiter / Visitor"] --> PL["Limited Tools"]
-        PL --> P1["Portfolio Search"]
-        PL --> P2["GitHub Stats"]
-        PL --> P3["LeetCode Ranks"]
-        PL --> P4["Contact Form"]
-        PL --> P5["Weather / Wikipedia"]
+    subgraph Public["🌐 PUBLIC TIER (/api/public)"]
+        V["Portfolio Visitors"] --> PL["No Auth / Ephemeral"]
+        PL --> P1["20 Message Cap"]
+        PL --> P2["Portfolio-Safe Tools Only"]
+        PL --> P3["No Long-Term Memory"]
     end
     
-    subgraph Private["🔐 PRIVATE MODE (You, Authenticated)"]
-        A["Admin (You)"] --> AL["Full Toolbelt"]
-        AL --> A1["All Public Tools"]
-        AL --> A2["Email Read/Send"]
-        AL --> A3["Calendar Management"]
-        AL --> A4["Task / Note CRUD"]
-        AL --> A5["Raw DB Admin Access"]
-        AL --> A6["Memory Management"]
+    subgraph Agent["👤 AGENT TIER (/api/agent)"]
+        U["Logged-In Users"] --> AL["Google OAuth / Credentials"]
+        AL --> A1["50 Message Cap"]
+        AL --> A2["Portfolio-Safe Tools Only"]
+        AL --> A3["Omni-Memory & RAG Active"]
+    end
+
+    subgraph Admin["🔐 ADMIN TIER (/api/admin)"]
+        A["Admin (You)"] --> ADL["Custom ID + Password"]
+        ADL --> AD1["Unlimited Messages"]
+        ADL --> AD2["Unrestricted Full Toolbelt"]
+        ADL --> AD3["Raw DB / MCP / Health Control"]
     end
     
     style Public fill:#1a1a2e,stroke:#10b981,color:#e0e0e0
-    style Private fill:#1a1a2e,stroke:#f59e0b,color:#e0e0e0
+    style Agent fill:#1a1a2e,stroke:#3b82f6,color:#e0e0e0
+    style Admin fill:#1a1a2e,stroke:#f59e0b,color:#e0e0e0
 ```
 
 > [!IMPORTANT]
-> The mode isn't just a UI switch — it's enforced at the **LangGraph node level**. Tools tagged `requires_admin` are physically removed from the LLM's awareness before invocation. A `GUEST` user literally cannot trigger admin tools through prompt injection because the model doesn't know they exist.
-
+> The mode isn't just a UI switch — it's enforced at the **Routing and LangGraph node level**. Tools tagged `requires_admin` are physically removed from the LLM's awareness before invocation. Normal users literally cannot trigger admin tools through prompt injection because the model doesn't know they exist. Furthermore, physical API route segregation guarantees normal users cannot reach admin endpoints.
 ---
 
 ## 2. High-Level System Architecture
