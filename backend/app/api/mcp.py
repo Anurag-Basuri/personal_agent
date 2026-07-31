@@ -12,7 +12,7 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from app.core.auth import get_current_user
+from app.core.auth import get_admin_user
 from app.core.rate_limiter import rate_limit
 from app.core.responses import success_response
 from app.mcp.client import mcp_manager
@@ -40,10 +40,7 @@ class MCPServerConfig(BaseModel):
     description: str | None = Field(None, description="Optional description of the server")
     enabled: bool = Field(True, description="Whether the server is enabled")
 
-def require_admin(user: User = Depends(get_current_user)) -> User:
-    if user.role != "ADMIN":
-        raise ForbiddenError("Admin access required")
-    return user
+
 
 def _load_config() -> dict[str, Any]:
     if not os.path.exists(mcp_manager.config_path):
@@ -59,7 +56,7 @@ def _save_config(config: dict[str, Any]) -> None:
         json.dump(config, f, indent=2)
 
 @router.get("")
-async def list_servers(user: User = Depends(require_admin)):
+async def list_servers(user: User = Depends(get_admin_user)):
     """List all configured MCP servers and their current status."""
     config = _load_config()
     servers = config.get("servers", {})
@@ -82,7 +79,7 @@ async def list_servers(user: User = Depends(require_admin)):
     )
 
 @router.post("")
-async def add_server(server: MCPServerConfig, user: User = Depends(require_admin)):
+async def add_server(server: MCPServerConfig, user: User = Depends(get_admin_user)):
     """Add a new MCP server configuration."""
     config = _load_config()
     if "servers" not in config:
@@ -101,7 +98,7 @@ async def add_server(server: MCPServerConfig, user: User = Depends(require_admin
     )
 
 @router.put("/{name}")
-async def update_server(name: str, server: MCPServerConfig, user: User = Depends(require_admin)):
+async def update_server(name: str, server: MCPServerConfig, user: User = Depends(get_admin_user)):
     """Update an existing MCP server configuration."""
     config = _load_config()
     if "servers" not in config or name not in config["servers"]:
@@ -124,7 +121,7 @@ async def update_server(name: str, server: MCPServerConfig, user: User = Depends
     )
 
 @router.delete("/{name}")
-async def remove_server(name: str, user: User = Depends(require_admin)):
+async def remove_server(name: str, user: User = Depends(get_admin_user)):
     """Remove an MCP server from configuration."""
     config = _load_config()
     if "servers" not in config or name not in config["servers"]:
@@ -139,7 +136,7 @@ async def remove_server(name: str, user: User = Depends(require_admin)):
     )
 
 @router.post("/{name}/toggle")
-async def toggle_server(name: str, user: User = Depends(require_admin)):
+async def toggle_server(name: str, user: User = Depends(get_admin_user)):
     """Toggle a server's enabled status."""
     config = _load_config()
     if "servers" not in config or name not in config["servers"]:
@@ -156,7 +153,7 @@ async def toggle_server(name: str, user: User = Depends(require_admin)):
 
 @router.post("/reload")
 async def reload_servers(
-    user: User = Depends(require_admin),
+    user: User = Depends(get_admin_user),
     _rate: None = Depends(rate_limit("mcp_reload")),
 ):
     """Disconnect all servers, re read config, and reconnect."""

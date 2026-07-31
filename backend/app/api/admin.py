@@ -2,7 +2,7 @@
 
 from fastapi import APIRouter, Depends, Request
 
-from app.core.auth import get_current_user
+from app.core.auth import get_admin_user
 from app.core.responses import paginated_response, success_response
 from app.models.user import User
 from app.repositories.session_repo import session_repo
@@ -16,7 +16,7 @@ async def get_agent_sessions(
     request: Request,
     page: int = 1,
     limit: int = 10,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
 ):
     """List all agent sessions (paginated)."""
     request_id = getattr(request.state, "request_id", "")
@@ -39,7 +39,7 @@ async def get_agent_sessions(
 async def delete_agent_session(
     session_id: str,
     request: Request,
-    current_user: User = Depends(get_current_user),
+    current_user: User = Depends(get_admin_user),
 ):
     """Delete a specific agent session."""
     request_id = getattr(request.state, "request_id", "")
