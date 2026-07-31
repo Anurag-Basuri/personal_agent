@@ -293,6 +293,9 @@ def create_app() -> FastAPI:
 
     # Routers
     from app.api.admin import router as admin_router
+    from app.api.admin_auth import router as admin_auth_router
+    from app.api.admin_chat import router as admin_chat_router
+    from app.api.admin_health import router as admin_health_router
     from app.api.agent import router as agent_router
     from app.api.health import router as health_router
     from app.api.mcp import router as mcp_router
@@ -304,14 +307,21 @@ def create_app() -> FastAPI:
     # Public portfolio chatbot (no auth)
     app.include_router(public_router)
 
-    # Internal auth endpoints
+    # User auth endpoints (register, verify)
     app.include_router(auth_router)
 
-    # Authenticated endpoints
-    app.include_router(health_router)
+    # Agent endpoints (normal logged-in users, restricted tools)
     app.include_router(agent_router)
+
+    # Admin endpoints (full access, admin auth required)
+    app.include_router(admin_auth_router)
+    app.include_router(admin_chat_router)
+    app.include_router(admin_health_router)
     app.include_router(admin_router)
     app.include_router(mcp_router)
+
+    # Infrastructure endpoints
+    app.include_router(health_router)
     app.include_router(reindex_router)
 
     # Cron automation endpoint (secret protected, no JWT auth)

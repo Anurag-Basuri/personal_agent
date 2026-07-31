@@ -1,8 +1,11 @@
 """
-Telegram Transport Layer — Phase 2: Telegram Bot Integration.
+Telegram Transport Layer — Admin-Only.
 
 Handles receiving messages from Telegram, validating users via a whitelist,
-mapping chats to unique LangGraph sessions, and sending responses back.
+mapping chats to the admin's real User row, and sending responses back.
+
+Only whitelisted Telegram user IDs (admin) can interact with the bot.
+The bot uses the full admin agent service with ALL tools and MCP access.
 """
 
 from __future__ import annotations
@@ -19,6 +22,25 @@ from app.core.logger import agent_logger
 
 logger = logging.getLogger("telegram.bot")
 
+
+async def _get_admin_user_id() -> str | None:
+    """Get or create the admin User row and return its ID.
+
+    Links the Telegram admin to the same User row used by web admin login.
+    """
+    settings = get_settings()
+    if not settings.ADMIN_EMAIL:
+        return None
+
+    from app.repositories.user_repo import user_repo
+    admin_user = await user_repo.get_or_create(
+        email=settings.ADMIN_EMAIL,
+        name="Anurag",
+        role="ADMIN",
+    )
+    return admin_user.id
+
+
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Handle incoming Telegram messages."""
     settings = get_settings()
@@ -29,7 +51,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
     if not user or not chat or not message_text:
         return
 
-    # Auth / Filtering
+    # Auth: Only whitelisted user IDs can use the bot
     allowed_ids = settings.telegram_allowed_ids
     if allowed_ids and user.id not in allowed_ids:
         agent_logger.warn("TELEGRAM", f"Unauthorized access attempt from user {user.id}")
@@ -40,42 +62,38 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         )
         return
     elif not allowed_ids:
-        agent_logger.warn("TELEGRAM", "No TELEGRAM_ALLOWED_USER_IDS set. Operating in PUBLIC mode!")
+        agent_logger.warn("TELEGRAM", "No TELEGRAM_ALLOWED_USER_IDS set. Telegram bot disabled for safety.")
+        await update.message.reply_text("Bot is not configured. Contact the administrator.")
+        return
 
-    # Session Mapping
-    # We use tg_chat_{chat.id} as the session_id so we get separate history per chat
-    session_id = f"tg_chat_{chat.id}"
+    # Session Mapping: Use admin's real User row
+    session_id = f"admin_tg_{chat.id}"
+    admin_user_id = await _get_admin_user_id()
 
-    # We use Telegram user ID (as string) as the system user_id to isolate memory
-    user_id = f"tg_user_{user.id}"
+    if not admin_user_id:
+        agent_logger.warn("TELEGRAM", "ADMIN_EMAIL not set. Cannot link Telegram to admin account.")
+        await update.message.reply_text("Admin account not configured. Set ADMIN_EMAIL in .env.")
+        return
 
-    agent_logger.info("TELEGRAM", f"Message from {user.first_name} (ID: {user.id})", {
+    agent_logger.info("TELEGRAM", f"Admin message from {user.first_name}", {
         "session_id": session_id,
-        "message_preview": message_text[:50]
+        "message_preview": message_text[:50],
     })
 
-    # Process Message
+    # Process Message through the full admin agent (ALL tools + MCP)
     try:
-        # Send typing action to Telegram while LLM processes
         await context.bot.send_chat_action(chat_id=chat.id, action=ChatAction.TYPING)
 
-        # Process through our LangGraph agent service
-        # Telegram users act as ADMIN for now if they pass the whitelist
         response = await process_user_message(
             message=message_text,
             session_id=session_id,
-            user_id=user_id
+            user_id=admin_user_id,
         )
 
         reply = response.reply
 
-        # Format & Send
-        # Telegram MarkdownV2 requires aggressive escaping, so we use HTML or plain text.
-        # Fallback to plain text if Markdown/HTML parsing fails.
         try:
             await update.message.reply_text(reply)
-            # Alternatively, if we wanted to support basic Markdown, we could use ParseMode.MARKDOWN
-            # but it is fragile with LLM outputs containing raw symbols.
         except Exception as e:
             agent_logger.error("TELEGRAM", "Failed to send formatted message, falling back to raw.", e)
             await update.message.reply_text(reply)
@@ -93,13 +111,12 @@ def build_telegram_app() -> Application | None:
         return None
 
     try:
-        # Build the application
         application = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
 
-        # Add a handler for all text messages
+        # Handle all text messages
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-        # Also handle /start command just like normal text
+        # Handle /start command
         application.add_handler(MessageHandler(filters.COMMAND, handle_message))
 
         return application
@@ -112,10 +129,8 @@ async def send_telegram_push(text: str) -> dict:
     """
     Send a push notification to the admin's Telegram chat.
 
-    This is independent of the polling based bot handler above.
-    It uses the raw Telegram Bot API to initiate an outbound message,
-    so the agent can proactively notify the admin without waiting for
-    an incoming message first.
+    Independent of the polling-based bot handler.
+    Uses the raw Telegram Bot API to initiate an outbound message.
     """
     import httpx
     from app.core.retry import retry_with_backoff
@@ -145,7 +160,7 @@ async def send_telegram_push(text: str) -> dict:
         )
 
         if response.status_code == 200:
-            agent_logger.info("TELEGRAM", "✅ Push notification sent successfully")
+            agent_logger.info("TELEGRAM", "Push notification sent successfully")
             return {"status": "sent", "detail": "Message delivered via Telegram"}
 
         agent_logger.warn("TELEGRAM", f"Telegram API returned HTTP {response.status_code}", {
