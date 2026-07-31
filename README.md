@@ -14,6 +14,10 @@
 
 ---
 
+> 📖 **Deep Dive**: For a highly technical breakdown of the architectural philosophy, RBAC boundaries, and implemented design patterns, please see the **[System Design Documentation (SYSTEM_DESIGN.md)](SYSTEM_DESIGN.md)**.
+
+---
+
 ## 🌎 About the Application
 
 The **Autonomous Personal Agent** is a highly capable **digital proxy** engineered to represent you to the public, assist your authenticated users, and act as your personal Jarvis in private.
