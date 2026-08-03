@@ -9,15 +9,13 @@ Uses UserRepository for all database operations (Repository Pattern).
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, EmailStr, Field
-from passlib.context import CryptContext
+import bcrypt
 
 from app.core.exceptions import AuthenticationError, ConflictError
 from app.core.responses import success_response
 from app.repositories.user_repo import user_repo
 
 router = APIRouter(prefix="/api/agent/auth", tags=["User Auth"])
-
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
 class RegisterRequest(BaseModel):
@@ -43,7 +41,7 @@ async def register_user(body: RegisterRequest):
     if existing:
         raise ConflictError("Email already registered.")
 
-    hashed_password = pwd_context.hash(body.password)
+    hashed_password = bcrypt.hashpw(body.password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
     user = await user_repo.create_with_password(
         email=body.email,
@@ -68,7 +66,7 @@ async def verify_user(body: VerifyRequest):
     if not user.hashed_password:
         raise AuthenticationError("Please sign in with Google.")
 
-    if not pwd_context.verify(body.password, user.hashed_password):
+    if not bcrypt.checkpw(body.password.encode('utf-8'), user.hashed_password.encode('utf-8')):
         raise AuthenticationError("Invalid email or password.")
 
     return success_response(

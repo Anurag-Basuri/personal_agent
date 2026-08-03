@@ -95,7 +95,7 @@ def authenticate_admin(admin_id: str, password: str) -> str | None:
     Validate admin credentials against environment variables.
     Returns a signed JWT on success, None on failure.
     """
-    from passlib.context import CryptContext
+    import bcrypt
 
     settings = get_settings()
 
@@ -106,8 +106,10 @@ def authenticate_admin(admin_id: str, password: str) -> str | None:
     if admin_id != settings.ADMIN_ID:
         return None
 
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-    if not pwd_context.verify(password, settings.ADMIN_PASSWORD_HASH):
+    try:
+        if not bcrypt.checkpw(password.encode('utf-8'), settings.ADMIN_PASSWORD_HASH.encode('utf-8')):
+            return None
+    except ValueError:
         return None
 
     agent_logger.info("AUTH", "Admin authenticated successfully via web login")
