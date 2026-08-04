@@ -28,6 +28,10 @@ export interface AgentSession {
 }
 
 interface AgentState {
+	// Admin State
+	isAdmin: boolean;
+	adminToken: string | null;
+
 	// Current Session State
 	sessionId: string;
 	messages: ChatMessage[];
@@ -46,9 +50,12 @@ interface AgentState {
 	setSessions: (sessions: AgentSession[]) => void;
 	setSessionsLoading: (loading: boolean) => void;
 	resetChat: () => void;
+	setAdminState: (isAdmin: boolean, token?: string | null) => void;
 }
 
 export const useAgentStore = create<AgentState>(set => ({
+	isAdmin: false,
+	adminToken: typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null,
 	sessionId: '',
 	messages: [],
 	isTyping: false,
@@ -63,4 +70,12 @@ export const useAgentStore = create<AgentState>(set => ({
 	setSessions: sessions => set({ sessions }),
 	setSessionsLoading: loading => set({ isSessionsLoading: loading }),
 	resetChat: () => set({ messages: [], isTyping: false }),
+	setAdminState: (isAdmin, token) => {
+		if (token) {
+			localStorage.setItem('adminToken', token);
+		} else if (isAdmin === false) {
+			localStorage.removeItem('adminToken');
+		}
+		set({ isAdmin, adminToken: token ?? null });
+	},
 }));
