@@ -138,7 +138,8 @@ class MCPManager:
                 agent_logger.warn("MCP", f"Server '{name}' failed to connect: {error}")
             else:
                 self._clients.append(single_client)
-                self._tools.extend(tools)
+                if tools:
+                    self._tools.extend(tools)
                 self._status[name] = "connected"
                 self.connected_count += 1
 
