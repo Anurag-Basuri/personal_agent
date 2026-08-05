@@ -1,15 +1,15 @@
 'use client';
 
 import { useCallback } from 'react';
-import { useSession } from 'next-auth/react';
+import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import { useAgentStore, ChatMessage } from '../store/useAgentStore';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export function useAgentAPI() {
-  const { sessionId, addMessage, setMessages, setTyping, setHistoryLoading, resetChat, isAdmin, adminToken } = useAgentStore();
-  const { data: session } = useSession();
+  const { addMessage, setMessages, setTyping, setHistoryLoading, resetChat, isAdmin, adminToken } = useAgentStore();
+  const { data: session, update: updateSession } = useSession();
   const router = useRouter();
 
   const getAuthHeaders = useCallback((): HeadersInit => {
@@ -29,6 +29,28 @@ export function useAgentAPI() {
     return headers;
   }, [session, isAdmin, adminToken]);
 
+  const hasValidToken = useCallback((): boolean => {
+    if (isAdmin && adminToken) return true;
+    const apiToken = (session as any)?.apiToken;
+    return !!apiToken;
+  }, [session, isAdmin, adminToken]);
+
+  const handleAuthError = useCallback(async (res: Response): Promise<boolean> => {
+    if (res.status !== 401) return false;
+
+    try {
+      const refreshed = await updateSession();
+      if (refreshed && (refreshed as any)?.apiToken) {
+        return true;
+      }
+    } catch {
+      // Session refresh failed
+    }
+
+    await signOut({ redirectTo: '/' });
+    return false;
+  }, [updateSession]);
+
   const sendMessage = useCallback(
     async (content: string) => {
       const userMsg: ChatMessage = {
@@ -41,16 +63,55 @@ export function useAgentAPI() {
       setTyping('Processing...');
 
       try {
+        if (!hasValidToken()) {
+          throw new Error('Session expired. Please log in again.');
+        }
+
         const endpoint = isAdmin ? `${API_BASE}/api/admin/chat/` : `${API_BASE}/api/agent/chat/`;
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify({
             message: content,
-            sessionId,
             currentUrl: window.location.href,
           }),
         });
+
+        if (res.status === 401) {
+          const retried = await handleAuthError(res);
+          if (retried) {
+            const retryRes = await fetch(endpoint, {
+              method: 'POST',
+              headers: getAuthHeaders(),
+              body: JSON.stringify({
+                message: content,
+                currentUrl: window.location.href,
+              }),
+            });
+            const retryText = await retryRes.text();
+            const retryData = JSON.parse(retryText);
+            if (!retryRes.ok || !retryData.success) {
+              throw new Error(retryData.message || 'API Error after retry');
+            }
+            let replyContent = retryData.data.reply;
+            let navigationPath = null;
+            const navMatch = replyContent.match(/\[NAVIGATE:(.*?)\]/);
+            if (navMatch) {
+              navigationPath = navMatch[1].trim();
+              replyContent = replyContent.replace(/\[NAVIGATE:.*?\]/g, '').trim();
+            }
+            const agentMsg: ChatMessage = {
+              id: crypto.randomUUID(),
+              role: 'assistant',
+              content: replyContent,
+              timestamp: new Date().toISOString(),
+            };
+            addMessage(agentMsg);
+            if (navigationPath) router.push(navigationPath);
+            return;
+          }
+          throw new Error('Session expired. Please log in again.');
+        }
 
         const text = await res.text();
         let data;
@@ -96,16 +157,24 @@ export function useAgentAPI() {
         setTyping(false);
       }
     },
-    [sessionId, addMessage, setTyping, getAuthHeaders, isAdmin],
+    [addMessage, setTyping, getAuthHeaders, isAdmin, hasValidToken, handleAuthError, router],
   );
 
   const getHistory = useCallback(async () => {
+    if (!hasValidToken()) return;
+
     setHistoryLoading(true);
     try {
       const endpoint = isAdmin ? `${API_BASE}/api/admin/chat/history` : `${API_BASE}/api/agent/chat/history`;
       const res = await fetch(endpoint, {
         headers: getAuthHeaders(),
       });
+
+      if (res.status === 401) {
+        await handleAuthError(res);
+        return;
+      }
+
       const text = await res.text();
       let data;
       try {
@@ -127,7 +196,7 @@ export function useAgentAPI() {
     } finally {
       setHistoryLoading(false);
     }
-  }, [getAuthHeaders, setMessages, setHistoryLoading, isAdmin]);
+  }, [getAuthHeaders, setMessages, setHistoryLoading, isAdmin, hasValidToken, handleAuthError]);
 
   const resetSession = useCallback(async () => {
     resetChat();
@@ -136,12 +205,11 @@ export function useAgentAPI() {
       await fetch(endpoint, {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ sessionId }),
       });
     } catch (err) {
       console.error('Failed to reset session on server:', err);
     }
-  }, [sessionId, getAuthHeaders, resetChat, isAdmin]);
+  }, [getAuthHeaders, resetChat, isAdmin]);
 
   const deleteAll = useCallback(async () => {
     resetChat();
@@ -163,4 +231,3 @@ export function useAgentAPI() {
 
   return { sendMessage, getHistory, resetSession, deleteAll };
 }
-

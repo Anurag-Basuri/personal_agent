@@ -26,7 +26,6 @@ interface AgentState {
 	adminToken: string | null;
 
 	// Current Session State
-	sessionId: string;
 	messages: ChatMessage[];
 	isTyping: string | boolean;
 	isHistoryLoading: boolean;
@@ -35,7 +34,6 @@ interface AgentState {
 	isSidebarOpen: boolean;
 
 	// Actions
-	setSessionId: (id: string) => void;
 	addMessage: (msg: ChatMessage) => void;
 	setMessages: (msgs: ChatMessage[]) => void;
 	setTyping: (typing: string | boolean) => void;
@@ -48,13 +46,10 @@ interface AgentState {
 export const useAgentStore = create<AgentState>(set => ({
 	isAdmin: false,
 	adminToken: typeof window !== 'undefined' ? localStorage.getItem('adminToken') : null,
-	sessionId: '',
 	messages: [],
 	isTyping: false,
 	isHistoryLoading: false,
 	isSidebarOpen: false,
-
-	setSessionId: id => set({ sessionId: id }),
 	addMessage: msg => set(state => ({ messages: [...state.messages, msg] })),
 	setMessages: msgs => set({ messages: msgs }),
 	setTyping: typing => set({ isTyping: typing }),
