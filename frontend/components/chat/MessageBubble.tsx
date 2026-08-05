@@ -6,6 +6,7 @@ import { ChatMessage } from '../../store/useAgentStore';
 import { cn } from '../../utils/cn';
 import { Icons } from '../ui/Icons';
 import { ToolCallBadge } from './ToolCallBadge';
+import { CodeBlock } from './CodeBlock';
 import { motion } from 'framer-motion';
 
 export function MessageBubble({ message }: { message: ChatMessage }) {
@@ -14,10 +15,25 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
 
   if (isSystem) {
     return (
-      <div className="mx-auto my-6 max-w-[90%] rounded-xl bg-destructive/10 px-6 py-3 text-center text-xs font-bold uppercase tracking-widest text-destructive border border-destructive/20 backdrop-blur-sm shadow-sm font-mono">
-        <Icons.Warning className="inline-block h-4 w-4 mr-2 -mt-0.5" />
-        System Alert: {message.content}
-      </div>
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="mx-auto my-6 w-full max-w-2xl"
+      >
+        <div className="flex flex-col rounded-xl overflow-hidden border border-red-500/30 bg-[#1E1E1E] shadow-[0_0_20px_-5px_rgba(239,68,68,0.15)]">
+          <div className="flex items-center gap-2 bg-red-500/10 border-b border-red-500/20 px-4 py-2">
+            <Icons.Warning className="h-4 w-4 text-red-400" />
+            <span className="text-xs font-mono font-semibold uppercase tracking-widest text-red-400">
+              System Alert
+            </span>
+          </div>
+          <div className="p-4 overflow-x-auto">
+            <pre className="text-[13px] font-mono text-red-300/90 whitespace-pre-wrap">
+              {message.content}
+            </pre>
+          </div>
+        </div>
+      </motion.div>
     );
   }
 
@@ -31,13 +47,13 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
       {/* Avatar */}
       <div
         className={cn(
-          'flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl shadow-sm transition-transform group-hover:scale-105',
+          'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl transition-transform group-hover:scale-105',
           isUser
-            ? 'bg-muted border border-border text-foreground'
-            : 'bg-primary text-primary-foreground shadow-primary/20 border border-primary/20',
+            ? 'bg-zinc-100 dark:bg-muted border border-zinc-200 dark:border-border text-foreground'
+            : 'bg-primary text-primary-foreground shadow-md shadow-primary/20',
         )}
       >
-        {isUser ? <Icons.User className="h-5 w-5" /> : <Icons.Agent className="h-5 w-5" />}
+        {isUser ? <Icons.User className="h-4 w-4" /> : <Icons.Agent className="h-4 w-4" />}
       </div>
 
       {/* Bubble Content */}
@@ -53,38 +69,58 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
             isUser ? 'flex-row-reverse' : 'flex-row',
           )}
         >
-          <span className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground font-mono">
-            {isUser ? 'User' : 'Neural Agent v2.5'}
+          <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground font-mono">
+            {isUser ? 'You' : 'Agent'}
           </span>
-          <span className="text-[10px] text-muted-foreground/40 font-mono">
+          <span className="text-[10px] text-muted-foreground/50 font-mono">
             {new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
           </span>
         </div>
 
         <motion.div
-          whileHover={{ y: -2 }}
+          whileHover={{ y: -1 }}
           className={cn(
-            'relative px-5 py-4 rounded-[24px] shadow-sm text-[15px] leading-relaxed transition-all',
+            'relative px-5 py-4 rounded-2xl text-[15px] leading-relaxed',
             isUser
-              ? 'bg-foreground text-background rounded-tr-sm font-medium'
-              : 'glass-card rounded-tl-sm text-foreground',
+              ? 'bg-primary text-primary-foreground rounded-tr-sm shadow-md shadow-primary/15'
+              : 'bg-white dark:bg-white/4 border border-zinc-200 dark:border-white/6 rounded-tl-sm shadow-sm text-foreground',
           )}
         >
           {/* Markdown Content */}
           <div
             className={cn(
-              'prose max-w-none break-words',
+              'prose max-w-none wrap-break-word',
               isUser
-                ? 'prose-invert prose-p:text-background'
+                ? 'prose-invert prose-p:text-white/90'
                 : 'prose-zinc dark:prose-invert',
             )}
           >
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{message.content}</ReactMarkdown>
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]}
+              components={{
+                code(props) {
+                  const {children, className, node, ...rest} = props
+                  const match = /language-(\w+)/.exec(className || '')
+                  return match ? (
+                    <CodeBlock
+                      language={match[1]}
+                      value={String(children).replace(/\n$/, '')}
+                    />
+                  ) : (
+                    <code {...rest} className={className}>
+                      {children}
+                    </code>
+                  )
+                }
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
           </div>
 
           {/* Tool Executions */}
           {message.toolCalls && message.toolCalls.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-border/50">
+            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-zinc-200/50 dark:border-white/10">
               {message.toolCalls.map((tc) => (
                 <ToolCallBadge key={tc.id} tool={tc} />
               ))}

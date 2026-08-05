@@ -11,7 +11,10 @@ import {
 	Check,
 	AlertTriangle,
 	Wrench,
-	Plus
+	Plus,
+	Home,
+	ChevronDown,
+	Copy
 } from 'lucide-react';
 
 export const Icons = {
@@ -27,5 +30,8 @@ export const Icons = {
 	Check,
 	Warning: AlertTriangle,
 	Tool: Wrench,
-	Add: Plus
+	Add: Plus,
+	Home,
+	ChevronDown,
+	Copy
 };

@@ -1,20 +1,31 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAgentStore } from '../../store/useAgentStore';
 import { MessageBubble } from './MessageBubble';
 import { SuggestionChips } from './SuggestionChips';
 import { Icons } from '../ui/Icons';
+import Image from 'next/image';
 
 export function ChatArea() {
   const { messages, isTyping, isAdmin } = useAgentStore();
   const bottomRef = useRef<HTMLDivElement>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [isAutoScroll, setIsAutoScroll] = useState(true);
 
-  // Auto-scroll to bottom when messages change
+  const handleScroll = () => {
+    if (!scrollRef.current) return;
+    const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+    const isAtBottom = scrollHeight - scrollTop - clientHeight < 150;
+    setIsAutoScroll(isAtBottom);
+  };
+
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
+    if (isAutoScroll) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, isTyping, isAutoScroll]);
 
   if (messages.length === 0) {
     return (
@@ -25,13 +36,13 @@ export function ChatArea() {
         className="flex flex-1 flex-col items-center justify-center p-8 text-center"
       >
         <div className="relative mb-10 group">
-          <div className="absolute inset-0 rounded-full bg-primary/20 blur-[60px] opacity-50 group-hover:opacity-80 transition-opacity duration-700" />
-          <div className="relative flex h-24 w-24 items-center justify-center rounded-3xl glass-card animate-float shadow-2xl shadow-primary/10">
-            <Icons.Agent className="h-10 w-10 text-primary" />
+          <div className="absolute inset-0 rounded-full bg-primary/10 dark:bg-primary/20 blur-[60px] opacity-50 group-hover:opacity-80 transition-opacity duration-700" />
+          <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-[#1E1E1E] border border-zinc-800 shadow-lg animate-float overflow-hidden">
+            <Image src="/logo.png" alt="Cortex Logo" width={50} height={50} className="object-contain drop-shadow-[0_0_12px_rgba(139,92,246,0.6)]" />
           </div>
         </div>
-        <h2 className="text-4xl font-black text-foreground mb-4 font-display tracking-tight">
-          Ready to assist{isAdmin ? ', Admin.' : '.'}
+        <h2 className="text-3xl font-bold text-foreground mb-3 font-display tracking-tight">
+          Cortex is online{isAdmin ? ', Admin.' : '.'}
         </h2>
         <p className="max-w-md text-muted-foreground text-sm leading-relaxed mb-8 text-balance">
           {isAdmin 
@@ -44,8 +55,12 @@ export function ChatArea() {
   }
 
   return (
-    <div className="flex-1 overflow-y-auto px-4 md:px-0 scroll-smooth">
-      <div className="mx-auto max-w-3xl w-full py-10 space-y-4">
+    <div 
+      ref={scrollRef}
+      onScroll={handleScroll}
+      className="flex-1 overflow-y-auto px-4 md:px-0 scroll-smooth"
+    >
+      <div className="mx-auto max-w-3xl w-full py-10 space-y-2">
         <AnimatePresence initial={false}>
           {messages.map((msg, index) => (
             <motion.div
@@ -64,14 +79,14 @@ export function ChatArea() {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex gap-4 p-2"
+            className="flex gap-3 py-4"
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary/10 border border-primary/20 text-primary shadow-inner">
-              <Icons.Agent className="h-5 w-5" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/20">
+              <Icons.Agent className="h-4 w-4" />
             </div>
-            <div className="flex items-center gap-3 px-5 py-3 glass-card rounded-3xl rounded-tl-sm shadow-sm">
+            <div className="flex items-center gap-3 px-5 py-3 bg-white dark:bg-white/4 border border-zinc-200 dark:border-white/6 rounded-2xl rounded-tl-sm shadow-sm">
               {typeof isTyping === 'string' && (
-                <span className="text-xs font-semibold text-primary/90 tracking-wide font-mono">
+                <span className="text-xs font-semibold text-primary/80 tracking-wide font-mono">
                   {isTyping}
                 </span>
               )}
