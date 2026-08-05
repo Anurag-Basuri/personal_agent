@@ -67,7 +67,7 @@ export function Sidebar() {
 					<div className="space-y-4">
 						<Link href="/" className="flex items-center gap-2.5 px-2 group outline-none rounded-md focus-ring">
 							<div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-[#1E1E1E] border border-zinc-800 shadow-sm overflow-hidden group-hover:border-primary/50 transition-colors">
-								<Image src="/logo.png" alt="Cortex Logo" width={24} height={24} className="object-contain drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
+								<Image src="/logo.png" alt="Cortex Logo" width={24} height={24} priority className="object-contain drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
 							</div>
 							<span className="font-display text-lg font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">Anurag's Cortex</span>
 						</Link>

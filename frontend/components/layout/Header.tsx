@@ -14,7 +14,7 @@ export function Header() {
   const { resolvedTheme, toggleTheme } = useTheme();
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-zinc-200 dark:border-white/6 bg-white/80 dark:bg-zinc-950/40 backdrop-blur-2xl px-4 md:px-6">
+    <header className="sticky top-4 z-30 mx-4 md:mx-6 flex h-14 items-center justify-between rounded-2xl border border-zinc-200/80 dark:border-white/6 bg-white/80 dark:bg-zinc-950/60 backdrop-blur-2xl px-4 shadow-lg">
       <div className="flex items-center gap-3">
         <button
           onClick={() => setSidebarOpen(!isSidebarOpen)}
@@ -30,40 +30,53 @@ export function Header() {
         >
           <Link href="/" className="flex items-center gap-2.5 group outline-none focus-ring rounded-lg">
             <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-[#1E1E1E] border border-zinc-800 shadow-sm overflow-hidden group-hover:border-primary/50 transition-colors">
-              <Image src="/logo.png" alt="Cortex Logo" width={24} height={24} className="object-contain drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
+              <Image src="/logo.png" alt="Cortex Logo" width={24} height={24} priority className="object-contain drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
             </div>
             <span className="font-display text-[15px] font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">
               Anurag's Cortex
             </span>
           </Link>
-          <div className="hidden sm:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-zinc-100 dark:bg-muted border border-zinc-200 dark:border-border">
-            <div className="relative">
+
+          <span className="text-zinc-300 dark:text-zinc-800 hidden sm:block">/</span>
+          <span className="text-xs font-semibold text-muted-foreground hidden sm:block font-mono tracking-wide">
+            Active Session
+          </span>
+
+          <div className="hidden sm:flex items-center gap-2 px-2.5 py-1 rounded-lg bg-zinc-100/80 dark:bg-white/3 border border-zinc-200/50 dark:border-white/4 ml-2">
+            <div className="relative flex h-2 w-2 items-center justify-center">
               <div className="h-1.5 w-1.5 rounded-full bg-success" />
-              <div className="absolute inset-0 h-1.5 w-1.5 rounded-full bg-success animate-ping opacity-25" />
+              <div className="absolute h-3 w-3 rounded-full bg-success animate-ping opacity-20" />
             </div>
-            <span className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">
-              Connected
-            </span>
+            <div className="flex items-baseline gap-1">
+              <span className="text-[10px] font-bold text-success uppercase tracking-wider font-mono">
+                Sys_Ops
+              </span>
+              <span className="text-[9px] text-muted-foreground/60 font-mono font-medium">
+                12ms
+              </span>
+            </div>
           </div>
         </motion.div>
       </div>
 
       <div className="flex items-center gap-2">
-        <Link
-          href="/"
-          className="hidden sm:flex h-8 items-center gap-1.5 px-3 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-zinc-100 dark:hover:bg-muted transition-colors focus-ring outline-none"
-        >
-          <Icons.Home className="h-3.5 w-3.5" />
-          Home
-        </Link>
-        <button
-          onClick={toggleTheme}
-          className="flex h-8 w-8 items-center justify-center rounded-lg hover:bg-zinc-100 dark:hover:bg-muted text-muted-foreground transition-colors focus-ring outline-none"
-          aria-label="Toggle theme"
-        >
-          {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-        </button>
-        <AuthButton className="h-8 px-3 text-xs" />
+        <div className="flex items-center gap-1 bg-zinc-100/80 dark:bg-white/3 p-1 rounded-xl border border-zinc-200/50 dark:border-white/4">
+          <Link
+            href="/"
+            className="hidden sm:flex h-7 px-2.5 items-center justify-center rounded-lg text-xs font-semibold text-muted-foreground hover:text-foreground transition-all hover:bg-white dark:hover:bg-white/10 shadow-sm outline-none focus-ring"
+          >
+            <Icons.Home className="h-3.5 w-3.5 mr-1.5" />
+            Home
+          </Link>
+          <button
+            onClick={toggleTheme}
+            className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-all hover:bg-white dark:hover:bg-white/10 shadow-sm outline-none focus-ring"
+            aria-label="Toggle theme"
+          >
+            {resolvedTheme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+        <AuthButton className="h-9 px-4 text-xs font-semibold rounded-xl shadow-sm" />
       </div>
     </header>
   );

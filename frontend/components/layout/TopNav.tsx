@@ -20,51 +20,67 @@ export function TopNav() {
       transition={{ type: 'spring', damping: 20, stiffness: 100 }}
       className="fixed left-0 right-0 top-0 z-50 flex justify-center pt-6 px-4 md:px-6 pointer-events-none"
     >
-      <div className="flex h-14 w-full max-w-5xl items-center justify-between gap-6 rounded-2xl px-4 md:px-6 pointer-events-auto bg-white/80 dark:bg-zinc-950/60 backdrop-blur-xl border border-zinc-200/80 dark:border-white/[0.06] shadow-lg dark:shadow-2xl">
-        {/* Brand */}
-        <Link href="/" className="flex items-center gap-2.5 group focus-ring rounded-xl outline-none">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-[#1E1E1E] border border-zinc-800 shadow-sm overflow-hidden group-hover:border-primary/50 transition-colors">
-            <Image src="/logo.png" alt="Cortex Logo" width={24} height={24} className="object-contain drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
-          </div>
-          <span className="font-display text-lg font-bold tracking-tight text-foreground hidden sm:block group-hover:text-primary transition-colors">
-            Anurag's Cortex
-          </span>
-        </Link>
+      <div className="relative w-full max-w-5xl pointer-events-auto group">
+        {/* Animated Glow Border */}
+        <div className="absolute -inset-px rounded-[17px] bg-linear-to-r from-primary/40 via-accent/40 to-secondary/40 opacity-50 blur-[2px] transition-opacity duration-1000 group-hover:opacity-80" />
+        
+        {/* Main Navbar */}
+        <div className="relative flex h-14 w-full items-center justify-between gap-6 rounded-2xl px-4 md:px-6 bg-white/90 dark:bg-zinc-950/80 backdrop-blur-2xl border border-zinc-200/50 dark:border-white/5 shadow-xl">
+          {/* Brand */}
+          <Link href="/" className="flex items-center gap-2.5 outline-none rounded-lg focus-ring">
+            <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-[#1E1E1E] border border-zinc-800 shadow-sm overflow-hidden hover:border-primary/50 transition-colors">
+              <Image src="/logo.png" alt="Cortex Logo" width={24} height={24} priority className="object-contain drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
+            </div>
+            <span className="font-display text-[15px] font-bold tracking-tight text-foreground hidden sm:block hover:text-primary transition-colors">
+              Anurag's Cortex
+            </span>
+          </Link>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2 md:gap-3">
-          {/* Theme Toggle */}
-          <button
-            onClick={toggleTheme}
-            className="flex h-9 w-9 items-center justify-center rounded-xl bg-zinc-100 dark:bg-white/10 text-foreground transition-colors hover:bg-zinc-200 dark:hover:bg-white/20 focus-ring outline-none"
-            aria-label="Toggle theme"
-          >
-            {resolvedTheme === 'dark' ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-
-          {/* Links for logged in users */}
-          <AnimatePresence>
-            {session && (
-              <motion.div
-                initial={{ opacity: 0, x: 20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                className="hidden md:block"
+          {/* Actions */}
+          <div className="flex items-center gap-2 md:gap-4">
+            <div className="flex items-center gap-1 bg-zinc-100/80 dark:bg-white/3 p-1 rounded-xl border border-zinc-200/50 dark:border-white/4">
+              {/* Theme Toggle */}
+              <button
+                onClick={toggleTheme}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-all hover:bg-white dark:hover:bg-white/10 shadow-sm outline-none focus-ring"
+                aria-label="Toggle theme"
               >
-                <Link
-                  href="/chat"
-                  className="text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+                {resolvedTheme === 'dark' ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              </button>
+              <a
+                href="https://github.com/Anurag-Basuri"
+                target="_blank"
+                rel="noreferrer"
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:text-foreground transition-all hover:bg-white dark:hover:bg-white/10 shadow-sm outline-none focus-ring"
+              >
+                <Icons.Github className="h-3.5 w-3.5" />
+              </a>
+            </div>
+
+            {/* Links for logged in users */}
+            <AnimatePresence>
+              {session && (
+                <motion.div
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  className="hidden md:block"
                 >
-                  Console &rarr;
-                </Link>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                  <Link
+                    href="/chat"
+                    className="flex items-center gap-1.5 text-xs font-semibold text-primary hover:text-primary/80 transition-colors bg-primary/10 px-3 py-1.5 rounded-lg outline-none focus-ring"
+                  >
+                    Console <Icons.ChevronDown className="h-3 w-3 -rotate-90" />
+                  </Link>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
-          <div className="h-5 w-px bg-zinc-200 dark:bg-border hidden md:block" />
+            <div className="h-4 w-px bg-zinc-200 dark:bg-white/10 hidden md:block" />
 
-          {/* Auth Button */}
-          <AuthButton className="rounded-xl shadow-sm" />
+            {/* Auth Button */}
+            <AuthButton className="rounded-xl shadow-sm h-9 px-4 text-xs font-semibold" />
+          </div>
         </div>
       </div>
     </motion.nav>

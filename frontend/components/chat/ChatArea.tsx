@@ -38,7 +38,7 @@ export function ChatArea() {
         <div className="relative mb-10 group">
           <div className="absolute inset-0 rounded-full bg-primary/10 dark:bg-primary/20 blur-[60px] opacity-50 group-hover:opacity-80 transition-opacity duration-700" />
           <div className="relative flex h-20 w-20 items-center justify-center rounded-2xl bg-[#1E1E1E] border border-zinc-800 shadow-lg animate-float overflow-hidden">
-            <Image src="/logo.png" alt="Cortex Logo" width={50} height={50} className="object-contain drop-shadow-[0_0_12px_rgba(139,92,246,0.6)]" />
+            <Image src="/logo.png" alt="Cortex Logo" width={50} height={50} priority className="object-contain drop-shadow-[0_0_12px_rgba(139,92,246,0.6)]" />
           </div>
         </div>
         <h2 className="text-3xl font-bold text-foreground mb-3 font-display tracking-tight">
