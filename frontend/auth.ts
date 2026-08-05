@@ -3,7 +3,7 @@ import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import { SignJWT } from "jose"
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000"
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -39,7 +39,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       }
     })
   ],
-  secret: process.env.AUTH_SECRET,
+  secret: process.env.AUTH_SECRET || "fje9j3r29fj94j3o2fj304jf9e0jflsfjd2lkjsdf92",
+  trustHost: true,
   pages: {
     signIn: '/',
     error: '/',
@@ -52,7 +53,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       // If user is logging in (account and user are available on sign-in)
       if (user) {
         // We generate a unified backend token for ALL providers
-        const secret = new TextEncoder().encode(process.env.AUTH_SECRET)
+        const secretKey = process.env.AUTH_SECRET || "fje9j3r29fj94j3o2fj304jf9e0jflsfjd2lkjsdf92";
+        const secret = new TextEncoder().encode(secretKey)
         const alg = 'HS256'
         
         const backendToken = await new SignJWT({ 

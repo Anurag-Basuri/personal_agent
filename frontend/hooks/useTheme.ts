@@ -1,50 +1,57 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useSyncExternalStore } from 'react';
 
-export type Theme = 'light' | 'dark' | 'system';
+type ResolvedTheme = 'light' | 'dark';
+
+/**
+ * Shared theme state using useSyncExternalStore so all components
+ * that call useTheme() share the same resolved value and re-render
+ * together when it changes.
+ */
+let currentTheme: ResolvedTheme = 'light';
+const listeners = new Set<() => void>();
+
+function getSnapshot(): ResolvedTheme {
+  return currentTheme;
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
+}
+
+function setThemeInternal(next: ResolvedTheme) {
+  if (next === currentTheme) return;
+  currentTheme = next;
+
+  if (next === 'dark') {
+    document.documentElement.classList.add('dark');
+  } else {
+    document.documentElement.classList.remove('dark');
+  }
+
+  localStorage.setItem('theme', next);
+  listeners.forEach((fn) => fn());
+}
 
 export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>('system');
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('dark');
+  const resolvedTheme = useSyncExternalStore(subscribe, getSnapshot, () => 'light' as ResolvedTheme);
 
   useEffect(() => {
-    const stored = localStorage.getItem('theme') as Theme | null;
-    const initial = stored || 'system';
-    setThemeState(initial);
-    applyTheme(initial);
-  }, []);
-
-  const applyTheme = useCallback((t: Theme) => {
-    const isDark =
-      t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-
-    if (isDark) {
-      document.documentElement.classList.add('dark');
-      setResolvedTheme('dark');
+    const stored = localStorage.getItem('theme') as ResolvedTheme | null;
+    if (stored === 'dark' || stored === 'light') {
+      setThemeInternal(stored);
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      setThemeInternal('dark');
     } else {
-      document.documentElement.classList.remove('dark');
-      setResolvedTheme('light');
+      setThemeInternal('light');
     }
   }, []);
 
-  const setTheme = useCallback(
-    (t: Theme) => {
-      setThemeState(t);
-      if (t === 'system') {
-        localStorage.removeItem('theme');
-      } else {
-        localStorage.setItem('theme', t);
-      }
-      applyTheme(t);
-    },
-    [applyTheme],
-  );
-
   const toggleTheme = useCallback(() => {
-    const next = resolvedTheme === 'dark' ? 'light' : 'dark';
-    setTheme(next);
-  }, [resolvedTheme, setTheme]);
+    setThemeInternal(currentTheme === 'dark' ? 'light' : 'dark');
+  }, []);
 
-  return { theme, resolvedTheme, setTheme, toggleTheme };
+  return { resolvedTheme, toggleTheme };
 }

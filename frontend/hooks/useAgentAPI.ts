@@ -7,7 +7,7 @@ import { useAgentStore, ChatMessage } from '../store/useAgentStore';
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export function useAgentAPI() {
-  const { sessionId, addMessage, setTyping, setSessionsLoading, setSessions, resetChat, isAdmin, adminToken } = useAgentStore();
+  const { sessionId, addMessage, setMessages, setTyping, setHistoryLoading, resetChat, isAdmin, adminToken } = useAgentStore();
   const { data: session } = useSession();
 
   const getAuthHeaders = useCallback((): HeadersInit => {
@@ -50,7 +50,13 @@ export function useAgentAPI() {
           }),
         });
 
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (e) {
+          throw new Error(`Server returned invalid response (Status ${res.status}): ${text.slice(0, 50)}...`);
+        }
 
         if (!res.ok || !data.success) {
           throw new Error(data.message || 'API Error');
@@ -75,56 +81,41 @@ export function useAgentAPI() {
         setTyping(false);
       }
     },
-    [sessionId, addMessage, setTyping, getAuthHeaders],
+    [sessionId, addMessage, setTyping, getAuthHeaders, isAdmin],
   );
 
   const getHistory = useCallback(async () => {
-    setSessionsLoading(true);
+    setHistoryLoading(true);
     try {
       const endpoint = isAdmin ? `${API_BASE}/api/admin/chat/history` : `${API_BASE}/api/agent/chat/history`;
       const res = await fetch(endpoint, {
         headers: getAuthHeaders(),
       });
-      const data = await res.json();
+      const text = await res.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        throw new Error('Failed to parse history response');
+      }
       if (res.ok && data.success && data.data.messages) {
-        // Map backend history to UI state
-        resetChat();
-        data.data.messages.forEach((msg: any) => {
-          addMessage({
-            id: msg.id,
-            role: msg.role === 'ai' || msg.role === 'tool' ? 'assistant' : msg.role,
-            content: msg.content,
-            timestamp: msg.created_at,
-          });
-        });
+        const mapped: ChatMessage[] = data.data.messages.map((msg: any) => ({
+          id: msg.id,
+          role: msg.role === 'ai' || msg.role === 'tool' ? 'assistant' : msg.role,
+          content: msg.content,
+          timestamp: msg.created_at,
+        }));
+        setMessages(mapped);
       }
     } catch (err) {
       console.error('Failed to fetch history:', err);
     } finally {
-      setSessionsLoading(false);
+      setHistoryLoading(false);
     }
-  }, [getAuthHeaders, addMessage, resetChat, setSessionsLoading]);
-
-  // Keep fetchSessions for compatibility if UI still expects an array of sessions
-  // but for the normal agent, there's only 1 continuous conversation.
-  const fetchSessions = useCallback(async () => {
-    // Normal users have a single session in this architecture
-    setSessionsLoading(true);
-    try {
-      setSessions([
-        {
-          id: '1',
-          sessionId: 'current_conversation',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        }
-      ]);
-    } finally {
-      setSessionsLoading(false);
-    }
-  }, [setSessions, setSessionsLoading]);
+  }, [getAuthHeaders, setMessages, setHistoryLoading, isAdmin]);
 
   const resetSession = useCallback(async () => {
+    resetChat();
     try {
       const endpoint = isAdmin ? `${API_BASE}/api/admin/chat/reset` : `${API_BASE}/api/agent/chat/reset`;
       await fetch(endpoint, {
@@ -132,13 +123,13 @@ export function useAgentAPI() {
         headers: getAuthHeaders(),
         body: JSON.stringify({ sessionId }),
       });
-      resetChat();
     } catch (err) {
       console.error('Failed to reset session on server:', err);
     }
   }, [sessionId, getAuthHeaders, resetChat, isAdmin]);
 
   const deleteAll = useCallback(async () => {
+    resetChat();
     try {
       const endpoint = isAdmin ? `${API_BASE}/api/admin/chat/delete-all` : `${API_BASE}/api/agent/chat/delete-all`;
       const res = await fetch(endpoint, {
@@ -146,7 +137,6 @@ export function useAgentAPI() {
         headers: getAuthHeaders(),
       });
       if (res.ok) {
-        resetChat();
         return true;
       }
       return false;
@@ -156,5 +146,6 @@ export function useAgentAPI() {
     }
   }, [getAuthHeaders, resetChat, isAdmin]);
 
-  return { sendMessage, fetchSessions, getHistory, resetSession, deleteAll };
+  return { sendMessage, getHistory, resetSession, deleteAll };
 }
+

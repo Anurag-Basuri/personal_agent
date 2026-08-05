@@ -20,13 +20,6 @@ export interface ChatMessage {
 	timestamp: string;
 }
 
-export interface AgentSession {
-	id: string;
-	sessionId: string;
-	createdAt: string;
-	updatedAt: string;
-}
-
 interface AgentState {
 	// Admin State
 	isAdmin: boolean;
@@ -36,19 +29,18 @@ interface AgentState {
 	sessionId: string;
 	messages: ChatMessage[];
 	isTyping: string | boolean;
+	isHistoryLoading: boolean;
 
 	// UI State
 	isSidebarOpen: boolean;
-	sessions: AgentSession[];
-	isSessionsLoading: boolean;
 
 	// Actions
 	setSessionId: (id: string) => void;
 	addMessage: (msg: ChatMessage) => void;
+	setMessages: (msgs: ChatMessage[]) => void;
 	setTyping: (typing: string | boolean) => void;
 	setSidebarOpen: (open: boolean) => void;
-	setSessions: (sessions: AgentSession[]) => void;
-	setSessionsLoading: (loading: boolean) => void;
+	setHistoryLoading: (loading: boolean) => void;
 	resetChat: () => void;
 	setAdminState: (isAdmin: boolean, token?: string | null) => void;
 }
@@ -59,16 +51,15 @@ export const useAgentStore = create<AgentState>(set => ({
 	sessionId: '',
 	messages: [],
 	isTyping: false,
+	isHistoryLoading: false,
 	isSidebarOpen: false,
-	sessions: [],
-	isSessionsLoading: false,
 
 	setSessionId: id => set({ sessionId: id }),
 	addMessage: msg => set(state => ({ messages: [...state.messages, msg] })),
+	setMessages: msgs => set({ messages: msgs }),
 	setTyping: typing => set({ isTyping: typing }),
 	setSidebarOpen: open => set({ isSidebarOpen: open }),
-	setSessions: sessions => set({ sessions }),
-	setSessionsLoading: loading => set({ isSessionsLoading: loading }),
+	setHistoryLoading: loading => set({ isHistoryLoading: loading }),
 	resetChat: () => set({ messages: [], isTyping: false }),
 	setAdminState: (isAdmin, token) => {
 		if (token) {
@@ -79,3 +70,4 @@ export const useAgentStore = create<AgentState>(set => ({
 		set({ isAdmin, adminToken: token ?? null });
 	},
 }));
+

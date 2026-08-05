@@ -9,11 +9,6 @@ export default auth((req) => {
     // Redirect unauthenticated users trying to access chat back to landing page
     return Response.redirect(new URL('/', req.nextUrl))
   }
-
-  if (isAuth && isLandingPage) {
-    // Redirect authenticated users from landing page directly to the product
-    return Response.redirect(new URL('/chat', req.nextUrl))
-  }
 })
 
 // Optionally, don't invoke Middleware on some paths
