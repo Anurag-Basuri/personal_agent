@@ -47,7 +47,13 @@ class SessionRepository:
         role: str = "GUEST",
         transport: str = "WEB",
     ) -> AgentSession:
-        """Fetch an existing session or create a new one."""
+        """Fetch an existing session or create a new one.
+
+        If a session exists with user_id=NULL but the caller provides a
+        user_id, the session is adopted (user_id is set). This handles
+        the case where a session was created before authentication and
+        later needs to be linked to the authenticated user.
+        """
         async with async_session() as db:
             result = await db.execute(
                 select(AgentSession).where(AgentSession.sessionId == session_id)
@@ -63,6 +69,12 @@ class SessionRepository:
                     transport=transport,
                 )
                 db.add(session)
+                await db.commit()
+                await db.refresh(session)
+            elif user_id and not session.user_id:
+                # Adopt orphaned session: link it to the authenticated user
+                session.user_id = user_id
+                session.role = role
                 await db.commit()
                 await db.refresh(session)
 
