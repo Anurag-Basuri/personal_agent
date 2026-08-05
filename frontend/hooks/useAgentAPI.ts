@@ -2,15 +2,17 @@
 
 import { useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
-import { useRouter } from 'next/navigation';
 import { useAgentStore, ChatMessage } from '../store/useAgentStore';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
+function stripNavigateTags(text: string): string {
+  return (text || '').replace(/\[NAVIGATE:.*?\]/g, '').trim();
+}
+
 export function useAgentAPI() {
   const { addMessage, setMessages, setTyping, setHistoryLoading, resetChat, isAdmin, adminToken } = useAgentStore();
   const { data: session, update: updateSession } = useSession();
-  const router = useRouter();
 
   const getAuthHeaders = useCallback((): HeadersInit => {
     const headers: HeadersInit = {
@@ -68,7 +70,7 @@ export function useAgentAPI() {
         }
 
         const endpoint = isAdmin ? `${API_BASE}/api/admin/chat/` : `${API_BASE}/api/agent/chat/`;
-        const res = await fetch(endpoint, {
+        let res = await fetch(endpoint, {
           method: 'POST',
           headers: getAuthHeaders(),
           body: JSON.stringify({
@@ -80,7 +82,7 @@ export function useAgentAPI() {
         if (res.status === 401) {
           const retried = await handleAuthError(res);
           if (retried) {
-            const retryRes = await fetch(endpoint, {
+            res = await fetch(endpoint, {
               method: 'POST',
               headers: getAuthHeaders(),
               body: JSON.stringify({
@@ -88,29 +90,9 @@ export function useAgentAPI() {
                 currentUrl: window.location.href,
               }),
             });
-            const retryText = await retryRes.text();
-            const retryData = JSON.parse(retryText);
-            if (!retryRes.ok || !retryData.success) {
-              throw new Error(retryData.message || 'API Error after retry');
-            }
-            let replyContent = retryData.data.reply;
-            let navigationPath = null;
-            const navMatch = replyContent.match(/\[NAVIGATE:(.*?)\]/);
-            if (navMatch) {
-              navigationPath = navMatch[1].trim();
-              replyContent = replyContent.replace(/\[NAVIGATE:.*?\]/g, '').trim();
-            }
-            const agentMsg: ChatMessage = {
-              id: crypto.randomUUID(),
-              role: 'assistant',
-              content: replyContent,
-              timestamp: new Date().toISOString(),
-            };
-            addMessage(agentMsg);
-            if (navigationPath) router.push(navigationPath);
-            return;
+          } else {
+            throw new Error('Session expired. Please log in again.');
           }
-          throw new Error('Session expired. Please log in again.');
         }
 
         const text = await res.text();
@@ -125,26 +107,13 @@ export function useAgentAPI() {
           throw new Error(data.message || 'API Error');
         }
 
-        let replyContent = data.data.reply;
-        let navigationPath = null;
-        
-        const navMatch = replyContent.match(/\[NAVIGATE:(.*?)\]/);
-        if (navMatch) {
-          navigationPath = navMatch[1].trim();
-          replyContent = replyContent.replace(/\[NAVIGATE:.*?\]/g, '').trim();
-        }
-
         const agentMsg: ChatMessage = {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: replyContent,
+          content: stripNavigateTags(data.data.reply),
           timestamp: new Date().toISOString(),
         };
         addMessage(agentMsg);
-
-        if (navigationPath) {
-          router.push(navigationPath);
-        }
       } catch (error: any) {
         const errorMsg: ChatMessage = {
           id: crypto.randomUUID(),
@@ -157,7 +126,7 @@ export function useAgentAPI() {
         setTyping(false);
       }
     },
-    [addMessage, setTyping, getAuthHeaders, isAdmin, hasValidToken, handleAuthError, router],
+    [addMessage, setTyping, getAuthHeaders, isAdmin, hasValidToken, handleAuthError],
   );
 
   const getHistory = useCallback(async () => {
@@ -186,7 +155,7 @@ export function useAgentAPI() {
         const mapped: ChatMessage[] = data.data.messages.map((msg: any) => ({
           id: msg.id,
           role: msg.role === 'human' ? 'user' : (msg.role === 'ai' || msg.role === 'tool' ? 'assistant' : msg.role),
-          content: (msg.content || '').replace(/\[NAVIGATE:.*?\]/g, '').trim(),
+          content: stripNavigateTags(msg.content),
           timestamp: msg.created_at,
         }));
         setMessages(mapped);
