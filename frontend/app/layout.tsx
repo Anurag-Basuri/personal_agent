@@ -22,13 +22,13 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-	title: 'Personal Agent | Anurag Basuri',
+	title: "Anurag's Cortex",
 	description:
 		'An autonomous AI agent with tool orchestration, contextual RAG, and omni-memory — built for software engineers.',
-	keywords: ['AI Agent', 'Portfolio', 'RAG', 'LangGraph', 'Anurag Basuri'],
+	keywords: ['AI Agent', 'Portfolio', 'RAG', 'LangGraph', 'Anurag Basuri', 'Cortex'],
 	authors: [{ name: 'Anurag Basuri', url: 'https://github.com/Anurag-Basuri' }],
 	openGraph: {
-		title: 'Personal Agent | Anurag Basuri',
+		title: "Anurag's Cortex",
 		description: 'Autonomous AI companion with tool calling, RAG, and multi-transport support.',
 		type: 'website',
 	},
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
 	return (
-		<html lang="en" className="scroll-smooth" suppressHydrationWarning>
+		<html lang="en" data-scroll-behavior="smooth" suppressHydrationWarning>
 			<head>
 				<script
 					dangerouslySetInnerHTML={{
@@ -56,6 +56,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 				/>
 			</head>
 			<body
+				suppressHydrationWarning
 				className={`${inter.variable} ${outfit.variable} ${jetbrainsMono.variable} font-sans antialiased bg-background text-foreground`}
 			>
 				<Providers>{children}</Providers>
