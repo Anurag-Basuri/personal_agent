@@ -101,7 +101,7 @@ export function useAgentAPI() {
       if (res.ok && data.success && data.data.messages) {
         const mapped: ChatMessage[] = data.data.messages.map((msg: any) => ({
           id: msg.id,
-          role: msg.role === 'ai' || msg.role === 'tool' ? 'assistant' : msg.role,
+          role: msg.role === 'human' ? 'user' : (msg.role === 'ai' || msg.role === 'tool' ? 'assistant' : msg.role),
           content: msg.content,
           timestamp: msg.created_at,
         }));
