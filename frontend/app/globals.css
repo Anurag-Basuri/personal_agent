@@ -29,38 +29,42 @@
   --color-ring: hsl(var(--ring));
   --color-success: hsl(var(--success));
   --color-warning: hsl(var(--warning));
+  --color-surface: hsl(var(--surface));
+  --color-surface-foreground: hsl(var(--surface-foreground));
 }
 
 @layer base {
   :root {
     /* ── Light Mode: Snowfall ── */
-    --background: 0 0% 99%;
-    --foreground: 240 10% 6%;
+    --background: 240 10% 97%;
+    --foreground: 240 10% 8%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 6%;
+    --card-foreground: 240 10% 8%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 6%;
-    --primary: 258 90% 60%;
+    --popover-foreground: 240 10% 8%;
+    --primary: 258 90% 58%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 191 93% 43%;
+    --secondary: 191 85% 40%;
     --secondary-foreground: 0 0% 100%;
-    --muted: 240 5% 94%;
-    --muted-foreground: 240 4% 46%;
-    --accent: 300 81% 55%;
+    --muted: 240 5% 93%;
+    --muted-foreground: 240 5% 42%;
+    --accent: 295 72% 50%;
     --accent-foreground: 0 0% 100%;
-    --destructive: 0 84% 60%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
-    --border: 240 6% 90%;
-    --input: 240 6% 90%;
-    --ring: 258 90% 60%;
-    --success: 142 76% 36%;
-    --warning: 38 92% 50%;
+    --border: 240 6% 87%;
+    --input: 240 6% 87%;
+    --ring: 258 90% 58%;
+    --success: 142 71% 35%;
+    --warning: 38 92% 48%;
+    --surface: 240 5% 96%;
+    --surface-foreground: 240 5% 42%;
     --radius: 0.75rem;
   }
 
   .dark {
     /* ── Dark Mode: Obsidian Prism ── */
-    --background: 240 11% 4.3%;
+    --background: 240 10% 3%;
     --foreground: 0 0% 98%;
     --card: 240 11% 6.5%;
     --card-foreground: 0 0% 98%;
@@ -81,6 +85,8 @@
     --ring: 258 90% 66%;
     --success: 142 76% 42%;
     --warning: 38 92% 50%;
+    --surface: 240 6% 10%;
+    --surface-foreground: 240 5% 65%;
   }
 
   body {
@@ -108,15 +114,15 @@
 @layer utilities {
   /* Glass Morphism */
   .glass {
-    @apply bg-white/70 dark:bg-zinc-950/60 backdrop-blur-xl border border-white/20 dark:border-white/[0.06];
+    @apply bg-white/80 dark:bg-zinc-950/60 backdrop-blur-xl border border-zinc-200/80 dark:border-white/[0.06] shadow-sm;
   }
 
   .glass-card {
-    @apply bg-white/80 dark:bg-white/[0.03] backdrop-blur-xl border border-black/[0.06] dark:border-white/[0.06] shadow-sm;
+    @apply bg-white dark:bg-white/[0.03] backdrop-blur-xl border border-zinc-200 dark:border-white/[0.06] shadow-sm;
   }
 
   .glass-subtle {
-    @apply bg-white/40 dark:bg-white/[0.02] backdrop-blur-md border border-black/[0.04] dark:border-white/[0.04];
+    @apply bg-zinc-50/80 dark:bg-white/[0.02] backdrop-blur-md border border-zinc-200/60 dark:border-white/[0.04];
   }
 
   /* Gradients */
@@ -126,11 +132,18 @@
   }
 
   .gradient-primary {
-    background-image: linear-gradient(135deg, hsl(var(--primary)), hsl(258 90% 55%));
+    background-image: linear-gradient(135deg, hsl(var(--primary)), hsl(258 90% 50%));
   }
 
   .gradient-mesh {
     background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(at 0% 0%, hsl(var(--primary) / 0.08) 0px, transparent 50%),
+      radial-gradient(at 80% 0%, hsl(var(--secondary) / 0.06) 0px, transparent 50%),
+      radial-gradient(at 40% 100%, hsl(var(--accent) / 0.04) 0px, transparent 50%);
+  }
+
+  .dark .gradient-mesh {
     background-image:
       radial-gradient(at 0% 0%, hsl(var(--primary) / 0.12) 0px, transparent 50%),
       radial-gradient(at 80% 0%, hsl(var(--secondary) / 0.08) 0px, transparent 50%),
@@ -231,7 +244,7 @@ h1, h2, h3, h4, .title {
 /* Prose for agent markdown responses */
 .prose { @apply text-foreground/90 transition-colors; }
 .prose pre {
-  @apply !bg-zinc-100 dark:!bg-zinc-950/50 !border !border-border/50 !rounded-2xl !p-4 !shadow-lg dark:!shadow-xl !backdrop-blur-sm;
+  @apply !bg-zinc-100 dark:!bg-zinc-950/50 !border !border-border/50 !rounded-2xl !p-4 !shadow-sm dark:!shadow-xl !backdrop-blur-sm;
 }
 .prose code {
   @apply !text-primary !font-bold !bg-primary/5 !px-1.5 !py-0.5 !rounded-md !border !border-primary/10 !transition-all;

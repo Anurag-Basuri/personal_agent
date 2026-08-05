@@ -3,20 +3,34 @@
 import { signIn, signOut, useSession } from "next-auth/react"
 import { Icons } from "@/components/ui/Icons";
 import { cn } from "@/utils/cn";
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
+import { LogOut } from 'lucide-react';
 
 export function AuthButton({ className }: { className?: string }) {
   const { data: session, status } = useSession()
   const router = useRouter();
+  const pathname = usePathname();
 
   if (status === "loading") {
-    return <div className={cn("h-10 w-24 rounded-full bg-zinc-200 animate-pulse", className)} />
+    return <div className={cn("h-10 w-24 rounded-full bg-zinc-200 dark:bg-white/10 animate-pulse", className)} />
   }
+
+  const handleAvatarClick = () => {
+    if (pathname !== '/chat') {
+      router.push('/chat');
+    }
+  };
 
   if (session) {
     return (
       <div className={cn("flex items-center gap-4", className)}>
-        <div className="flex items-center gap-2 group cursor-pointer" onClick={() => router.push('/chat')}>
+        <div 
+          className={cn(
+            "flex items-center gap-2 group",
+            pathname !== '/chat' ? "cursor-pointer" : "cursor-default"
+          )} 
+          onClick={handleAvatarClick}
+        >
           {session.user?.image ? (
             <img src={session.user.image} alt="User Avatar" className="h-8 w-8 rounded-full border border-border shadow-sm group-hover:ring-2 ring-primary/50 transition-all" />
           ) : (
@@ -28,8 +42,9 @@ export function AuthButton({ className }: { className?: string }) {
         </div>
         <button 
           onClick={() => signOut({ callbackUrl: '/' })} 
-          className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors focus-ring outline-none rounded-md px-2 py-1"
+          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-foreground transition-all focus-ring outline-none rounded-lg px-3 py-1.5"
         >
+          <LogOut className="h-4 w-4" />
           Sign out
         </button>
       </div>
@@ -48,3 +63,4 @@ export function AuthButton({ className }: { className?: string }) {
     </button>
   )
 }
+
