@@ -50,25 +50,47 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       return !!auth
     },
     async jwt({ token, account, user }) {
-      // If user is logging in (account and user are available on sign-in)
+      const secretKey = process.env.AUTH_SECRET || "fje9j3r29fj94j3o2fj304jf9e0jflsfjd2lkjsdf92";
+      const secret = new TextEncoder().encode(secretKey)
+      const alg = 'HS256'
+
+      // On initial sign-in, capture the user's identity into the NextAuth token
       if (user) {
-        // We generate a unified backend token for ALL providers
-        const secretKey = process.env.AUTH_SECRET || "fje9j3r29fj94j3o2fj304jf9e0jflsfjd2lkjsdf92";
-        const secret = new TextEncoder().encode(secretKey)
-        const alg = 'HS256'
-        
-        const backendToken = await new SignJWT({ 
-            email: user.email, 
-            name: user.name,
-            sub: user.id 
+        token.email = user.email
+        token.name = user.name
+        token.sub = user.id
+      }
+
+      // Check if apiToken needs minting or refreshing
+      let needsRefresh = !token.apiToken
+
+      if (token.apiToken && !needsRefresh) {
+        try {
+          // Decode without verification to check expiry
+          const [, payloadB64] = (token.apiToken as string).split('.')
+          const payload = JSON.parse(Buffer.from(payloadB64, 'base64url').toString())
+          const expiresAt = payload.exp * 1000
+          const oneHourFromNow = Date.now() + (60 * 60 * 1000)
+          if (expiresAt < oneHourFromNow) {
+            needsRefresh = true
+          }
+        } catch {
+          needsRefresh = true
+        }
+      }
+
+      if (needsRefresh && token.email) {
+        token.apiToken = await new SignJWT({
+            email: token.email,
+            name: token.name,
+            sub: token.sub
           })
           .setProtectedHeader({ alg })
           .setIssuedAt()
           .setExpirationTime('24h')
           .sign(secret)
-
-        token.apiToken = backendToken
       }
+
       return token
     },
     async session({ session, token }) {
