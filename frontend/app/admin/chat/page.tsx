@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAgentStore } from '@/store/useAgentStore';
 import { useAgentAPI } from '@/hooks/useAgentAPI';
@@ -10,9 +10,10 @@ import { ChatArea } from '@/components/chat/ChatArea';
 import { Composer } from '@/components/chat/Composer';
 
 export default function AdminChatPage() {
-  const { isAdmin, adminToken, messages } = useAgentStore();
+  const { isAdmin, adminToken } = useAgentStore();
   const router = useRouter();
   const { getHistory } = useAgentAPI();
+  const hasLoadedHistory = useRef(false);
 
   useEffect(() => {
     if (!isAdmin || !adminToken) {
@@ -20,11 +21,10 @@ export default function AdminChatPage() {
       return;
     }
 
-    // Load admin chat history on mount
-    if (messages.length === 0) {
-      getHistory();
-    }
-  }, [isAdmin, adminToken, router, getHistory, messages.length]);
+    if (hasLoadedHistory.current) return;
+    hasLoadedHistory.current = true;
+    getHistory();
+  }, [isAdmin, adminToken, router, getHistory]);
 
   if (!isAdmin || !adminToken) return null;
 
