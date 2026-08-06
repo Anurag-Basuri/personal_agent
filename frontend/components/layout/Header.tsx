@@ -29,16 +29,16 @@ export function Header() {
           
           <button
             onClick={toggleTheme}
-            className="relative flex h-7 w-12 items-center rounded-full bg-zinc-200/50 dark:bg-black/50 border border-zinc-200 dark:border-white/10 p-0.5 shadow-inner transition-colors focus-ring outline-none overflow-hidden group ml-1"
+            className="relative flex h-10 w-20 items-center rounded-full bg-zinc-200/50 dark:bg-black/50 border border-zinc-200 dark:border-white/10 p-0.5 shadow-inner transition-colors focus-ring outline-none overflow-hidden group ml-1"
             aria-label="Toggle theme"
           >
             <div className={cn(
-              "absolute left-0.5 h-5 w-5 rounded-full bg-white dark:bg-zinc-700 shadow-sm transition-transform duration-300 ease-in-out",
-              resolvedTheme === 'dark' ? "translate-x-5" : "translate-x-0"
+              "absolute left-0.5 h-9 w-9 rounded-full bg-white dark:bg-zinc-700 shadow-sm transition-transform duration-300 ease-in-out",
+              resolvedTheme === 'dark' ? "translate-x-10" : "translate-x-0"
             )} />
-            <div className="relative flex w-full items-center justify-between px-1 z-10 pointer-events-none">
-              <Sun className={cn("h-3 w-3 transition-colors", resolvedTheme === 'dark' ? "text-muted-foreground/50" : "text-amber-500")} />
-              <Moon className={cn("h-3 w-3 transition-colors", resolvedTheme === 'dark' ? "text-indigo-400" : "text-muted-foreground/50")} />
+            <div className="relative flex w-full items-center justify-between px-3 z-10 pointer-events-none">
+              <Sun className={cn("h-4 w-4 transition-colors", resolvedTheme === 'dark' ? "text-muted-foreground/50" : "text-amber-500")} />
+              <Moon className={cn("h-4 w-4 transition-colors", resolvedTheme === 'dark' ? "text-indigo-400" : "text-muted-foreground/50")} />
             </div>
           </button>
         </div>
