@@ -12,7 +12,7 @@ export function AuthButton({ className }: { className?: string }) {
   const pathname = usePathname();
 
   if (status === "loading") {
-    return <div className={cn("h-10 w-24 rounded-full bg-zinc-200 dark:bg-white/10 animate-pulse", className)} />
+    return <div className={cn("h-8 w-24 rounded-xl bg-zinc-200 dark:bg-white/10 animate-pulse", className)} />
   }
 
   const handleAvatarClick = () => {
@@ -23,29 +23,29 @@ export function AuthButton({ className }: { className?: string }) {
 
   if (session) {
     return (
-      <div className={cn("flex items-center gap-4", className)}>
+      <div className={cn("flex items-center gap-2", className)}>
         <div 
           className={cn(
-            "flex items-center gap-2 group",
+            "flex items-center gap-2.5 group",
             pathname !== '/chat' ? "cursor-pointer" : "cursor-default"
           )} 
           onClick={handleAvatarClick}
         >
           {session.user?.image ? (
-            <img src={session.user.image} alt="User Avatar" className="h-8 w-8 rounded-full border border-border shadow-sm group-hover:ring-2 ring-primary/50 transition-all" />
+            <img src={session.user.image} alt="User Avatar" className="h-7 w-7 rounded-full border border-zinc-200 dark:border-white/10 shadow-sm group-hover:ring-2 ring-primary/50 transition-all" />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-primary group-hover:bg-primary group-hover:text-white transition-all">
-              <Icons.User className="h-4 w-4" />
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 dark:bg-primary/15 text-primary group-hover:bg-primary group-hover:text-white transition-all">
+              <Icons.User className="h-3.5 w-3.5" />
             </div>
           )}
-          <span className="text-sm font-medium hidden sm:inline-block text-foreground group-hover:text-primary transition-colors">{session.user?.name}</span>
+          <span className="text-sm font-medium hidden sm:inline-block text-foreground/80 group-hover:text-foreground transition-colors">{session.user?.name}</span>
         </div>
         <button 
           onClick={() => signOut({ callbackUrl: '/' })} 
-          className="flex items-center gap-2 text-sm font-medium text-muted-foreground hover:bg-zinc-100 dark:hover:bg-white/10 hover:text-foreground transition-all focus-ring outline-none rounded-lg px-3 py-1.5"
+          className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground/60 hover:text-destructive/80 transition-all focus-ring outline-none rounded-lg px-2 py-1.5 hover:bg-destructive/5"
         >
-          <LogOut className="h-4 w-4" />
-          Sign out
+          <LogOut className="h-3.5 w-3.5" />
+          <span className="hidden sm:inline">Sign out</span>
         </button>
       </div>
     )
@@ -55,7 +55,7 @@ export function AuthButton({ className }: { className?: string }) {
     <button
       onClick={() => router.push('/auth/signin')}
       className={cn(
-        "flex h-10 items-center justify-center gap-2 rounded-full bg-foreground px-6 text-sm font-medium text-background shadow-md transition-all hover:bg-foreground/90 hover:shadow-lg hover:-translate-y-0.5 focus-ring outline-none",
+        "flex h-9 items-center justify-center gap-2 rounded-xl bg-foreground px-5 text-sm font-medium text-background shadow-md transition-all hover:bg-foreground/90 hover:shadow-lg hover:-translate-y-0.5 focus-ring outline-none",
         className
       )}
     >
@@ -63,4 +63,3 @@ export function AuthButton({ className }: { className?: string }) {
     </button>
   )
 }
-

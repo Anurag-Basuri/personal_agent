@@ -98,7 +98,7 @@ export function Sidebar() {
 				transition={{ type: 'spring', damping: 25, stiffness: 200 }}
 				className={cn(
 					'fixed inset-y-0 left-0 z-50 flex h-full flex-col overflow-hidden',
-					'bg-white dark:bg-zinc-950/60 backdrop-blur-2xl border-r border-zinc-200 dark:border-white/6',
+					'bg-white dark:bg-zinc-950/80 backdrop-blur-2xl border-r border-zinc-200 dark:border-white/6',
 					'md:relative shadow-2xl md:shadow-none',
 					!isSidebarOpen && 'md:w-0',
 				)}
@@ -107,7 +107,7 @@ export function Sidebar() {
 					{/* Brand */}
 					<div className="mb-6">
 						<Link href="/" className="flex items-center gap-2.5 px-2 group outline-none rounded-md focus-ring">
-							<div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-[#1E1E1E] border border-zinc-800 shadow-sm overflow-hidden group-hover:border-primary/50 transition-colors">
+							<div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 dark:bg-[#1E1E1E] border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden group-hover:border-primary/50 transition-colors">
 								<Image src="/logo.png" alt="Cortex Logo" width={24} height={24} priority className="object-contain drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
 							</div>
 							<span className="font-display text-lg font-bold tracking-tight text-foreground group-hover:text-primary transition-colors">Anurag's Cortex</span>
@@ -176,8 +176,8 @@ export function Sidebar() {
 							</>
 						) : (
 							<div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-								<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/8 mb-3">
-									<Icons.Chat className="h-4.5 w-4.5 text-primary/50" />
+								<div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 dark:bg-primary/8 mb-3">
+									<Icons.Chat className="h-4.5 w-4.5 text-primary/60 dark:text-primary/50" />
 								</div>
 								<p className="text-[13px] font-medium text-muted-foreground/70 mb-1">No conversations yet</p>
 								<p className="text-[11px] text-muted-foreground/40 leading-relaxed">
