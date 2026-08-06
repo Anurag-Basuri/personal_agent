@@ -29,15 +29,22 @@ export function Header() {
           
           <button
             onClick={toggleTheme}
-            className="relative flex h-10 w-20 items-center rounded-full bg-zinc-200/50 dark:bg-black/50 border border-zinc-200 dark:border-white/10 p-0.5 shadow-inner transition-colors focus-ring outline-none overflow-hidden group ml-1"
+            className="relative flex h-10 w-20 items-center rounded-full bg-zinc-200/50 dark:bg-black/50 border border-zinc-200 dark:border-white/10 shadow-inner transition-colors focus-ring outline-none overflow-hidden group ml-1"
             aria-label="Toggle theme"
           >
+            {/* Sliding Pill */}
             <div className={cn(
-              "absolute left-0.5 h-9 w-9 rounded-full bg-white dark:bg-zinc-700 shadow-sm transition-transform duration-300 ease-in-out",
-              resolvedTheme === 'dark' ? "translate-x-10" : "translate-x-0"
+              "absolute inset-y-1 w-8 rounded-full bg-white dark:bg-zinc-700 shadow-sm transition-all duration-300 ease-in-out",
+              resolvedTheme === 'dark' ? "left-[calc(100%-2.25rem)]" : "left-1"
             )} />
-            <div className="relative flex w-full items-center justify-between px-3 z-10 pointer-events-none">
+            
+            {/* Left Icon (Sun) - perfectly matches left position of slider */}
+            <div className="absolute left-1 inset-y-1 w-8 flex items-center justify-center z-10 pointer-events-none">
               <Sun className={cn("h-4 w-4 transition-colors", resolvedTheme === 'dark' ? "text-muted-foreground/50" : "text-amber-500")} />
+            </div>
+            
+            {/* Right Icon (Moon) - perfectly matches right position of slider */}
+            <div className="absolute right-1 inset-y-1 w-8 flex items-center justify-center z-10 pointer-events-none">
               <Moon className={cn("h-4 w-4 transition-colors", resolvedTheme === 'dark' ? "text-indigo-400" : "text-muted-foreground/50")} />
             </div>
           </button>
