@@ -99,7 +99,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
               remarkPlugins={[remarkGfm]}
               components={{
                 code(props) {
-                  const {children, className, node, ...rest} = props
+                  const {children, className, node, inline, ...rest} = props
                   const match = /language-(\w+)/.exec(className || '')
                   return match ? (
                     <CodeBlock
