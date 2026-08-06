@@ -1,12 +1,14 @@
 'use client';
 
+import { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Icons } from './Icons';
 
 interface ConfirmDialogProps {
 	isOpen: boolean;
 	title: string;
-	message: string;
+	message?: string;
+	children?: ReactNode;
 	confirmText?: string;
 	cancelText?: string;
 	onConfirm: () => void;
@@ -18,6 +20,7 @@ export function ConfirmDialog({
 	isOpen,
 	title,
 	message,
+	children,
 	confirmText = 'Confirm',
 	cancelText = 'Cancel',
 	onConfirm,
@@ -59,9 +62,16 @@ export function ConfirmDialog({
 										{title}
 									</h2>
 								</div>
-								<p className="text-muted-foreground mb-6 font-medium leading-relaxed text-sm">
-									{message}
-								</p>
+								{message && (
+									<p className="text-muted-foreground mb-6 font-medium leading-relaxed text-sm">
+										{message}
+									</p>
+								)}
+								{children && (
+									<div className="mb-6">
+										{children}
+									</div>
+								)}
 								<div className="flex gap-3 justify-end">
 									<button
 										onClick={onCancel}
@@ -72,7 +82,7 @@ export function ConfirmDialog({
 									<button
 										onClick={() => {
 											onConfirm();
-											onCancel(); // auto-close on confirm
+											onCancel();
 										}}
 										className={`rounded-lg px-4 py-2 font-bold text-white shadow-md transition-transform active:scale-95 focus-ring outline-none ${
 											isDestructive

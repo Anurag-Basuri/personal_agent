@@ -193,8 +193,8 @@ export function Sidebar() {
 							onClick={() => setShowResetConfirm(true)}
 							className="group flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-muted-foreground transition hover:bg-zinc-100 dark:hover:bg-white/4 hover:text-foreground focus-ring outline-none"
 						>
-							<Icons.Reset className="h-4 w-4 opacity-50 transition-transform group-hover:rotate-180" />
-							Clear Agent Memory
+							<Icons.Add className="h-4 w-4 opacity-50 transition-transform group-hover:rotate-90" />
+							New Conversation
 						</button>
 						<button
 							onClick={() => setShowDeleteConfirm(true)}
@@ -209,22 +209,83 @@ export function Sidebar() {
 
 			<ConfirmDialog
 				isOpen={showResetConfirm}
-				title="Clear Agent Memory?"
-				message="This will clear the agent's short-term memory (summaries and context). Your message history will remain visible."
-				confirmText="Clear Memory"
+				title="New Conversation"
+				confirmText="Start Fresh"
 				onConfirm={handleReset}
 				onCancel={() => setShowResetConfirm(false)}
-			/>
+			>
+				<div className="space-y-3">
+					<p className="text-sm text-muted-foreground font-medium leading-relaxed">
+						This will clear the current conversation and start a new one.
+					</p>
+					<div className="rounded-xl bg-zinc-50 dark:bg-white/3 border border-zinc-200 dark:border-white/6 p-3.5 space-y-2">
+						<p className="text-xs font-bold uppercase tracking-widest text-destructive/70 font-mono mb-2">Will be deleted</p>
+						<div className="flex items-start gap-2 text-[13px] text-muted-foreground">
+							<Icons.Close className="h-3.5 w-3.5 mt-0.5 shrink-0 text-destructive/60" />
+							<span>All visible chat messages</span>
+						</div>
+						<div className="flex items-start gap-2 text-[13px] text-muted-foreground">
+							<Icons.Close className="h-3.5 w-3.5 mt-0.5 shrink-0 text-destructive/60" />
+							<span>In-memory conversation context</span>
+						</div>
+					</div>
+					<div className="rounded-xl bg-zinc-50 dark:bg-white/3 border border-zinc-200 dark:border-white/6 p-3.5 space-y-2">
+						<p className="text-xs font-bold uppercase tracking-widest text-emerald-600/70 dark:text-emerald-400/70 font-mono mb-2">Will be kept</p>
+						<div className="flex items-start gap-2 text-[13px] text-muted-foreground">
+							<Icons.Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-500" />
+							<span>Long-term memories &amp; learned preferences</span>
+						</div>
+						<div className="flex items-start gap-2 text-[13px] text-muted-foreground">
+							<Icons.Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-500" />
+							<span>Conversation summaries &amp; extracted facts</span>
+						</div>
+						<div className="flex items-start gap-2 text-[13px] text-muted-foreground">
+							<Icons.Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-500" />
+							<span>Your account &amp; login</span>
+						</div>
+					</div>
+				</div>
+			</ConfirmDialog>
 
 			<ConfirmDialog
 				isOpen={showDeleteConfirm}
-				title="Delete All Data?"
-				message="This will permanently delete all your messages, summaries, and learned preferences. This action cannot be undone."
+				title="Delete All Data"
 				confirmText="Delete Everything"
 				isDestructive={true}
 				onConfirm={handleDeleteAll}
 				onCancel={() => setShowDeleteConfirm(false)}
-			/>
+			>
+				<div className="space-y-3">
+					<p className="text-sm text-muted-foreground font-medium leading-relaxed">
+						This will permanently erase <strong className="text-foreground">everything</strong> the agent knows about you. This cannot be undone.
+					</p>
+					<div className="rounded-xl bg-destructive/5 border border-destructive/15 p-3.5 space-y-2">
+						<p className="text-xs font-bold uppercase tracking-widest text-destructive/70 font-mono mb-2">Permanently deleted</p>
+						<div className="flex items-start gap-2 text-[13px] text-muted-foreground">
+							<Icons.Close className="h-3.5 w-3.5 mt-0.5 shrink-0 text-destructive/60" />
+							<span>All chat messages &amp; conversation history</span>
+						</div>
+						<div className="flex items-start gap-2 text-[13px] text-muted-foreground">
+							<Icons.Close className="h-3.5 w-3.5 mt-0.5 shrink-0 text-destructive/60" />
+							<span>Long-term memories &amp; learned preferences</span>
+						</div>
+						<div className="flex items-start gap-2 text-[13px] text-muted-foreground">
+							<Icons.Close className="h-3.5 w-3.5 mt-0.5 shrink-0 text-destructive/60" />
+							<span>Conversation summaries &amp; extracted facts</span>
+						</div>
+					</div>
+					<div className="rounded-xl bg-zinc-50 dark:bg-white/3 border border-zinc-200 dark:border-white/6 p-3.5 space-y-2">
+						<p className="text-xs font-bold uppercase tracking-widest text-emerald-600/70 dark:text-emerald-400/70 font-mono mb-2">Will be kept</p>
+						<div className="flex items-start gap-2 text-[13px] text-muted-foreground">
+							<Icons.Check className="h-3.5 w-3.5 mt-0.5 shrink-0 text-emerald-500" />
+							<span>Your account &amp; login</span>
+						</div>
+					</div>
+					<p className="text-xs text-destructive/60 font-medium italic">
+						The agent will treat you as a completely new user after this.
+					</p>
+				</div>
+			</ConfirmDialog>
 		</>
 	);
 }
