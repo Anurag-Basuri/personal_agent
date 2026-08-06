@@ -4,7 +4,6 @@ import { useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/cjs/styles/prism';
 import { Icons } from '../ui/Icons';
-import { cn } from '../../utils/cn';
 
 interface CodeBlockProps {
   language: string;
@@ -21,7 +20,7 @@ export function CodeBlock({ language, value }: CodeBlockProps) {
   };
 
   return (
-    <div className="relative my-4 overflow-hidden rounded-xl bg-[#1E1E1E] border border-zinc-200 dark:border-zinc-800 shadow-xl group not-prose">
+    <div className="relative my-4 overflow-hidden rounded-xl bg-zinc-50 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 shadow-xl group not-prose">
       {/* Header bar (Mac style) */}
       <div className="flex items-center justify-between px-4 py-2 bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
         <div className="flex items-center gap-2">
