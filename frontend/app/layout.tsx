@@ -25,6 +25,10 @@ export const metadata: Metadata = {
 	title: "Anurag's Cortex",
 	description:
 		'An autonomous AI agent with tool orchestration, contextual RAG, and omni-memory — built for software engineers.',
+	icons: {
+		icon: '/logo.png',
+		apple: '/logo.png',
+	},
 	keywords: ['AI Agent', 'Portfolio', 'RAG', 'LangGraph', 'Anurag Basuri', 'Cortex'],
 	authors: [{ name: 'Anurag Basuri', url: 'https://github.com/Anurag-Basuri' }],
 	openGraph: {
