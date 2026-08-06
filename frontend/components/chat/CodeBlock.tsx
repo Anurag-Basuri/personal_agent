@@ -21,9 +21,9 @@ export function CodeBlock({ language, value }: CodeBlockProps) {
   };
 
   return (
-    <div className="relative my-4 overflow-hidden rounded-xl bg-[#1E1E1E] border border-zinc-800 shadow-xl group not-prose">
+    <div className="relative my-4 overflow-hidden rounded-xl bg-[#1E1E1E] border border-zinc-200 dark:border-zinc-800 shadow-xl group not-prose">
       {/* Header bar (Mac style) */}
-      <div className="flex items-center justify-between px-4 py-2 bg-zinc-900 border-b border-zinc-800">
+      <div className="flex items-center justify-between px-4 py-2 bg-zinc-900 border-b border-zinc-200 dark:border-zinc-800">
         <div className="flex items-center gap-2">
           <div className="flex gap-1.5">
             <div className="w-2.5 h-2.5 rounded-full bg-red-500/80" />

@@ -20,7 +20,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
         animate={{ opacity: 1, scale: 1 }}
         className="mx-auto my-6 w-full max-w-2xl"
       >
-        <div className="flex flex-col rounded-xl overflow-hidden border border-red-500/30 bg-[#1E1E1E] shadow-[0_0_20px_-5px_rgba(239,68,68,0.15)]">
+        <div className="flex flex-col rounded-xl overflow-hidden border border-red-500/30 bg-red-50/50 dark:bg-[#1E1E1E] shadow-[0_0_20px_-5px_rgba(239,68,68,0.15)]">
           <div className="flex items-center gap-2 bg-red-500/10 border-b border-red-500/20 px-4 py-2">
             <Icons.Warning className="h-4 w-4 text-red-400" />
             <span className="text-xs font-mono font-semibold uppercase tracking-widest text-red-400">
@@ -28,7 +28,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
             </span>
           </div>
           <div className="p-4 overflow-x-auto">
-            <pre className="text-[13px] font-mono text-red-300/90 whitespace-pre-wrap">
+            <pre className="text-[13px] font-mono text-red-600/90 dark:text-red-300/90 whitespace-pre-wrap">
               {message.content}
             </pre>
           </div>

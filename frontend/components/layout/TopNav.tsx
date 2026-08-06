@@ -28,7 +28,7 @@ export function TopNav() {
         <div className="relative flex h-14 w-full items-center justify-between gap-6 rounded-2xl px-4 md:px-6 bg-white/90 dark:bg-zinc-950/80 backdrop-blur-2xl border border-zinc-200/50 dark:border-white/5 shadow-xl">
           {/* Brand */}
           <Link href="/" className="flex items-center gap-2.5 outline-none rounded-lg focus-ring">
-            <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-[#1E1E1E] border border-zinc-800 shadow-sm overflow-hidden hover:border-primary/50 transition-colors">
+            <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-100 dark:bg-[#1E1E1E] border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden hover:border-primary/50 transition-colors">
               <Image src="/logo.png" alt="Cortex Logo" width={24} height={24} priority className="object-contain drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]" />
             </div>
             <span className="font-display text-[15px] font-bold tracking-tight text-foreground hidden sm:block hover:text-primary transition-colors">

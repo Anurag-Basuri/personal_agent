@@ -291,15 +291,15 @@ export default function LandingPage() {
           viewport={{ once: true }}
           className="mt-40 text-center"
         >
-          <div className="relative overflow-hidden rounded-[2.5rem] bg-zinc-950 border border-zinc-800 p-16 sm:p-20 shadow-2xl">
+          <div className="relative overflow-hidden rounded-[2.5rem] bg-zinc-100 dark:bg-zinc-950 border border-zinc-200 dark:border-zinc-800 p-16 sm:p-20 shadow-2xl">
             {/* Dark CTA Background Glow */}
             <div className="absolute inset-0 bg-gradient-to-b from-primary/10 to-transparent pointer-events-none" />
             
             <div className="relative z-10">
-              <h2 className="font-display text-4xl sm:text-5xl font-black text-white tracking-tight mb-4">
+              <h2 className="font-display text-4xl sm:text-5xl font-black text-foreground tracking-tight mb-4">
                 Ready to explore?
               </h2>
-              <p className="text-lg text-zinc-400 mb-10 max-w-lg mx-auto font-medium">
+              <p className="text-lg text-muted-foreground mb-10 max-w-lg mx-auto font-medium">
                 Sign in to your account and experience the future of autonomous agents.
               </p>
               {session ? (

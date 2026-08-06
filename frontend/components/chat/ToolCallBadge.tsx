@@ -41,7 +41,7 @@ export function ToolCallBadge({ tool }: { tool: ToolCall }) {
             exit={{ height: 0, opacity: 0 }}
             className="overflow-hidden"
           >
-            <div className="mt-2 p-3 bg-[#1E1E1E] rounded-xl border border-zinc-800 shadow-inner max-w-full">
+            <div className="mt-2 p-3 bg-zinc-100 dark:bg-[#1E1E1E] rounded-xl border border-zinc-200 dark:border-zinc-800 shadow-inner max-w-full">
               <div className="text-xs font-mono text-zinc-400 mb-1">Arguments:</div>
               <pre className="text-[11px] text-zinc-300 overflow-x-auto p-2 bg-black/40 rounded-lg">
                 {typeof tool.args === 'string' ? tool.args : JSON.stringify(tool.args, null, 2)}
