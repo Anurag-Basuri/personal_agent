@@ -27,6 +27,7 @@ load_dotenv()
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
 from app.config import get_settings
@@ -289,6 +290,7 @@ def create_app() -> FastAPI:
     app.add_exception_handler(HTTPException, custom_http_exception_handler)
     app.add_exception_handler(ApiError, api_error_handler)
     app.add_exception_handler(ValidationError, validation_error_handler)
+    app.add_exception_handler(RequestValidationError, validation_error_handler)
     app.add_exception_handler(Exception, generic_error_handler)
 
     # Routers
