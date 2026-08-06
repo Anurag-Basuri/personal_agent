@@ -1,9 +1,16 @@
-import NextAuth from "next-auth"
+import NextAuth, { CredentialsSignin } from "next-auth"
 import Google from "next-auth/providers/google"
 import Credentials from "next-auth/providers/credentials"
 import { SignJWT } from "jose"
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000"
+
+class CustomAuthError extends CredentialsSignin {
+  constructor(msg: string) {
+    super();
+    this.code = msg;
+  }
+}
 
 export const { handlers, signIn, signOut, auth } = NextAuth({
   providers: [
@@ -31,8 +38,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           if (res.ok && responseData?.data) {
             return responseData.data
           }
-          return null
-        } catch (e) {
+          
+          throw new CustomAuthError(responseData?.message || "Invalid credentials")
+        } catch (e: any) {
+          if (e instanceof CustomAuthError) {
+            throw e
+          }
           console.error("Auth verify error:", e)
           return null
         }

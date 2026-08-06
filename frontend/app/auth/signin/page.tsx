@@ -37,6 +37,10 @@ export default function SignInPage() {
         
         const data = await res.json();
         if (!res.ok) {
+          if (data.errors && data.errors.length > 0) {
+            // Join validation errors into a single string
+            throw new Error(data.errors.join(' | '));
+          }
           throw new Error(data.message || 'Registration failed');
         }
       }
@@ -49,11 +53,15 @@ export default function SignInPage() {
       });
       
       if (res?.error) {
-        if (res.error.includes('CredentialsSignin')) {
-          setError('Invalid email or password.');
-        } else {
-          setError('Authentication failed. Please try again.');
+        // NextAuth v5 passes the custom error via the 'code' property when subclassing CredentialsSignin
+        // Sometimes it prepends 'CredentialsSignin' to the string, so we clean it up
+        let errorMessage = res.error.replace('CredentialsSignin', '').trim();
+        
+        if (!errorMessage) {
+           errorMessage = 'Invalid email or password.';
         }
+        
+        setError(errorMessage);
       } else if (res?.ok) {
         router.push('/chat');
       }
