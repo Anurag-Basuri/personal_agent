@@ -65,7 +65,7 @@ export function SuggestionChips() {
           onClick={() => sendMessage(suggestion.prompt)}
           className={cn(
             'group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-800/50',
-            'bg-white dark:bg-white/[0.02] px-4 py-3.5 text-left transition-all duration-200',
+            'bg-white dark:bg-white/2 px-4 py-3.5 text-left transition-all duration-200',
             'hover:shadow-md hover:border-zinc-300 dark:hover:border-primary/30',
             suggestion.accentClass,
           )}
