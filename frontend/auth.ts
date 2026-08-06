@@ -42,8 +42,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   secret: process.env.AUTH_SECRET || "fje9j3r29fj94j3o2fj304jf9e0jflsfjd2lkjsdf92",
   trustHost: true,
   pages: {
-    signIn: '/',
-    error: '/',
+    signIn: '/auth/signin',
+    error: '/auth/signin',
   },
   callbacks: {
     authorized: async ({ auth }) => {

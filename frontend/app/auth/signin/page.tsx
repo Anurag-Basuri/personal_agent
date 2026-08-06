@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { signIn } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import { useTheme } from '@/hooks/useTheme';
 import { Icons } from '@/components/ui/Icons';
 import { Sun, Moon } from 'lucide-react';
@@ -16,6 +17,7 @@ export default function SignInPage() {
   const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
   
   const { resolvedTheme, toggleTheme } = useTheme();
 
@@ -43,12 +45,17 @@ export default function SignInPage() {
       const res: any = await signIn('credentials', {
         email,
         password,
-        redirect: true,
-        callbackUrl: '/chat',
+        redirect: false,
       });
       
       if (res?.error) {
-        setError('Invalid credentials.');
+        if (res.error.includes('CredentialsSignin')) {
+          setError('Invalid email or password.');
+        } else {
+          setError('Authentication failed. Please try again.');
+        }
+      } else if (res?.ok) {
+        router.push('/chat');
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred.');
