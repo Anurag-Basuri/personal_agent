@@ -115,15 +115,15 @@
 @layer utilities {
   /* Glass Morphism */
   .glass {
-    @apply bg-white/80 dark:bg-zinc-950/60 backdrop-blur-xl border border-zinc-200/80 dark:border-white/[0.06] shadow-sm;
+    @apply bg-white/80 dark:bg-zinc-950/60 backdrop-blur-xl border border-zinc-200/80 dark:border-white/6 shadow-sm;
   }
 
   .glass-card {
-    @apply bg-white dark:bg-white/[0.03] backdrop-blur-xl border border-zinc-200 dark:border-white/[0.06] shadow-sm;
+    @apply bg-white dark:bg-white/3 backdrop-blur-xl border border-zinc-200 dark:border-white/6 shadow-sm;
   }
 
   .glass-subtle {
-    @apply bg-zinc-50/80 dark:bg-white/[0.02] backdrop-blur-md border border-zinc-200/60 dark:border-white/[0.04];
+    @apply bg-zinc-50/80 dark:bg-white/2 backdrop-blur-md border border-zinc-200/60 dark:border-white/4;
   }
 
   /* Gradients */
@@ -245,10 +245,10 @@ h1, h2, h3, h4, .title {
 /* Prose for agent markdown responses */
 .prose { @apply text-foreground/90 transition-colors; }
 .prose pre {
-  @apply !bg-zinc-100 dark:!bg-zinc-950/50 !border !border-border/50 !rounded-2xl !p-4 !shadow-sm dark:!shadow-xl !backdrop-blur-sm;
+  @apply bg-zinc-100! dark:bg-zinc-950/50! border! border-border/50! rounded-2xl! p-4! shadow-sm! dark:shadow-xl! backdrop-blur-sm!;
 }
 .prose code {
-  @apply !text-primary !font-bold !bg-primary/5 !px-1.5 !py-0.5 !rounded-md !border !border-primary/10 !transition-all;
+  @apply text-primary! font-bold! bg-primary/5! px-1.5! py-0.5! rounded-md! border! border-primary/10! transition-all!;
 }
 .prose a {
   @apply text-primary no-underline font-bold hover:underline decoration-primary/30 transition-all;

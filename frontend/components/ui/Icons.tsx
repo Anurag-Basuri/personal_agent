@@ -14,7 +14,8 @@ import {
 	Plus,
 	Home,
 	ChevronDown,
-	Copy
+	Copy,
+	Github
 } from 'lucide-react';
 
 export const Icons = {
@@ -33,5 +34,6 @@ export const Icons = {
 	Add: Plus,
 	Home,
 	ChevronDown,
-	Copy
+	Copy,
+	Github
 };
