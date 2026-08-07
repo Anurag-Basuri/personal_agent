@@ -33,19 +33,19 @@ from app.core.retry import retry_with_backoff
 # Tier 2 is unaffected and the cascade skips to it instantly.
 _llm_breakers: dict[int, CircuitBreaker] = {
     1: CircuitBreaker(
-        name="LLM_Tier1_GitHub_GPT4o",
+        name="LLM_Tier1_Gemini",
         failure_threshold=3,
         recovery_timeout=60,
         expected_exceptions=(Exception,),
     ),
     2: CircuitBreaker(
-        name="LLM_Tier2_GitHub_Llama",
+        name="LLM_Tier2_Cohere",
         failure_threshold=3,
         recovery_timeout=60,
         expected_exceptions=(Exception,),
     ),
     3: CircuitBreaker(
-        name="LLM_Tier3_GitHub_GPT4oMini",
+        name="LLM_Tier3_OpenRouter",
         failure_threshold=3,
         recovery_timeout=90,
         expected_exceptions=(Exception,),

@@ -43,11 +43,11 @@ class SystemHealth:
 
     def __init__(self):
         self.subsystems: dict[str, bool] = {
-            # GitHub Models GPT 4o
+            # Gemini gemini-2.0-flash
             "llm_tier_1": True,
-            # GitHub Models Llama 3.3 70B
+            # Cohere command-r-plus
             "llm_tier_2": True,
-            # GitHub Models GPT 4o mini
+            # OpenRouter Llama 3.3 70B
             "llm_tier_3": True,
             # Groq Llama 3.1 8B
             "llm_tier_4": True,

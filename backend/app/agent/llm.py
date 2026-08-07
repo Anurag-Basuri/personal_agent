@@ -2,15 +2,15 @@
 6-Layer LLM Fallback Factory.
 
 Initializes an ordered chain of LLM providers for the cascade:
-  Tier 1: GitHub Models — openai/gpt-4o
-  Tier 2: GitHub Models — meta/llama-3.3-70b-instruct
-  Tier 3: GitHub Models — openai/gpt-4o-mini
-  Tier 4: Groq          — llama-3.1-8b-instant
-  Tier 5: HuggingFace   — Qwen/Qwen2.5-72B-Instruct
-  Tier 6: Static Python  (handled in nodes.py, not here)
+  Tier 1: Google Gemini  — gemini-2.0-flash
+  Tier 2: Cohere         — command-r-plus
+  Tier 3: OpenRouter     — meta-llama/llama-3.3-70b-instruct:free
+  Tier 4: Groq           — llama-3.1-8b-instant
+  Tier 5: HuggingFace    — Qwen/Qwen2.5-72B-Instruct
+  Tier 6: Static Python   (handled in nodes.py, not here)
 
-Each provider is independently initialized — a failed Groq init
-doesn't affect GitHub Models. The nodes.py cascade loop iterates
+Each provider is independently initialized — a failed Cohere init
+doesn't affect Gemini. The nodes.py cascade loop iterates
 through these providers in order, wrapped with per-tier circuit breakers.
 """
 
@@ -26,16 +26,15 @@ from app.config import get_settings
 from app.core.logger import agent_logger
 
 
-# Provider Dataclass
 @dataclass
 class LLMProvider:
     """Describes a single LLM in the fallback chain."""
 
     # 1 through 5
     tier: int
-    # "GitHub", "Groq", "HuggingFace"
+    # "Gemini", "Cohere", "OpenRouter", "Groq", "HuggingFace"
     provider_name: str
-    # e.g., "openai/gpt 4o"
+    # e.g., "gemini-2.0-flash"
     model_name: str
     # The LangChain LLM instance (unbound)
     llm: BaseChatModel
@@ -46,7 +45,8 @@ _PLACEHOLDER_VALUES = {
     "", "your_huggingface_api_key", "your_gemini_api_key_here",
     "your_huggingface_deployment_token", "your-api-key-here",
     "sk-xxx", "your_key_here", "your_github_pat_here",
-    "your_groq_api_key_here",
+    "your_groq_api_key_here", "your_cohere_api_key_here",
+    "your_openrouter_api_key_here",
 }
 
 
@@ -72,34 +72,66 @@ def _init_providers() -> None:
 
     settings = get_settings()
 
-    # Tier 1, 2, 3: GitHub Models
-    if _is_valid_key(settings.GITHUB_TOKEN):
-        from langchain_openai import ChatOpenAI
+    # Tier 1: Google Gemini
+    if _is_valid_key(settings.GEMINI_API_KEY):
+        try:
+            from langchain_google_genai import ChatGoogleGenerativeAI
 
-        github_models = [
-            (1, "openai/gpt-4o"),
-            (2, "meta/Llama-3.3-70B-Instruct"),
-            (3, "openai/gpt-4o-mini"),
-        ]
-
-        for tier, model_id in github_models:
-            try:
-                llm = ChatOpenAI(
-                    model=model_id,
-                    api_key=settings.GITHUB_TOKEN,
-                    base_url="https://models.github.ai/inference",
-                    temperature=0.3,
-                    timeout=30,
-                    max_tokens=1000,
-                )
-                _providers.append(LLMProvider(tier, "GitHub", model_id, llm))
-            except Exception as e:
-                agent_logger.error(
-                    "LLM", f"Failed to init Tier {tier} ({model_id})", e,
-                )
+            llm = ChatGoogleGenerativeAI(
+                model="gemini-2.0-flash",
+                google_api_key=settings.GEMINI_API_KEY,
+                temperature=0.3,
+                max_output_tokens=1000,
+            )
+            _providers.append(LLMProvider(1, "Gemini", "gemini-2.0-flash", llm))
+            agent_logger.info("LLM", "[OK] Tier 1 (Gemini gemini-2.0-flash) initialized")
+        except Exception as e:
+            agent_logger.error("LLM", "Failed to init Tier 1 (Gemini)", e)
     else:
         agent_logger.warn(
-            "LLM", "⚠️ GITHUB_TOKEN not set — Tiers 1-3 (GitHub Models) skipped",
+            "LLM", "⚠️ GEMINI_API_KEY not set — Tier 1 (Gemini) skipped",
+        )
+
+    # Tier 2: Cohere
+    if _is_valid_key(settings.COHERE_API_KEY):
+        try:
+            from langchain_cohere import ChatCohere
+
+            llm = ChatCohere(
+                model="command-r-plus",
+                cohere_api_key=settings.COHERE_API_KEY,
+                temperature=0.3,
+                max_tokens=1000,
+            )
+            _providers.append(LLMProvider(2, "Cohere", "command-r-plus", llm))
+            agent_logger.info("LLM", "[OK] Tier 2 (Cohere command-r-plus) initialized")
+        except Exception as e:
+            agent_logger.error("LLM", "Failed to init Tier 2 (Cohere)", e)
+    else:
+        agent_logger.warn(
+            "LLM", "⚠️ COHERE_API_KEY not set — Tier 2 (Cohere) skipped",
+        )
+
+    # Tier 3: OpenRouter (uses the OpenAI-compatible API)
+    if _is_valid_key(settings.OPENROUTER_API_KEY):
+        try:
+            from langchain_openai import ChatOpenAI
+
+            llm = ChatOpenAI(
+                model="meta-llama/llama-3.3-70b-instruct:free",
+                api_key=settings.OPENROUTER_API_KEY,
+                base_url="https://openrouter.ai/api/v1",
+                temperature=0.3,
+                timeout=30,
+                max_tokens=1000,
+            )
+            _providers.append(LLMProvider(3, "OpenRouter", "llama-3.3-70b:free", llm))
+            agent_logger.info("LLM", "[OK] Tier 3 (OpenRouter llama-3.3-70b:free) initialized")
+        except Exception as e:
+            agent_logger.error("LLM", "Failed to init Tier 3 (OpenRouter)", e)
+    else:
+        agent_logger.warn(
+            "LLM", "⚠️ OPENROUTER_API_KEY not set — Tier 3 (OpenRouter) skipped",
         )
 
     # Tier 4: Groq
@@ -114,6 +146,7 @@ def _init_providers() -> None:
                 max_tokens=1000,
             )
             _providers.append(LLMProvider(4, "Groq", "llama-3.1-8b-instant", llm))
+            agent_logger.info("LLM", "[OK] Tier 4 (Groq llama-3.1-8b-instant) initialized")
         except Exception as e:
             agent_logger.error("LLM", "Failed to init Tier 4 (Groq)", e)
     else:
@@ -135,6 +168,7 @@ def _init_providers() -> None:
                 max_tokens=1000,
             )
             _providers.append(LLMProvider(5, "HuggingFace", "Qwen2.5-VL-72B-Instruct", llm))
+            agent_logger.info("LLM", "[OK] Tier 5 (HuggingFace Qwen2.5-VL-72B) initialized")
         except Exception as e:
             agent_logger.error("LLM", "Failed to init Tier 5 (HuggingFace)", e)
     else:
@@ -145,7 +179,7 @@ def _init_providers() -> None:
     if not _providers:
         agent_logger.error(
             "SYSTEM", "FATAL: No AI providers configured", None,
-            {"hint": "Set GITHUB_TOKEN, GROQ_API_KEY, or HF_TOKEN in .env"},
+            {"hint": "Set GEMINI_API_KEY, COHERE_API_KEY, OPENROUTER_API_KEY, GROQ_API_KEY, or HF_TOKEN in .env"},
         )
 
 
@@ -172,7 +206,7 @@ def get_bound_providers(tools: list[BaseTool]) -> list[LLMProvider]:
 
     if not _providers:
         raise RuntimeError(
-            "No AI providers configured. Set GITHUB_TOKEN, GROQ_API_KEY, or HF_TOKEN in .env."
+            "No AI providers configured. Set GEMINI_API_KEY, COHERE_API_KEY, OPENROUTER_API_KEY, GROQ_API_KEY, or HF_TOKEN in .env."
         )
 
     bound: list[LLMProvider] = []

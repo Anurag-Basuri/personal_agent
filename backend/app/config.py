@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     # AI Providers
     HF_TOKEN: str = ""
     GROQ_API_KEY: str = ""
+    GEMINI_API_KEY: str = ""
+    COHERE_API_KEY: str = ""
+    OPENROUTER_API_KEY: str = ""
 
     # External APIs
     GITHUB_TOKEN: str = ""
