@@ -191,10 +191,11 @@ async def process_user_message(
     for msg in new_generated_messages:
         await memory.add_message(msg)
 
-    # The final displayable reply is the last AIMessage content
+    # The final displayable reply is the last AIMessage with actual content
+    # (Skip tool-calling intermediates that have empty content)
     final_reply = ""
     for msg in reversed(final_messages):
-        if msg.type == "ai":
+        if msg.type == "ai" and msg.content and str(msg.content).strip():
             final_reply = msg.content
             break
 

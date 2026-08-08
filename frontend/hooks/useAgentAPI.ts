@@ -164,12 +164,20 @@ export function useAgentAPI() {
         throw new Error('Failed to parse history response');
       }
       if (res.ok && data.success && data.data.messages) {
-        const mapped: ChatMessage[] = data.data.messages.map((msg: any) => ({
-          id: msg.id,
-          role: msg.role === 'human' ? 'user' : (msg.role === 'ai' || msg.role === 'tool' ? 'assistant' : msg.role),
-          content: stripNavigateTags(msg.content),
-          timestamp: msg.created_at,
-        }));
+        const mapped: ChatMessage[] = data.data.messages
+          .filter((msg: any) => {
+            // Hide internal tool result messages (not user-facing)
+            if (msg.role === 'tool') return false;
+            // Hide AI messages with no content (tool-calling intermediates)
+            if (msg.role === 'ai' && (!msg.content || msg.content.trim() === '')) return false;
+            return true;
+          })
+          .map((msg: any) => ({
+            id: msg.id,
+            role: msg.role === 'human' ? 'user' : 'assistant',
+            content: stripNavigateTags(msg.content),
+            timestamp: msg.created_at,
+          }));
         setMessages(mapped);
       }
     } catch (err) {

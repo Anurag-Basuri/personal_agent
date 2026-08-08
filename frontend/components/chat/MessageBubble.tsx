@@ -13,6 +13,9 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
 
+  // Skip rendering if message has no visible content
+  if (!message.content || message.content.trim() === '') return null;
+
   if (isSystem) {
     return (
       <motion.div 

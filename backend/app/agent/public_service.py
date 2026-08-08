@@ -183,10 +183,10 @@ async def process_public_message(
     for msg in new_generated_messages:
         await memory.add_message(msg)
 
-    # Extract Final Reply
+    # Extract Final Reply (skip tool-calling intermediates with empty content)
     final_reply = ""
     for msg in reversed(final_messages):
-        if msg.type == "ai":
+        if msg.type == "ai" and msg.content and str(msg.content).strip():
             final_reply = msg.content
             break
 
