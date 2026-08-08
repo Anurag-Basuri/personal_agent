@@ -1,11 +1,11 @@
-"""LangGraph nodes: Intent Router, LLM invocation (6 layer cascade), and Tool Execution.
+"""LangGraph nodes: Intent Router, LLM invocation (via orchestrator), and Tool Execution.
 
 Resilience patterns applied:
-  - 5 independent Circuit Breakers (one per LLM tier)
-  - Retry with exponential backoff on each tier
-  - Layer 6 static fallback — never crashes
+  - Centralized LLMOrchestrator handles the 6-layer cascade internally
+    (circuit breakers, smart error classification, per-tier timeouts)
+  - Tool execution uses retry_with_backoff for transient failures
+  - Layer 6 static fallback (never crashes)
   - Graceful degradation tracking via SystemHealth
-  - LLM budget checks per tier
 
 The call_model and call_tools functions use get_all_tools by default.
 For the public portfolio chatbot, use make_call_model(tools_getter)
@@ -19,50 +19,10 @@ from typing import Callable
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from app.agent.core.state import AgentState
-from app.agent.llm import get_bound_providers
+from app.agent.llm import orchestrator
 from app.agent.tools import get_all_tools
-from app.core.circuit_breaker import CircuitBreaker, CircuitOpenError
-from app.core.degradation import system_health
 from app.core.logger import agent_logger
-from app.core.rate_limiter import check_llm_budget
 from app.core.retry import retry_with_backoff
-
-
-# Circuit Breakers (one per LLM tier)
-# Each breaker tracks failures independently. If Tier 1 trips OPEN,
-# Tier 2 is unaffected and the cascade skips to it instantly.
-_llm_breakers: dict[int, CircuitBreaker] = {
-    1: CircuitBreaker(
-        name="LLM_Tier1_Gemini",
-        failure_threshold=3,
-        recovery_timeout=60,
-        expected_exceptions=(Exception,),
-    ),
-    2: CircuitBreaker(
-        name="LLM_Tier2_Cohere",
-        failure_threshold=3,
-        recovery_timeout=60,
-        expected_exceptions=(Exception,),
-    ),
-    3: CircuitBreaker(
-        name="LLM_Tier3_OpenRouter",
-        failure_threshold=3,
-        recovery_timeout=90,
-        expected_exceptions=(Exception,),
-    ),
-    4: CircuitBreaker(
-        name="LLM_Tier4_Groq",
-        failure_threshold=3,
-        recovery_timeout=120,
-        expected_exceptions=(Exception,),
-    ),
-    5: CircuitBreaker(
-        name="LLM_Tier5_HuggingFace",
-        failure_threshold=3,
-        recovery_timeout=120,
-        expected_exceptions=(Exception,),
-    ),
-}
 
 
 # Layer 6: Static Fallback Message
@@ -91,12 +51,12 @@ _META_PATTERNS = {
 
 async def route_intent(state: AgentState) -> dict:
     """
-    Lightweight intent classifier — routes messages to skip tools when unnecessary.
+    Lightweight intent classifier -- routes messages to skip tools when unnecessary.
 
     Intents:
-      - "greeting": Simple hello/hi → skip tools, direct LLM reply
-      - "meta_question": Questions about the agent itself → skip tools
-      - "tool_use": Everything else → full agent+tools cycle
+      - "greeting": Simple hello/hi -> skip tools, direct LLM reply
+      - "meta_question": Questions about the agent itself -> skip tools
+      - "tool_use": Everything else -> full agent+tools cycle
     """
     messages = state["messages"]
 
@@ -114,14 +74,14 @@ async def route_intent(state: AgentState) -> dict:
     cleaned = user_msg.rstrip("!?.,:;")
 
     if cleaned in _GREETING_PATTERNS or any(cleaned.startswith(g) for g in _GREETING_PATTERNS):
-        agent_logger.debug("ROUTER", f"Intent: greeting — '{user_msg[:40]}'")
+        agent_logger.debug("ROUTER", f"Intent: greeting -- '{user_msg[:40]}'")
         return {"intent": "greeting"}
 
     if any(p in user_msg for p in _META_PATTERNS):
-        agent_logger.debug("ROUTER", f"Intent: meta_question — '{user_msg[:40]}'")
+        agent_logger.debug("ROUTER", f"Intent: meta_question -- '{user_msg[:40]}'")
         return {"intent": "meta_question"}
 
-    agent_logger.debug("ROUTER", f"Intent: tool_use — '{user_msg[:40]}'")
+    agent_logger.debug("ROUTER", f"Intent: tool_use -- '{user_msg[:40]}'")
     return {"intent": "tool_use"}
 
 
@@ -130,16 +90,15 @@ def make_call_model(tools_getter: Callable[[], list] = get_all_tools):
 
     async def _call_model(state: AgentState):
         """
-        Invoke the LLM using the 6-layer fallback cascade.
+        Invoke the LLM using the centralized orchestrator.
 
-        For each tier (1 through 5):
-          1. Check LLM budget → skip if exhausted
-          2. Check circuit breaker state → skip instantly if OPEN
-          3. Attempt invocation with retry_with_backoff (2 retries)
-          4. On success → mark tier UP, return response
-          5. On failure → mark tier DOWN, fall to next tier
+        The orchestrator handles the entire 6-layer cascade internally:
+          - Smart error classification (permanent/rate_limited/transient)
+          - Per-tier circuit breakers
+          - Hard per-attempt timeouts (10s)
+          - Runtime tier disabling for 404s
 
-        If all 5 tiers fail → return Layer 6 static message (never crashes).
+        If all tiers fail, returns Layer 6 static message (never crashes).
         """
         messages = state["messages"]
         role = state.get("role", "GUEST")
@@ -156,88 +115,19 @@ def make_call_model(tools_getter: Callable[[], list] = get_all_tools):
         if intent in ("greeting", "meta_question"):
             allowed_tools = []
 
-        # Get all available providers with tools bound
-        providers = get_bound_providers(allowed_tools)
+        # Delegate to the orchestrator
+        response = await orchestrator.invoke(messages, allowed_tools or None)
 
-        # Cascade through tiers
-        for provider in providers:
-            tier = provider.tier
-            breaker = _llm_breakers.get(tier)
-            tier_label = f"llm_tier_{tier}"
-
-            # 1. Check LLM budget
-            if not check_llm_budget(tier_label):
-                agent_logger.warn(
-                    "LLM",
-                    f"💰 Tier {tier} ({provider.provider_name}) budget exhausted — skipping",
-                )
-                continue
-
-            # 2. Attempt invocation through circuit breaker + retry
-            start = agent_logger.llm_start(provider.provider_name, provider.model_name)
-
-            try:
-                if breaker:
-                    response = await breaker.call(
-                        retry_with_backoff,
-                        provider.llm.ainvoke,
-                        messages,
-                        max_retries=2,
-                        base_delay=1.0,
-                        retryable_exceptions=(TimeoutError, ConnectionError, Exception),
-                        operation_name=f"LLM:Tier{tier}:{provider.model_name}",
-                    )
-                else:
-                    # No breaker (shouldn't happen, but safe fallthrough)
-                    response = await retry_with_backoff(
-                        provider.llm.ainvoke,
-                        messages,
-                        max_retries=2,
-                        base_delay=1.0,
-                        retryable_exceptions=(TimeoutError, ConnectionError, Exception),
-                        operation_name=f"LLM:Tier{tier}:{provider.model_name}",
-                    )
-
-                # Success!
-                tool_calls = getattr(response, "tool_calls", [])
-                agent_logger.llm_success(start, len(tool_calls) > 0, len(tool_calls))
-                system_health.mark_up(tier_label)
-
-                agent_logger.info(
-                    "LLM",
-                    f"✅ Response from Tier {tier}: {provider.provider_name}/{provider.model_name}",
-                )
-                return {"messages": [response]}
-
-            except CircuitOpenError:
-                # Circuit is OPEN skip instantly to next tier (no network delay)
-                agent_logger.warn(
-                    "LLM",
-                    f"🔴 Tier {tier} ({provider.provider_name}) circuit OPEN — skipping",
-                )
-                system_health.mark_down(tier_label)
-                continue
-
-            except Exception as e:
-                # Retries exhausted or hard error fall to next tier
-                agent_logger.llm_error(start, e)
-                agent_logger.warn(
-                    "LLM",
-                    f"❌ Tier {tier} ({provider.provider_name}) failed — falling to next tier",
-                    {"error": str(e)[:100]},
-                )
-                system_health.mark_down(tier_label)
-                continue
+        if response is not None:
+            return {"messages": [response]}
 
         # Layer 6: Static Fallback
-        # All 5 tiers failed. Return a hardcoded message instead of crashing.
         agent_logger.error(
             "LLM",
-            "🚨 ALL LLM tiers exhausted — returning static fallback response",
+            "[STATIC] ALL LLM tiers exhausted -- returning static fallback",
             None,
-            {"tiers_attempted": len(providers)},
+            {"tiers_configured": len(orchestrator.get_providers())},
         )
-        system_health.mark_down("all_llms")
         return {"messages": [AIMessage(content=STATIC_FALLBACK_MESSAGE)]}
 
     return _call_model

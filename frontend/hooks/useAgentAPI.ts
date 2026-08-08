@@ -70,30 +70,36 @@ export function useAgentAPI() {
         }
 
         const endpoint = isAdmin ? `${API_BASE}/api/admin/chat/` : `${API_BASE}/api/agent/chat/`;
-        let res = await fetch(endpoint, {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({
-            message: content,
-            currentUrl: window.location.href,
-          }),
-        });
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 30000);
 
-        if (res.status === 401) {
-          const retried = await handleAuthError(res);
-          if (retried) {
-            res = await fetch(endpoint, {
-              method: 'POST',
-              headers: getAuthHeaders(),
-              body: JSON.stringify({
-                message: content,
-                currentUrl: window.location.href,
-              }),
-            });
-          } else {
-            throw new Error('Session expired. Please log in again.');
+        try {
+          let res = await fetch(endpoint, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+              message: content,
+              currentUrl: window.location.href,
+            }),
+            signal: controller.signal,
+          });
+
+          if (res.status === 401) {
+            const retried = await handleAuthError(res);
+            if (retried) {
+              res = await fetch(endpoint, {
+                method: 'POST',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({
+                  message: content,
+                  currentUrl: window.location.href,
+                }),
+                signal: controller.signal,
+              });
+            } else {
+              throw new Error('Session expired. Please log in again.');
+            }
           }
-        }
 
         const text = await res.text();
         let data;
@@ -114,11 +120,17 @@ export function useAgentAPI() {
           timestamp: new Date().toISOString(),
         };
         addMessage(agentMsg);
+        } finally {
+          clearTimeout(timeoutId);
+        }
       } catch (error: any) {
+        const message = error.name === 'AbortError'
+          ? 'Request timed out. The server took too long to respond. Please try again.'
+          : (error.message || 'Failed to connect to agent backend.');
         const errorMsg: ChatMessage = {
           id: crypto.randomUUID(),
           role: 'system',
-          content: `Error: ${error.message || 'Failed to connect to agent backend.'}`,
+          content: `Error: ${message}`,
           timestamp: new Date().toISOString(),
         };
         addMessage(errorMsg);

@@ -14,10 +14,9 @@ from langchain_core.messages import AIMessage, HumanMessage
 
 from app.agent.core.nodes import (
     STATIC_FALLBACK_MESSAGE,
-    _llm_breakers,
     call_model,
 )
-from app.core.circuit_breaker import CircuitOpenError
+from app.agent.llm import orchestrator
 
 
 def _make_state(user_msg: str = "What is Python?") -> dict:

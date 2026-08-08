@@ -34,15 +34,15 @@ async def admin_health_dashboard(admin_user: User = Depends(get_admin_user)):
     mcp_connected = sum(1 for s in mcp_status.values() if s == "connected")
     mcp_failed = sum(1 for s in mcp_status.values() if s == "error")
 
-    # Circuit Breaker States
-    from app.agent.core.nodes import _llm_breakers
+    # Circuit Breaker / Provider States (from the centralized orchestrator)
+    from app.agent.llm import orchestrator
     breaker_status = {}
-    for tier, breaker in _llm_breakers.items():
-        breaker_status[f"tier_{tier}"] = {
-            "name": breaker.name,
-            "state": breaker.state,
-            "failure_count": breaker._failure_count,
-            "failure_threshold": breaker.failure_threshold,
+    for info in orchestrator.get_provider_info():
+        tier_key = f"tier_{info['tier']}"
+        breaker_status[tier_key] = {
+            "name": f"{info['provider']}/{info['model']}",
+            "state": info.get("breaker_state", "N/A"),
+            "disabled": info.get("disabled", False),
         }
 
     return success_response(
