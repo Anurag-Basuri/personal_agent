@@ -111,6 +111,17 @@ class AsyncMessageHistory:
         db_msg = self._to_db_message(message, session.id)
         await message_repo.create(db_msg)
 
+    async def add_messages(self, messages: list[BaseMessage]) -> None:
+        """Persist multiple messages to the database in one transaction."""
+        if not messages:
+            return
+
+        session = await session_repo.get_or_create(
+            self.session_id, self.user_id, self.role, self.transport
+        )
+        db_msgs = [self._to_db_message(m, session.id) for m in messages]
+        await message_repo.create_many(db_msgs)
+
     async def clear(self) -> None:
         """Delete all messages for this session."""
         session = await session_repo.get_or_create(

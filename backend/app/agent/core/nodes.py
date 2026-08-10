@@ -70,19 +70,22 @@ async def route_intent(state: AgentState) -> dict:
     if not user_msg:
         return {"intent": "tool_use"}
 
-    # Fast keyword match no LLM call needed for obvious intents
+    intent = classify_intent(user_msg)
+    agent_logger.debug("ROUTER", f"Intent: {intent} -- '{user_msg[:40]}'")
+    return {"intent": intent}
+
+
+def classify_intent(user_msg: str) -> str:
+    """Fast keyword-based intent classification for a single string."""
     cleaned = user_msg.rstrip("!?.,:;")
 
     if cleaned in _GREETING_PATTERNS or any(cleaned.startswith(g) for g in _GREETING_PATTERNS):
-        agent_logger.debug("ROUTER", f"Intent: greeting -- '{user_msg[:40]}'")
-        return {"intent": "greeting"}
+        return "greeting"
 
     if any(p in user_msg for p in _META_PATTERNS):
-        agent_logger.debug("ROUTER", f"Intent: meta_question -- '{user_msg[:40]}'")
-        return {"intent": "meta_question"}
+        return "meta_question"
 
-    agent_logger.debug("ROUTER", f"Intent: tool_use -- '{user_msg[:40]}'")
-    return {"intent": "tool_use"}
+    return "tool_use"
 
 
 def make_call_model(tools_getter: Callable[[], list] = get_all_tools):

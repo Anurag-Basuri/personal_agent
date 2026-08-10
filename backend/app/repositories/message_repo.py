@@ -62,6 +62,23 @@ class MessageRepository:
         app_cache.delete(f"history:{msg.session_id}")
         return msg
 
+    async def create_many(self, msgs: list[AgentMessage]) -> list[AgentMessage]:
+        """Persist multiple messages in a single transaction."""
+        if not msgs:
+            return []
+
+        async with async_session() as db:
+            db.add_all(msgs)
+            await db.commit()
+            for msg in msgs:
+                await db.refresh(msg)
+
+        # Invalidate session history cache (assuming all from same session)
+        if msgs:
+            app_cache.delete(f"history:{msgs[0].session_id}")
+        
+        return msgs
+
     async def update_content(self, message_id: str, new_content: str) -> bool:
         """
         Update a message's content.
