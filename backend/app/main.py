@@ -252,6 +252,8 @@ def create_app() -> FastAPI:
         allowed_origins.append(settings.CLIENT_URL)
     if settings.PORTFOLIO_URL:
         allowed_origins.append(settings.PORTFOLIO_URL)
+    if settings.PORTFOLIO_FRONTEND_URL:
+        allowed_origins.append(settings.PORTFOLIO_FRONTEND_URL)
 
     app.add_middleware(
         CORSMiddleware,

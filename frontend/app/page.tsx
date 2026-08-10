@@ -57,7 +57,7 @@ const SOCIAL_LINKS = [
 const LLM_CASCADE = [
   { name: 'Gemini 2.0 Flash', provider: 'Google', color: 'text-blue-500', bg: 'bg-blue-500/10 border-blue-500/20' },
   { name: 'Command R+', provider: 'Cohere', color: 'text-emerald-500', bg: 'bg-emerald-500/10 border-emerald-500/20' },
-  { name: 'Llama 3.3 70B', provider: 'OpenRouter', color: 'text-violet-500', bg: 'bg-violet-500/10 border-violet-500/20' },
+  { name: 'Gemma 2 9B IT', provider: 'OpenRouter', color: 'text-violet-500', bg: 'bg-violet-500/10 border-violet-500/20' },
   { name: 'Llama 3.1 8B', provider: 'Groq', color: 'text-orange-500', bg: 'bg-orange-500/10 border-orange-500/20' },
   { name: 'Qwen2.5 72B', provider: 'HuggingFace', color: 'text-yellow-500', bg: 'bg-yellow-500/10 border-yellow-500/20' },
   { name: 'Static Fallback', provider: 'Python', color: 'text-zinc-500', bg: 'bg-zinc-500/10 border-zinc-500/20' },
