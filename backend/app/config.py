@@ -27,6 +27,8 @@ class Settings(BaseSettings):
     CLIENT_URL: str = "http://localhost:3000"
     # Portfolio website origin (for CORS)
     PORTFOLIO_URL: str = ""
+    # Portfolio frontend URL (for direct CORS from chat widget)
+    PORTFOLIO_FRONTEND_URL: str = ""
 
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./dev.db"
@@ -36,6 +38,7 @@ class Settings(BaseSettings):
     # AI Providers
     HF_TOKEN: str = ""
     GROQ_API_KEY: str = ""
+    MISTRAL_API_KEY: str = ""
     GEMINI_API_KEY: str = ""
     COHERE_API_KEY: str = ""
     OPENROUTER_API_KEY: str = ""

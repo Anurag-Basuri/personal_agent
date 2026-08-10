@@ -11,7 +11,7 @@ Owns the entire lifecycle of LLM provider management:
 The cascade order:
   Tier 1: Google Gemini  (gemini-2.0-flash)
   Tier 2: Cohere         (command-r-plus-08-2024)
-  Tier 3: OpenRouter     (google/gemma-2-9b-it:free)
+  Tier 3: OpenRouter     (openrouter/auto)
   Tier 4: Groq           (llama-3.1-8b-instant)
   Tier 5: HuggingFace    (Qwen/Qwen2.5-VL-72B-Instruct)
   Tier 6: Static Python  (handled externally in nodes.py)
@@ -19,13 +19,15 @@ The cascade order:
 
 from __future__ import annotations
 
+import copy
+
 import asyncio
 import time
 from dataclasses import dataclass, field
 from typing import Any
 
 from langchain_core.language_models.chat_models import BaseChatModel
-from langchain_core.messages import BaseMessage
+from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
 from langchain_core.tools import BaseTool
 
 from app.config import get_settings
@@ -110,7 +112,7 @@ def _classify_error(error: Exception) -> str:
     Classify an LLM error to decide retry strategy.
 
     Returns:
-        "permanent"    : Model removed, invalid key, 404. Never retry.
+        "permanent"    : Model removed, invalid key, 404, tool schema. Never retry.
         "rate_limited"  : 429 / quota exhausted. Skip tier instantly.
         "transient"     : Timeout, 503, network. Worth one retry.
     """
@@ -123,6 +125,19 @@ def _classify_error(error: Exception) -> str:
         "invalid_api_key", "401", "403",
     ]
     if any(sig in error_str for sig in permanent_signals):
+        return "permanent"
+
+    # Tool schema incompatibility: provider can't parse tool call history
+    # These will never succeed on retry, so treat as permanent for this request
+    tool_schema_signals = [
+        "tool call id", "tool_call_id",
+        "not found in previous tool calls",
+        "missing field `function`", "missing field 'function'",
+        "not one of the allowed values ['function']",
+        "not one of the allowed values [\"function\"]",
+        "invalid tool message",
+    ]
+    if any(sig in error_str for sig in tool_schema_signals):
         return "permanent"
 
     # Rate limit: skip immediately, don't waste time retrying
@@ -145,7 +160,7 @@ class LLMOrchestrator:
     """
 
     # Hard timeout for a single LLM attempt (seconds)
-    PER_ATTEMPT_TIMEOUT: float = 10.0
+    PER_ATTEMPT_TIMEOUT: float = 30.0
     # Max retries for transient errors only
     MAX_TRANSIENT_RETRIES: int = 1
     # Delay before transient retry
@@ -165,10 +180,10 @@ class LLMOrchestrator:
         settings = get_settings()
 
         tier_configs = [
-            (1, "GEMINI_API_KEY", "Gemini", self._init_gemini),
-            (2, "COHERE_API_KEY", "Cohere", self._init_cohere),
-            (3, "OPENROUTER_API_KEY", "OpenRouter", self._init_openrouter),
-            (4, "GROQ_API_KEY", "Groq", self._init_groq),
+            (1, "GROQ_API_KEY", "Groq", self._init_groq),
+            (2, "OPENROUTER_API_KEY", "OpenRouter", self._init_openrouter),
+            (3, "COHERE_API_KEY", "Cohere", self._init_cohere),
+            (4, "MISTRAL_API_KEY", "Mistral", self._init_mistral),
             (5, "HF_TOKEN", "HuggingFace", self._init_huggingface),
         ]
 
@@ -196,16 +211,16 @@ class LLMOrchestrator:
             )
 
     @staticmethod
-    def _init_gemini(tier: int, api_key: str) -> LLMProvider:
-        """Initialize Google Gemini provider."""
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        llm = ChatGoogleGenerativeAI(
-            model="gemini-2.0-flash",
-            google_api_key=api_key,
+    def _init_mistral(tier: int, api_key: str) -> LLMProvider:
+        """Initialize Mistral AI provider."""
+        from langchain_mistralai import ChatMistralAI
+        llm = ChatMistralAI(
+            model="mistral-large-latest",
+            api_key=api_key,
             temperature=0.3,
-            max_output_tokens=1000,
+            max_tokens=1000,
         )
-        return LLMProvider(tier, "Gemini", "gemini-2.0-flash", llm)
+        return LLMProvider(tier, "Mistral", "mistral-large-latest", llm)
 
     @staticmethod
     def _init_cohere(tier: int, api_key: str) -> LLMProvider:
@@ -224,14 +239,14 @@ class LLMOrchestrator:
         """Initialize OpenRouter provider (OpenAI-compatible)."""
         from langchain_openai import ChatOpenAI
         llm = ChatOpenAI(
-            model="google/gemma-2-9b-it:free",
+            model="openrouter/auto",
             api_key=api_key,
             base_url="https://openrouter.ai/api/v1",
             temperature=0.3,
-            timeout=10,
+            timeout=30,
             max_tokens=1000,
         )
-        return LLMProvider(tier, "OpenRouter", "gemma-2-9b:free", llm)
+        return LLMProvider(tier, "OpenRouter", "auto", llm)
 
     @staticmethod
     def _init_groq(tier: int, api_key: str) -> LLMProvider:
@@ -271,14 +286,29 @@ class LLMOrchestrator:
           1. Skip if provider is permanently disabled
           2. Skip if circuit breaker is OPEN
           3. Skip if LLM budget is exhausted
-          4. Attempt invocation with a hard per-attempt timeout
-          5. On permanent error -> disable tier, skip instantly
-          6. On rate limit -> skip to next tier instantly (no retry)
-          7. On transient error -> retry once, then skip
+          4. Skip if tool history is present and provider is schema-incompatible
+          5. Attempt invocation with a hard per-attempt timeout
+          6. On permanent error -> disable tier, skip instantly
+          7. On rate limit -> skip to next tier instantly (no retry)
+          8. On transient error -> retry once, then skip
 
         Returns None if all tiers exhausted (caller handles static fallback).
         """
         self._init_providers()
+
+        # Check if messages contain tool call history
+        # Langchain outputs OpenAI-formatted tool history which crashes some native APIs
+        has_tool_history = False
+        for m in messages:
+            if isinstance(m, ToolMessage):
+                has_tool_history = True
+                break
+            if isinstance(m, AIMessage):
+                if getattr(m, "tool_calls", []) or m.additional_kwargs.get("tool_calls"):
+                    has_tool_history = True
+                    break
+
+        incompatible_tool_providers = {"Cohere", "Groq", "HuggingFace"}
 
         for provider in self._providers:
             tier = provider.tier
@@ -302,6 +332,14 @@ class LLMOrchestrator:
                 agent_logger.warn(
                     "LLM",
                     f"[SKIP] Tier {tier} ({provider.provider_name}) budget exhausted",
+                )
+                continue
+
+            # Skip incompatible providers if we have tool history
+            if has_tool_history and provider.provider_name in incompatible_tool_providers:
+                agent_logger.debug(
+                    "LLM",
+                    f"[SKIP] Tier {tier} ({provider.provider_name}) incompatible with tool history",
                 )
                 continue
 
