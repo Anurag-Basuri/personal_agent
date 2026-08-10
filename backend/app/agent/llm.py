@@ -9,10 +9,10 @@ Owns the entire lifecycle of LLM provider management:
   - Health status reporting
 
 The cascade order:
-  Tier 1: Google Gemini  (gemini-2.0-flash)
-  Tier 2: Cohere         (command-r-plus-08-2024)
-  Tier 3: OpenRouter     (openrouter/auto)
-  Tier 4: Groq           (llama-3.1-8b-instant)
+  Tier 1: Groq           (llama-3.1-8b-instant)
+  Tier 2: OpenRouter     (openrouter/auto)
+  Tier 3: Cohere         (command-r-plus-08-2024)
+  Tier 4: Mistral        (mistral-large-latest)
   Tier 5: HuggingFace    (Qwen/Qwen2.5-VL-72B-Instruct)
   Tier 6: Static Python  (handled externally in nodes.py)
 """
@@ -44,6 +44,7 @@ class LLMProvider:
     provider_name: str
     model_name: str
     llm: BaseChatModel
+    timeout: float
     disabled: bool = False
 
 
@@ -159,13 +160,6 @@ class LLMOrchestrator:
     and the full fallback loop with hard timeouts.
     """
 
-    # Hard timeout for a single LLM attempt (seconds)
-    PER_ATTEMPT_TIMEOUT: float = 30.0
-    # Max retries for transient errors only
-    MAX_TRANSIENT_RETRIES: int = 1
-    # Delay before transient retry
-    TRANSIENT_RETRY_DELAY: float = 0.5
-
     def __init__(self) -> None:
         self._providers: list[LLMProvider] = []
         self._breakers: dict[int, _TierBreaker] = {}
@@ -220,7 +214,7 @@ class LLMOrchestrator:
             temperature=0.3,
             max_tokens=1000,
         )
-        return LLMProvider(tier, "Mistral", "mistral-large-latest", llm)
+        return LLMProvider(tier, "Mistral", "mistral-large-latest", llm, timeout=20.0)
 
     @staticmethod
     def _init_cohere(tier: int, api_key: str) -> LLMProvider:
@@ -232,7 +226,7 @@ class LLMOrchestrator:
             temperature=0.3,
             max_tokens=1000,
         )
-        return LLMProvider(tier, "Cohere", "command-r-plus-08-2024", llm)
+        return LLMProvider(tier, "Cohere", "command-r-plus-08-2024", llm, timeout=20.0)
 
     @staticmethod
     def _init_openrouter(tier: int, api_key: str) -> LLMProvider:
@@ -246,7 +240,7 @@ class LLMOrchestrator:
             timeout=30,
             max_tokens=1000,
         )
-        return LLMProvider(tier, "OpenRouter", "auto", llm)
+        return LLMProvider(tier, "OpenRouter", "auto", llm, timeout=20.0)
 
     @staticmethod
     def _init_groq(tier: int, api_key: str) -> LLMProvider:
@@ -258,7 +252,7 @@ class LLMOrchestrator:
             temperature=0.3,
             max_tokens=1000,
         )
-        return LLMProvider(tier, "Groq", "llama-3.1-8b-instant", llm)
+        return LLMProvider(tier, "Groq", "llama-3.1-8b-instant", llm, timeout=5.0)
 
     @staticmethod
     def _init_huggingface(tier: int, api_key: str) -> LLMProvider:
@@ -272,7 +266,7 @@ class LLMOrchestrator:
             timeout=10,
             max_tokens=1000,
         )
-        return LLMProvider(tier, "HuggingFace", "Qwen2.5-VL-72B-Instruct", llm)
+        return LLMProvider(tier, "HuggingFace", "Qwen2.5-VL-72B-Instruct", llm, timeout=10.0)
 
     async def invoke(
         self,
@@ -295,20 +289,8 @@ class LLMOrchestrator:
         Returns None if all tiers exhausted (caller handles static fallback).
         """
         self._init_providers()
-
-        # Check if messages contain tool call history
-        # Langchain outputs OpenAI-formatted tool history which crashes some native APIs
-        has_tool_history = False
-        for m in messages:
-            if isinstance(m, ToolMessage):
-                has_tool_history = True
-                break
-            if isinstance(m, AIMessage):
-                if getattr(m, "tool_calls", []) or m.additional_kwargs.get("tool_calls"):
-                    has_tool_history = True
-                    break
-
-        incompatible_tool_providers = {"Cohere", "Groq", "HuggingFace"}
+        # Tool history compatibility is now handled dynamically by the orchestrator
+        # and circuit breaker, so we no longer manually skip tiers here.
 
         for provider in self._providers:
             tier = provider.tier
@@ -335,14 +317,6 @@ class LLMOrchestrator:
                 )
                 continue
 
-            # Skip incompatible providers if we have tool history
-            if has_tool_history and provider.provider_name in incompatible_tool_providers:
-                agent_logger.debug(
-                    "LLM",
-                    f"[SKIP] Tier {tier} ({provider.provider_name}) incompatible with tool history",
-                )
-                continue
-
             # Bind tools if needed
             llm = provider.llm.bind_tools(tools) if tools else provider.llm
 
@@ -365,82 +339,73 @@ class LLMOrchestrator:
         tier_label: str,
     ) -> BaseMessage | None:
         """
-        Attempt a single tier with smart error handling.
+        Attempt a single tier with smart error handling and no internal retries.
 
         Returns the LLM response on success, None on failure (caller continues cascade).
         """
         tier = provider.tier
-        max_attempts = self.MAX_TRANSIENT_RETRIES + 1
+        start = agent_logger.llm_start(provider.provider_name, provider.model_name)
+        
+        try:
+            response = await asyncio.wait_for(
+                llm.ainvoke(messages),
+                timeout=provider.timeout,
+            )
 
-        for attempt in range(max_attempts):
-            start = agent_logger.llm_start(provider.provider_name, provider.model_name)
-            try:
-                response = await asyncio.wait_for(
-                    llm.ainvoke(messages),
-                    timeout=self.PER_ATTEMPT_TIMEOUT,
-                )
+            # Success
+            tool_calls = getattr(response, "tool_calls", [])
+            agent_logger.llm_success(start, len(tool_calls) > 0, len(tool_calls))
+            agent_logger.info(
+                "LLM",
+                f"[OK] Tier {tier}: {provider.provider_name}/{provider.model_name}",
+            )
 
-                # Success
-                tool_calls = getattr(response, "tool_calls", [])
-                agent_logger.llm_success(start, len(tool_calls) > 0, len(tool_calls))
-                agent_logger.info(
-                    "LLM",
-                    f"[OK] Tier {tier}: {provider.provider_name}/{provider.model_name}",
-                )
+            if breaker:
+                breaker.record_success()
+            system_health.mark_up(tier_label)
+            return response
 
-                if breaker:
-                    breaker.record_success()
-                system_health.mark_up(tier_label)
-                return response
+        except asyncio.TimeoutError:
+            agent_logger.llm_error(start, TimeoutError(f"Tier {tier} timed out after {provider.timeout}s"))
+            error_class = "transient"
 
-            except asyncio.TimeoutError:
-                agent_logger.llm_error(start, TimeoutError(f"Tier {tier} timed out after {self.PER_ATTEMPT_TIMEOUT}s"))
-                error_class = "transient"
+        except Exception as e:
+            agent_logger.llm_error(start, e)
+            error_class = _classify_error(e)
 
-            except Exception as e:
-                agent_logger.llm_error(start, e)
-                error_class = _classify_error(e)
-
-                # PERMANENT: Disable the tier entirely until restart
-                if error_class == "permanent":
-                    agent_logger.warn(
-                        "LLM",
-                        f"[DEAD] Tier {tier} ({provider.provider_name}) permanently failed -- disabling",
-                        {"error": str(e)[:120]},
-                    )
-                    provider.disabled = True
-                    if breaker:
-                        breaker.trip_open()
-                    system_health.mark_down(tier_label)
-                    return None
-
-                # RATE LIMITED: Skip immediately (no retry)
-                if error_class == "rate_limited":
-                    agent_logger.warn(
-                        "LLM",
-                        f"[RATE] Tier {tier} ({provider.provider_name}) rate limited -- skipping",
-                        {"error": str(e)[:80]},
-                    )
-                    if breaker:
-                        breaker.record_failure()
-                    system_health.mark_down(tier_label)
-                    return None
-
-            # TRANSIENT: Retry once
-            if attempt < max_attempts - 1:
-                agent_logger.debug(
-                    "LLM",
-                    f"[RETRY] Tier {tier} ({provider.provider_name}) transient failure -- retrying in {self.TRANSIENT_RETRY_DELAY}s",
-                )
-                await asyncio.sleep(self.TRANSIENT_RETRY_DELAY)
-            else:
+            # PERMANENT: Disable the tier entirely until restart
+            if error_class == "permanent":
                 agent_logger.warn(
                     "LLM",
-                    f"[FAIL] Tier {tier} ({provider.provider_name}) exhausted after {max_attempts} attempts",
+                    f"[DEAD] Tier {tier} ({provider.provider_name}) permanently failed -- disabling",
+                    {"error": str(e)[:120]},
+                )
+                provider.disabled = True
+                if breaker:
+                    breaker.trip_open()
+                system_health.mark_down(tier_label)
+                return None
+
+            # RATE LIMITED: Skip immediately
+            if error_class == "rate_limited":
+                agent_logger.warn(
+                    "LLM",
+                    f"[RATE] Tier {tier} ({provider.provider_name}) rate limited -- skipping",
+                    {"error": str(e)[:80]},
                 )
                 if breaker:
                     breaker.record_failure()
                 system_health.mark_down(tier_label)
+                return None
+
+        # TRANSIENT: Skip immediately (Fast Failure)
+        agent_logger.warn(
+            "LLM",
+            f"[FAIL] Tier {tier} ({provider.provider_name}) failed -- fast fallback",
+        )
+        if breaker:
+            breaker.record_failure()
+        system_health.mark_down(tier_label)
 
         return None
 
