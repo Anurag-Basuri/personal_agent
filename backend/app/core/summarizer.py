@@ -95,7 +95,15 @@ def trim_messages_with_summary(
         content=f"[CONVERSATION SUMMARY]\nPrevious conversation summary: {summary}\n[END SUMMARY]"
     )
 
-    # Keep the most recent messages for immediate context
-    recent_messages = messages[-keep_recent:]
+    slice_index = len(messages) - keep_recent
+
+    # Do not slice in the middle of a tool call sequence.
+    # If the slice lands on a ToolMessage, expand the context window backwards
+    # until we include the AIMessage that initiated the tool call.
+    while slice_index > 0 and isinstance(messages[slice_index], ToolMessage):
+        slice_index -= 1
+
+    # Keep the recent messages, safely aligned to not orphan any tools
+    recent_messages = messages[slice_index:]
 
     return [summary_msg] + recent_messages

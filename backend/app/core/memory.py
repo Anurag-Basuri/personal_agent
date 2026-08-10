@@ -41,13 +41,13 @@ class AsyncMessageHistory:
         if db_msg.role == "human":
             return HumanMessage(content=db_msg.content or "")
         elif db_msg.role == "ai":
-            msg = AIMessage(content=db_msg.content or "")
+            tool_calls = []
             if db_msg.tool_calls:
                 try:
-                    msg.additional_kwargs["tool_calls"] = json.loads(db_msg.tool_calls)
+                    tool_calls = json.loads(db_msg.tool_calls)
                 except Exception:
                     pass
-            return msg
+            return AIMessage(content=db_msg.content or "", tool_calls=tool_calls)
         elif db_msg.role == "system":
             return SystemMessage(content=db_msg.content or "")
         elif db_msg.role == "tool":
