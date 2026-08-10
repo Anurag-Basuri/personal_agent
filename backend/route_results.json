@@ -1,0 +1,49 @@
+[
+  {
+    "test": "GET /api/public/health",
+    "status": "PASS",
+    "duration_ms": 11.8,
+    "response": "{\"success\":true,\"message\":\"Portfolio chatbot is operational\",\"data\":{\"status\":\"ok\"},\"request_id\":\"87aa62f5-0e5c-4fe6-93ec-3e6879e55fd7\",\"timestamp\":\"2026-08-10T19:30:57.494774+00:00\"}",
+    "error": ""
+  },
+  {
+    "test": "POST /api/public/chat",
+    "status": "PASS",
+    "duration_ms": 28441.9,
+    "response": "{\"success\":true,\"message\":\"Message processed\",\"data\":{\"reply\":\"Nice to meet you! I'm Anurag's AI assistant, embedded on his personal developer portfolio website. I'm here to help you explore his work,",
+    "error": ""
+  },
+  {
+    "test": "POST /api/agent/chat/ (no auth)",
+    "status": "FAIL",
+    "duration_ms": 16116.9,
+    "response": "",
+    "error": "",
+    "details": {
+      "expected": "401/403/422",
+      "got": 200
+    }
+  },
+  {
+    "test": "POST /api/admin/chat/ (no auth)",
+    "status": "FAIL",
+    "duration_ms": 28954.2,
+    "response": "",
+    "error": "",
+    "details": {
+      "expected": "401/403/422",
+      "got": 200
+    }
+  },
+  {
+    "test": "GET /api/agent/chat/history (no auth)",
+    "status": "FAIL",
+    "duration_ms": 1744.9,
+    "response": "",
+    "error": "",
+    "details": {
+      "expected": "401/403",
+      "got": 200
+    }
+  }
+]

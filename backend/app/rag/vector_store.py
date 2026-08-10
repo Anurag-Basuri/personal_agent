@@ -15,7 +15,9 @@ settings = get_settings()
 # Flag for other modules to check
 RAG_AVAILABLE = settings.is_postgres
 
+from functools import lru_cache
 
+@lru_cache(maxsize=1)
 def get_embeddings():
     """HuggingFace embedding model for vector operations."""
     from langchain_huggingface import HuggingFaceEmbeddings

@@ -21,6 +21,7 @@ from dataclasses import dataclass
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agent.core.builder import build_public_agent
+from app.agent.core.nodes import classify_intent
 from app.agent.core.state import AgentState
 from app.agent.prompts import PUBLIC_PORTFOLIO_PERSONA
 from app.core.logger import agent_logger
@@ -132,8 +133,14 @@ async def process_public_message(
     memory = get_message_history(session_id, user_id=None, role="GUEST")
     history = await memory.get_messages()
 
+    # Pre-classify intent to save time on RAG
+    intent = classify_intent(message)
+
     # Build System Prompt
-    portfolio_context = await get_base_portfolio_context(query=message)
+    if intent in ("greeting", "meta_question"):
+        portfolio_context = "No portfolio context loaded for simple greeting."
+    else:
+        portfolio_context = await get_base_portfolio_context(query=message)
 
     location_context = ""
     if current_url:
@@ -159,8 +166,7 @@ async def process_public_message(
         "user_id": None,
         "role": "GUEST",
         "current_url": current_url,
-        # Default router will override
-        "intent": "tool_use",
+        "intent": intent,
         "summary": "",
     }
 
@@ -174,14 +180,14 @@ async def process_public_message(
         raise
 
     # Persist Messages
-    await memory.add_message(human_msg)
+    messages_to_save = [human_msg]
 
     new_messages_offset = len(history) + 1
     final_messages = final_state["messages"]
     new_generated_messages = final_messages[new_messages_offset + 1:]
 
-    for msg in new_generated_messages:
-        await memory.add_message(msg)
+    messages_to_save.extend(new_generated_messages)
+    await memory.add_messages(messages_to_save)
 
     # Extract Final Reply (skip tool-calling intermediates with empty content)
     final_reply = ""
