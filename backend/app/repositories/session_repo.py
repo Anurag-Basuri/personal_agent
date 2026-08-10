@@ -143,7 +143,7 @@ class SessionRepository:
         Returns:
             Number of sessions deleted.
         """
-        cutoff = datetime.now(UTC) - timedelta(minutes=max_inactivity_minutes)
+        cutoff = datetime.utcnow() - timedelta(minutes=max_inactivity_minutes)
 
         async with async_session() as db:
             # Count first for logging
