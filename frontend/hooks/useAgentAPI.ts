@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { useSession, signOut } from 'next-auth/react';
 import { useAgentStore, ChatMessage } from '../store/useAgentStore';
 
@@ -11,6 +12,7 @@ function stripNavigateTags(text: string): string {
 }
 
 export function useAgentAPI() {
+  const router = useRouter();
   const { addMessage, setMessages, setTyping, setHistoryLoading, resetChat, isAdmin, adminToken } = useAgentStore();
   const { data: session, update: updateSession } = useSession();
 
@@ -113,10 +115,22 @@ export function useAgentAPI() {
           throw new Error(data.message || 'API Error');
         }
 
+        const replyText = data.data.reply || '';
+
+        // Handle auto-navigation if the agent includes [NAVIGATE:/path]
+        const navigateMatch = replyText.match(/\[NAVIGATE:(.*?)\]/);
+        if (navigateMatch && navigateMatch[1]) {
+          const path = navigateMatch[1].trim();
+          if (path.startsWith('/')) {
+            // Push route
+            router.push(path);
+          }
+        }
+
         const agentMsg: ChatMessage = {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: stripNavigateTags(data.data.reply),
+          content: stripNavigateTags(replyText),
           timestamp: new Date().toISOString(),
         };
         addMessage(agentMsg);
