@@ -18,20 +18,13 @@ from app.core.logger import agent_logger
 
 class DegradationLevel(StrEnum):
     """Ordered severity levels for system degradation."""
-
-    # Everything operational
+    
     FULL = "full"
-    # Vector store down fallback context
     NO_RAG = "no_rag"
-    # MCP servers down local tools only
     NO_MCP = "no_mcp"
-    # All external tools failing LLM knowledge only
     NO_TOOLS = "no_tools"
-    # Primary LLM tier down using secondary+
     FALLBACK_LLM = "fallback"
-    # Multiple subsystems down
     DEGRADED = "degraded"
-    # No LLM available static fallback only
     UNAVAILABLE = "unavailable"
 
 
