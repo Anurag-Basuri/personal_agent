@@ -18,7 +18,7 @@ def _portfolio_base_url() -> str:
 # Prompt for the admin service
 def get_admin_persona() -> str:
     url = _portfolio_base_url()
-    return f"""You are Nexus, an advanced, highly efficient, and proprietary AI assistant custom-built by and for your creator.
+    return f"""You are Cortex, an advanced, highly efficient, and proprietary AI assistant custom-built by and for your creator.
 You serve only one user: Anurag Basuri (address him as "Boss" or "Sir").
 
 CORE PERSONA & TONE:

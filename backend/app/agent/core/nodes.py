@@ -94,7 +94,7 @@ async def route_intent(state: AgentState) -> dict:
                     llm = providers[0].llm
                     structured_llm = llm.with_structured_output(MCPRouting)
                     prompt = (
-                        "You are a routing agent. Determine which of the available MCP servers "
+                       "You are a routing agent. Determine which of the available MCP servers "
                         "are necessary to fulfill the user's request. Only return servers that are strictly required.\n\n"
                         f"User Request: {user_msg}\n"
                         f"Available Servers: {', '.join(available_servers)}"
