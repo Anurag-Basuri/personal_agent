@@ -72,7 +72,44 @@ async def route_intent(state: AgentState) -> dict:
 
     intent = classify_intent(user_msg)
     agent_logger.debug("ROUTER", f"Intent: {intent} -- '{user_msg[:40]}'")
-    return {"intent": intent}
+    ret = {"intent": intent}
+
+    # Dynamic Tool Routing for Admin (to prevent 233-tool overload)
+    if intent == "tool_use" and state.get("role") == "ADMIN":
+        try:
+            from pydantic import BaseModel, Field
+            from app.mcp.client import mcp_manager
+            
+            available_servers = [k for k, v in mcp_manager.get_status().items() if v == "connected"]
+            
+            if available_servers:
+                class MCPRouting(BaseModel):
+                    needed_servers: list[str] = Field(
+                        description=f"List of MCP servers needed. Options: {', '.join(available_servers)}"
+                    )
+                
+                providers = orchestrator.get_providers()
+                if providers:
+                    # Use Tier 1 (fastest model) for classification
+                    llm = providers[0].llm
+                    structured_llm = llm.with_structured_output(MCPRouting)
+                    prompt = (
+                        "You are a routing agent. Determine which of the available MCP servers "
+                        "are necessary to fulfill the user's request. Only return servers that are strictly required.\n\n"
+                        f"User Request: {user_msg}\n"
+                        f"Available Servers: {', '.join(available_servers)}"
+                    )
+                    res = await structured_llm.ainvoke(prompt)
+                    
+                    # Ensure only valid servers are returned
+                    valid_servers = [s for s in res.needed_servers if s in available_servers]
+                    ret["active_servers"] = valid_servers
+                    agent_logger.debug("ROUTER", f"Activated servers: {valid_servers}")
+        except Exception as e:
+            agent_logger.warn("ROUTER", f"Failed to dynamically route servers: {e}")
+            ret["active_servers"] = None  # fallback to loading everything
+            
+    return ret
 
 
 def classify_intent(user_msg: str) -> str:
@@ -88,7 +125,7 @@ def classify_intent(user_msg: str) -> str:
     return "tool_use"
 
 
-def make_call_model(tools_getter: Callable[[], list] = get_all_tools):
+def make_call_model(tools_getter=get_all_tools):
     """Factory: returns a call_model node wired to the given tools getter."""
 
     async def _call_model(state: AgentState):
@@ -105,11 +142,18 @@ def make_call_model(tools_getter: Callable[[], list] = get_all_tools):
         """
         messages = state["messages"]
         role = state.get("role", "GUEST")
+        # Determine which tools to activate
         intent = state.get("intent", "tool_use")
+        active_servers = state.get("active_servers")
 
-        # Role Based Tool Filtering
+        # Bind all currently available tools via the getter
+        try:
+            available_tools = tools_getter(active_servers)
+        except TypeError:
+            available_tools = tools_getter()
+
         allowed_tools = []
-        for t in tools_getter():
+        for t in available_tools:
             if getattr(t, "requires_admin", False) and role != "ADMIN":
                 continue
             allowed_tools.append(t)

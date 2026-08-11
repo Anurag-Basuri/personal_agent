@@ -23,4 +23,6 @@ class AgentState(TypedDict):
     intent: str
     # Conversation summary injected from memory
     summary: str | None
+    # List of MCP servers to activate (for dynamic tool routing)
+    active_servers: list[str] | None
 

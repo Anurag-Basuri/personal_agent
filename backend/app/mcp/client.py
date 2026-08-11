@@ -139,6 +139,9 @@ class MCPManager:
             else:
                 self._clients.append(single_client)
                 if tools:
+                    for t in tools:
+                        t.metadata = getattr(t, "metadata", {}) or {}
+                        t.metadata["mcp_server"] = name
                     self._tools.extend(tools)
                 self._status[name] = "connected"
                 self.connected_count += 1
@@ -178,9 +181,11 @@ class MCPManager:
 
         agent_logger.info("MCP", "All MCP connections closed.")
 
-    def get_tools(self) -> list[BaseTool]:
+    def get_tools(self, active_servers: list[str] | None = None) -> list[BaseTool]:
         """Return the list of discovered LangChain compatible tools."""
-        return self._tools
+        if not active_servers:
+            return self._tools
+        return [t for t in self._tools if t.metadata.get("mcp_server") in active_servers]
 
     def get_status(self) -> dict[str, str]:
         """Return the connection status of configured servers."""

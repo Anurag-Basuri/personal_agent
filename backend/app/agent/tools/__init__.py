@@ -49,10 +49,10 @@ def get_public_tools() -> list:
     return [t for t in agent_tools if not getattr(t, "requires_admin", False)]
 
 
-def get_all_tools() -> list:
+def get_all_tools(active_servers: list[str] | None = None) -> list:
     """Merge local tools with dynamically discovered MCP tools."""
     from app.mcp.client import mcp_manager
-    mcp_tools = mcp_manager.get_tools()
+    mcp_tools = mcp_manager.get_tools(active_servers)
     return agent_tools + mcp_tools
 
 __all__ = ["agent_tools", "get_all_tools", "get_public_tools"]
