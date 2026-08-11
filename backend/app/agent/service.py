@@ -18,6 +18,7 @@ from dataclasses import dataclass
 from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agent.core.builder import agent_app
+from app.agent.core.nodes import classify_intent
 from app.agent.core.state import AgentState
 from app.agent.prompts import get_admin_persona
 from app.core.logger import agent_logger
@@ -135,8 +136,14 @@ async def process_user_message(
     if session_summary and len(history) > 10:
         history = trim_messages_with_summary(history, session_summary, keep_recent=8)
 
+    # Pre-classify intent to save time on RAG
+    intent = classify_intent(message)
+
     # Build context by searching the Vector Database with the user's prompt
-    portfolio_context = await get_base_portfolio_context(query=message)
+    if intent in ("greeting", "meta_question"):
+        portfolio_context = "No portfolio context loaded for simple greeting."
+    else:
+        portfolio_context = await get_base_portfolio_context(query=message)
     location_context = ""
     if current_url:
         location_context = (
