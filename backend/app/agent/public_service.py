@@ -134,7 +134,7 @@ async def process_public_message(
     history = await memory.get_messages()
 
     # Pre-classify intent to save time on RAG
-    intent = classify_intent(message)
+    intent = classify_intent(message.lower())
 
     # Build System Prompt
     if intent in ("greeting", "meta_question"):

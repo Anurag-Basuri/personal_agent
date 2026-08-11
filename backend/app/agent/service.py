@@ -139,7 +139,7 @@ async def process_user_message(
         history = trim_messages_with_summary(history, session_summary, keep_recent=8)
 
     # Pre-classify intent to save time on RAG
-    intent = classify_intent(message)
+    intent = classify_intent(message.lower())
 
     # Build context by searching the Vector Database with the user's prompt
     if intent in ("greeting", "meta_question"):

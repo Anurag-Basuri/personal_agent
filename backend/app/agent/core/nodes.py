@@ -114,7 +114,7 @@ async def route_intent(state: AgentState) -> dict:
 
 def classify_intent(user_msg: str) -> str:
     """Fast keyword-based intent classification for a single string."""
-    cleaned = user_msg.rstrip("!?.,:;")
+    cleaned = user_msg.lower().rstrip("!?.,:;")
 
     if cleaned in _GREETING_PATTERNS or any(cleaned.startswith(g) for g in _GREETING_PATTERNS):
         return "greeting"
