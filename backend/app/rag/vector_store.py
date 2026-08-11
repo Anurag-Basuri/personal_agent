@@ -23,6 +23,13 @@ def get_embeddings():
     from langchain_huggingface import HuggingFaceEmbeddings
     return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 
+def init_embeddings_eagerly() -> None:
+    """Eagerly load the embeddings model to prevent cold start penalties."""
+    if RAG_AVAILABLE:
+        agent_logger.info("RAG", "Eagerly loading HuggingFace embeddings model...")
+        get_embeddings()
+        agent_logger.info("RAG", "[OK] Embeddings model loaded")
+
 
 def get_neon_vector_store(collection_name: str = "portfolio_knowledge"):
     """

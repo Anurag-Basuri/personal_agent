@@ -120,17 +120,19 @@ async def process_user_message(
         "message_preview": message[:80],
     })
 
-    # Load session history
+    # Load session history, persistent memories, and session summary concurrently
     memory = get_message_history(session_id, user_id=user_id, role=role)
-    history = await memory.get_messages()
+    
+    import asyncio
+    history, user_memories, session_summary = await asyncio.gather(
+        memory.get_messages(),
+        _load_user_memories(user_id),
+        _load_session_summary(session_id, user_id)
+    )
 
     agent_logger.debug("MEMORY", f"Loaded {len(history)} messages from session history", {
         "session_id": session_id,
     })
-
-    # Load persistent memories and session summary
-    user_memories = await _load_user_memories(user_id)
-    session_summary = await _load_session_summary(session_id, user_id)
 
     # If we have a summary and history is long, trim old messages
     if session_summary and len(history) > 10:
@@ -184,19 +186,13 @@ async def process_user_message(
         agent_logger.error("SYSTEM", "LangGraph Workflow Failed", e)
         raise e
 
-    # Persist New Messages
+    # Save the human message and all AI/Tool messages in a single bulk transaction
     new_messages_offset = len(history) + 1
-
-    # Save the human message
-    await memory.add_message(human_msg)
-
-    # Save everything Graph generated (AI / Tool messages)
     final_messages = final_state["messages"]
-    # +1 because system prompt is at [0]
     new_generated_messages = final_messages[new_messages_offset + 1:]
-
-    for msg in new_generated_messages:
-        await memory.add_message(msg)
+    
+    messages_to_save = [human_msg, *new_generated_messages]
+    await memory.add_messages(messages_to_save)
 
     # The final displayable reply is the last AIMessage with actual content
     # (Skip tool-calling intermediates that have empty content)

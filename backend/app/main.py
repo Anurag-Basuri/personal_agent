@@ -124,12 +124,15 @@ async def lifespan(app: FastAPI):
 
     agent_logger.banner()
 
-    # Database
+    # Database & RAG
     agent_logger.section("Database")
     await init_db()
     db_type = "PostgreSQL" if settings.is_postgres else "SQLite"
     agent_logger.status_line("Engine", db_type)
     agent_logger.status_line("Status", "Tables verified")
+    
+    from app.rag.vector_store import init_embeddings_eagerly
+    init_embeddings_eagerly()
 
     # LLM Cascade
     agent_logger.section("LLM Cascade")
