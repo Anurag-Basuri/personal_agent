@@ -152,6 +152,72 @@ def _classify_error(error: Exception) -> str:
     return "transient"
 
 
+def sanitize_json_schema(schema: dict) -> dict:
+    """Recursively clean up JSON schema to ensure compatibility with strict LLM APIs (like Cohere).
+
+    - Converts `type: ["string", "null"]` to `type: "string"`
+    - Flattens `anyOf: [{"type": "X"}, {"type": "null"}]` to `type: "X"`
+    - Ensures all property objects have a valid string `type`
+    """
+    if not isinstance(schema, dict):
+        return schema
+
+    cleaned = dict(schema)
+
+    # 1. Fix anyOf / oneOf with null (e.g. Optional types in Pydantic v2)
+    for key in ("anyOf", "oneOf"):
+        if key in cleaned and isinstance(cleaned[key], list):
+            non_null_schemas = [
+                s for s in cleaned[key]
+                if isinstance(s, dict) and s.get("type") != "null"
+            ]
+            if len(non_null_schemas) == 1:
+                # Merge the single non-null schema into cleaned
+                sub_schema = sanitize_json_schema(non_null_schemas[0])
+                cleaned.pop(key)
+                cleaned.update(sub_schema)
+            elif len(non_null_schemas) > 1:
+                cleaned[key] = [sanitize_json_schema(s) for s in non_null_schemas]
+
+    # 2. Fix type list e.g. type: ["string", "null"]
+    if "type" in cleaned:
+        if isinstance(cleaned["type"], list):
+            types = [t for t in cleaned["type"] if t != "null"]
+            cleaned["type"] = types[0] if types else "string"
+
+    # 3. Recursively sanitize properties
+    if "properties" in cleaned and isinstance(cleaned["properties"], dict):
+        cleaned["properties"] = {
+            k: sanitize_json_schema(v) for k, v in cleaned["properties"].items()
+        }
+
+    # 4. Recursively sanitize items (for arrays)
+    if "items" in cleaned and isinstance(cleaned["items"], dict):
+        cleaned["items"] = sanitize_json_schema(cleaned["items"])
+
+    return cleaned
+
+
+def prepare_sanitized_tools(tools: list) -> list[dict]:
+    """Convert tools into OpenAI/Cohere compliant dicts with sanitized JSON schemas."""
+    from langchain_core.utils.function_calling import convert_to_openai_tool
+
+    sanitized_tools = []
+    for tool in tools:
+        if isinstance(tool, dict):
+            formatted = copy.deepcopy(tool)
+        else:
+            formatted = convert_to_openai_tool(tool)
+
+        if "function" in formatted and "parameters" in formatted["function"]:
+            formatted["function"]["parameters"] = sanitize_json_schema(
+                formatted["function"]["parameters"]
+            )
+
+        sanitized_tools.append(formatted)
+    return sanitized_tools
+
+
 class LLMOrchestrator:
     """
     Central brain for the LLM cascade.
@@ -319,7 +385,11 @@ class LLMOrchestrator:
                 continue
 
             # Bind tools if needed
-            llm = provider.llm.bind_tools(tools) if tools else provider.llm
+            if tools:
+                sanitized = prepare_sanitized_tools(tools)
+                llm = provider.llm.bind_tools(sanitized)
+            else:
+                llm = provider.llm
 
             # Attempt invocation (with optional transient retry)
             result = await self._attempt_tier(
