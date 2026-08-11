@@ -90,24 +90,37 @@ async def route_intent(state: AgentState) -> dict:
                 
                 providers = orchestrator.get_providers()
                 if providers:
-                    # Use Tier 1 (fastest model) for classification
-                    llm = providers[0].llm
-                    structured_llm = llm.with_structured_output(MCPRouting)
                     prompt = (
                        "You are a routing agent. Determine which of the available MCP servers "
                         "are necessary to fulfill the user's request. Only return servers that are strictly required.\n\n"
                         f"User Request: {user_msg}\n"
                         f"Available Servers: {', '.join(available_servers)}"
                     )
-                    res = await structured_llm.ainvoke(prompt)
                     
-                    # Ensure only valid servers are returned
-                    valid_servers = [s for s in res.needed_servers if s in available_servers]
-                    ret["active_servers"] = valid_servers
-                    agent_logger.debug("ROUTER", f"Activated servers: {valid_servers}")
+                    # Try each provider in the cascade for robust structured output routing
+                    for provider in providers:
+                        if provider.disabled:
+                            continue
+                        try:
+                            structured_llm = provider.llm.with_structured_output(MCPRouting)
+                            res = await structured_llm.ainvoke(prompt)
+                            
+                            # Ensure only valid servers are returned
+                            valid_servers = [s for s in res.needed_servers if s in available_servers]
+                            ret["active_servers"] = valid_servers
+                            agent_logger.debug("ROUTER", f"Activated servers: {valid_servers} (via {provider.provider_name})")
+                            break # Success!
+                        except Exception as e:
+                            agent_logger.warn("ROUTER", f"Provider {provider.provider_name} failed routing: {e}")
+                            continue # Try next provider
+                            
+                    # If all providers failed, we must not return None (which enables all 233 tools)
+                    if "active_servers" not in ret:
+                        agent_logger.warn("ROUTER", "All providers failed routing. Falling back to zero MCP tools to prevent crashes.")
+                        ret["active_servers"] = []
         except Exception as e:
             agent_logger.warn("ROUTER", f"Failed to dynamically route servers: {e}")
-            ret["active_servers"] = None  # fallback to loading everything
+            ret["active_servers"] = []  # fallback to loading zero MCP tools, NEVER None
             
     return ret
 
