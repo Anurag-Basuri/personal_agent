@@ -19,7 +19,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 
 from app.agent.core.builder import agent_app
 from app.agent.core.state import AgentState
-from app.agent.prompts import ADMIN_PERSONA
+from app.agent.prompts import get_admin_persona
 from app.core.logger import agent_logger
 from app.core.memory import get_message_history
 from app.core.summarizer import (
@@ -146,7 +146,7 @@ async def process_user_message(
 
     system_prompt = SystemMessage(
         content=(
-            f"{ADMIN_PERSONA}\n\n"
+            f"{get_admin_persona()}\n\n"
             f"{user_memories}"
             f"[PORTFOLIO CONTEXT]\n{portfolio_context}\n[END CONTEXT]"
             f"{location_context}"
