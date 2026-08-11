@@ -44,7 +44,7 @@ from app.database import close_db, init_db
 async def _public_session_cleanup_loop():
     """Periodic background task that deletes inactive public chatbot sessions.
 
-    Runs every 30 minutes. Deletes sessions with no activity for 1+ hour.
+    Runs every 24 hours. Deletes sessions with no activity for 1+ hour.
     Only targets public (unauthenticated) sessions — user sessions are never touched.
     """
     from app.core.logger import agent_logger
@@ -53,8 +53,8 @@ async def _public_session_cleanup_loop():
 
     while True:
         try:
-            # 30 minutes
-            await asyncio.sleep(30 * 60)
+            # 24 hours
+            await asyncio.sleep(24 * 60 * 60)
             deleted = await session_repo.delete_inactive_public_sessions(
                 max_inactivity_minutes=60,
             )
@@ -185,7 +185,7 @@ async def lifespan(app: FastAPI):
     # Background Tasks
     agent_logger.section("Background Tasks")
     cleanup_task = asyncio.create_task(_public_session_cleanup_loop())
-    agent_logger.status_line("Session Cleanup", "every 30 min")
+    agent_logger.status_line("Session Cleanup", "every 24h")
 
     try:
         rag_sync_task = asyncio.create_task(_rag_sync_loop())
