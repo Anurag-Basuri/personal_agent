@@ -65,8 +65,8 @@ class Settings(BaseSettings):
     REINDEX_SECRET: str = ""
 
     # RAG Sync
-    # Background RAG re ingestion interval
-    RAG_SYNC_INTERVAL_HOURS: int = 6
+    # Background RAG re ingestion interval (168 hours = 1 week)
+    RAG_SYNC_INTERVAL_HOURS: int = 168
 
     # Telegram Bot
     TELEGRAM_BOT_TOKEN: str = ""

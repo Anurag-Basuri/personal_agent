@@ -190,7 +190,8 @@ async def lifespan(app: FastAPI):
     try:
         rag_sync_task = asyncio.create_task(_rag_sync_loop())
         interval = settings.RAG_SYNC_INTERVAL_HOURS
-        agent_logger.status_line("RAG Sync", f"every {interval}h")
+        display_interval = "1 week" if interval == 168 else f"{interval}h"
+        agent_logger.status_line("RAG Sync", f"every {display_interval}")
     except Exception as e:
         rag_sync_task = None
         agent_logger.status_line("RAG Sync", f"Failed to start: {e}", ok=False)

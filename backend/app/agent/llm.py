@@ -207,6 +207,7 @@ class LLMOrchestrator:
     @staticmethod
     def _init_mistral(tier: int, api_key: str) -> LLMProvider:
         """Initialize Mistral AI provider."""
+        # Force uvicorn reload
         from langchain_mistralai import ChatMistralAI
         llm = ChatMistralAI(
             model="mistral-large-latest",
