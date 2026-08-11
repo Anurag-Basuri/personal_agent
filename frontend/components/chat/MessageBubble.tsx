@@ -101,6 +101,9 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
             <ReactMarkdown 
               remarkPlugins={[remarkGfm]}
               components={{
+                a: ({ node, ...props }) => (
+                  <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline" />
+                ),
                 code(props) {
                   const {children, className, node, inline, ...rest} = props
                   const match = /language-(\w+)/.exec(className || '')
