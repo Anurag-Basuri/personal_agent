@@ -183,27 +183,35 @@ def sanitize_json_schema(schema):
     # Strip unsupported keys at this level
     cleaned = {k: v for k, v in schema.items() if k not in _UNSUPPORTED_SCHEMA_KEYS}
 
-    # Simplify nullable unions: anyOf/oneOf with a single non-null type
+    # Gemini and Cohere hate anyOf/oneOf. Aggressively pick the first valid option
+    # and completely delete the union keys.
     for key in ("anyOf", "oneOf"):
         if key in cleaned and isinstance(cleaned[key], list):
             non_null = [
                 s for s in cleaned[key]
                 if isinstance(s, dict) and s.get("type") != "null"
             ]
-            if len(non_null) == 1:
+            if non_null:
                 sub = sanitize_json_schema(non_null[0])
                 cleaned.pop(key)
-                cleaned.update(sub)
-            elif len(non_null) > 1:
-                cleaned[key] = [sanitize_json_schema(s) for s in non_null]
+                # Don't overwrite existing top-level keys if they exist
+                for k, v in sub.items():
+                    if k not in cleaned:
+                        cleaned[k] = v
+            else:
+                cleaned.pop(key)
 
     # Simplify type arrays: ["string", "null"] -> "string"
-    if "type" in cleaned and isinstance(cleaned["type"], list):
-        types = [t for t in cleaned["type"] if t != "null"]
-        cleaned["type"] = types[0] if types else "string"
+    # Also enforce type as string for strict parsers like Cohere
+    if "type" in cleaned:
+        if isinstance(cleaned["type"], list):
+            types = [t for t in cleaned["type"] if t != "null"]
+            cleaned["type"] = str(types[0]) if types else "string"
+        elif not isinstance(cleaned["type"], str):
+            cleaned["type"] = str(cleaned["type"])
 
     # Recurse into ALL remaining dict and list values
-    for k, v in cleaned.items():
+    for k, v in list(cleaned.items()):
         if isinstance(v, dict):
             cleaned[k] = sanitize_json_schema(v)
         elif isinstance(v, list):
