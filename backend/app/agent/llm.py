@@ -459,7 +459,7 @@ class ReasonerOrchestrator(BaseOrchestrator):
 
         tier_configs = [
             (1, "GEMINI_API_KEY", "Gemini3.5FlashLite", self._init_gemini_flash, 45.0),
-            (2, "GEMINI_API_KEY", "Gemini3.1FlashLite", self._init_gemini_3_5_flash, 45.0),
+            (2, "GROQ_API_KEY", "Groq70b", self._init_groq_70b, 45.0),
             (3, "COHERE_API_KEY", "Cohere", self._init_cohere, 30.0),
             (4, "MISTRAL_API_KEY", "Mistral", self._init_mistral, 30.0),
         ]
@@ -498,9 +498,9 @@ class ReasonerOrchestrator(BaseOrchestrator):
         return ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", google_api_key=api_key, temperature=0.3, max_output_tokens=4096)
 
     @staticmethod
-    def _init_gemini_3_5_flash(api_key: str):
-        from langchain_google_genai import ChatGoogleGenerativeAI
-        return ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", google_api_key=api_key, temperature=0.3, max_output_tokens=4096)
+    def _init_groq_70b(api_key: str):
+        from langchain_groq import ChatGroq
+        return ChatGroq(model="llama-3.3-70b-versatile", api_key=api_key, temperature=0.3, max_tokens=4096)
 
     @staticmethod
     def _init_cohere(api_key: str):
