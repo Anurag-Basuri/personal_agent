@@ -168,41 +168,51 @@ _UNSUPPORTED_SCHEMA_KEYS = {
     "deprecated", "readOnly", "writeOnly",
 }
 
-def sanitize_json_schema(schema: dict) -> dict:
-    """Recursively clean JSON schemas for LLM provider compatibility."""
+def sanitize_json_schema(schema):
+    """Recursively clean JSON schemas for LLM provider compatibility.
+
+    Strips unsupported keys at ALL nesting levels and simplifies
+    nullable unions (anyOf/oneOf with null) into flat types.
+    """
+    if isinstance(schema, list):
+        return [sanitize_json_schema(item) for item in schema]
+
     if not isinstance(schema, dict):
         return schema
+
+    # Strip unsupported keys at this level
     cleaned = {k: v for k, v in schema.items() if k not in _UNSUPPORTED_SCHEMA_KEYS}
 
+    # Simplify nullable unions: anyOf/oneOf with a single non-null type
     for key in ("anyOf", "oneOf"):
         if key in cleaned and isinstance(cleaned[key], list):
-            non_null_schemas = [
+            non_null = [
                 s for s in cleaned[key]
                 if isinstance(s, dict) and s.get("type") != "null"
             ]
-            if len(non_null_schemas) == 1:
-                sub_schema = sanitize_json_schema(non_null_schemas[0])
+            if len(non_null) == 1:
+                sub = sanitize_json_schema(non_null[0])
                 cleaned.pop(key)
-                cleaned.update(sub_schema)
-            elif len(non_null_schemas) > 1:
-                cleaned[key] = [sanitize_json_schema(s) for s in non_null_schemas]
+                cleaned.update(sub)
+            elif len(non_null) > 1:
+                cleaned[key] = [sanitize_json_schema(s) for s in non_null]
 
-    if "type" in cleaned:
-        if isinstance(cleaned["type"], list):
-            types = [t for t in cleaned["type"] if t != "null"]
-            cleaned["type"] = types[0] if types else "string"
+    # Simplify type arrays: ["string", "null"] -> "string"
+    if "type" in cleaned and isinstance(cleaned["type"], list):
+        types = [t for t in cleaned["type"] if t != "null"]
+        cleaned["type"] = types[0] if types else "string"
 
-    if "properties" in cleaned and isinstance(cleaned["properties"], dict):
-        cleaned["properties"] = {
-            k: sanitize_json_schema(v) for k, v in cleaned["properties"].items()
-        }
-
-    if "items" in cleaned and isinstance(cleaned["items"], dict):
-        cleaned["items"] = sanitize_json_schema(cleaned["items"])
+    # Recurse into ALL remaining dict and list values
+    for k, v in cleaned.items():
+        if isinstance(v, dict):
+            cleaned[k] = sanitize_json_schema(v)
+        elif isinstance(v, list):
+            cleaned[k] = [sanitize_json_schema(item) for item in v]
 
     return cleaned
 
 def prepare_sanitized_tools(tools: list) -> list[dict]:
+    """Convert tools to OpenAI format and strip all unsupported schema keys."""
     from langchain_core.utils.function_calling import convert_to_openai_tool
     sanitized_tools = []
     for tool in tools:
@@ -211,10 +221,13 @@ def prepare_sanitized_tools(tools: list) -> list[dict]:
         else:
             formatted = convert_to_openai_tool(tool)
 
-        if "function" in formatted and "parameters" in formatted["function"]:
-            formatted["function"]["parameters"] = sanitize_json_schema(
-                formatted["function"]["parameters"]
-            )
+        # Sanitize the entire tool dict structure recursively
+        # This catches $schema at any depth (parameters, inputSchema, etc.)
+        if "function" in formatted:
+            formatted["function"] = sanitize_json_schema(formatted["function"])
+        else:
+            formatted = sanitize_json_schema(formatted)
+
         sanitized_tools.append(formatted)
     return sanitized_tools
 
