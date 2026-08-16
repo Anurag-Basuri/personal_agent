@@ -210,6 +210,10 @@ def sanitize_json_schema(schema):
         elif not isinstance(cleaned["type"], str):
             cleaned["type"] = str(cleaned["type"])
 
+    # Gemini API requires all enum values to be strings
+    if "enum" in cleaned and isinstance(cleaned["enum"], list):
+        cleaned["enum"] = [str(e) for e in cleaned["enum"]]
+
     # Recurse into ALL remaining dict and list values
     for k, v in list(cleaned.items()):
         if isinstance(v, dict):

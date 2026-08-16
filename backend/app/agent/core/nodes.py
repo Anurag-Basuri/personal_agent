@@ -288,6 +288,17 @@ def make_call_model(tools_getter=get_all_tools):
             response = await reasoner.invoke(safe_messages, allowed_tools or None)
 
         if response is not None:
+            # Anti-infinite-loop protection for weaker models (e.g. Mistral)
+            if getattr(response, "tool_calls", []):
+                for msg in reversed(safe_messages):
+                    if getattr(msg, "tool_calls", []):
+                        if msg.tool_calls == response.tool_calls:
+                            agent_logger.warn("LLM", f"Detected infinite tool-calling loop on {msg.tool_calls[0].get('name', 'unknown')}, breaking out.")
+                            response.tool_calls = []
+                            if not response.content:
+                                response.content = "I have fetched the information."
+                        break
+
             return {"messages": [response]}
 
         # Layer 6: Static Fallback
