@@ -70,8 +70,8 @@ async def prepare_public_state(message: str, session_id: str, current_url: str |
     history = await memory.get_messages()
 
     intent = classify_intent(message.lower())
-    if intent in ("greeting", "meta_question"):
-        portfolio_context = "No portfolio context loaded for simple greeting."
+    if intent in ("greeting", "meta_question", "conversational"):
+        portfolio_context = "No portfolio context loaded for simple exchange."
     else:
         portfolio_context = await get_base_portfolio_context(query=message)
 

@@ -123,8 +123,9 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             now = time.time()
             if now - last_edit_time > 0.8:
                 display_text = current_text + tool_status
+                # Skip edit if no displayable text yet
                 if not display_text.strip():
-                    display_text = "Thinking..."
+                    continue
                 try:
                     await reply_message.edit_text(display_text, parse_mode=ParseMode.MARKDOWN)
                     last_edit_time = now

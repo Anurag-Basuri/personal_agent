@@ -19,7 +19,7 @@ class AgentState(TypedDict):
     role: str
     current_url: str | None
     # Intent classification from the router node
-    # "tool_use", "direct_reply", "greeting", "meta_question"
+    # "tool_use", "direct_reply", "greeting", "meta_question", "conversational"
     intent: str
     # Conversation summary injected from memory
     summary: str | None

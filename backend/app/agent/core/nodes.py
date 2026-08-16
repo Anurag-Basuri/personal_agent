@@ -48,6 +48,24 @@ _META_PATTERNS = {
     "how do you work", "what tools", "capabilities",
 }
 
+_CONVERSATIONAL_PATTERNS = {
+    "thanks", "thank you", "thx", "ty", "cool", "nice", "awesome",
+    "okay", "ok", "got it", "understood", "sure", "alright",
+    "what now", "what next", "what else", "anything else",
+    "good", "great", "perfect", "fine", "sounds good",
+    "bye", "goodbye", "see you", "later", "goodnight", "good night",
+    "lol", "haha", "hehe", "lmao", "wow", "hmm", "oh", "ah",
+    "yes", "no", "yeah", "yep", "nope", "nah",
+    "how are you", "how's it going", "what's happening",
+}
+
+# Compact persona for Thinker (greeting/meta/conversational intents only)
+_SLIM_SYSTEM_PROMPT = (
+    "You are Cortex, a sharp and proactive AI assistant built by Anurag Basuri. "
+    "For admin users, address them as 'Boss'. For normal users, speak as Anurag in first person. "
+    "Be conversational, warm, and concise. Keep responses under 2 sentences for simple exchanges."
+)
+
 
 async def route_intent(state: AgentState) -> dict:
     """
@@ -135,7 +153,86 @@ def classify_intent(user_msg: str) -> str:
     if any(p in user_msg for p in _META_PATTERNS):
         return "meta_question"
 
+    # Short conversational follow-ups (under 8 words, no question structure)
+    word_count = len(cleaned.split())
+    if word_count <= 8:
+        if cleaned in _CONVERSATIONAL_PATTERNS or any(cleaned.startswith(p) for p in _CONVERSATIONAL_PATTERNS):
+            return "conversational"
+
     return "tool_use"
+
+
+def _build_slim_messages(messages: list) -> list:
+    """
+    Build a compact message list for the Thinker brain.
+
+    Strips RAG context, tool schemas, memories, and portfolio data.
+    Keeps only a minimal system prompt and the last few conversation turns.
+    Target: ~500-800 tokens (well within Groq's 6,000 TPM limit).
+    """
+    from langchain_core.messages import SystemMessage as SM
+
+    slim_system = SM(content=_SLIM_SYSTEM_PROMPT)
+
+    # Collect only the last few human/AI messages (skip System/Tool messages)
+    recent = []
+    for msg in reversed(messages):
+        if msg.type in ("human", "ai") and not getattr(msg, "tool_calls", []):
+            content = str(msg.content).strip()
+            if content:
+                recent.append(msg)
+        if len(recent) >= 4:
+            break
+    recent.reverse()
+
+    return [slim_system, *recent]
+
+
+def sanitize_message_history(messages: list) -> list:
+    """
+    Remove orphaned tool calls and tool results from message history.
+
+    Gemini requires every AIMessage with tool_calls to be immediately
+    followed by matching ToolMessages. Trimming or interrupted sessions
+    can leave orphaned entries that cause HTTP 400 errors.
+    """
+    # Collect all tool_call IDs that have matching ToolMessage responses
+    responded_tool_ids = set()
+    for msg in messages:
+        if msg.type == "tool":
+            tool_call_id = getattr(msg, "tool_call_id", None)
+            if tool_call_id:
+                responded_tool_ids.add(tool_call_id)
+
+    sanitized = []
+    for msg in messages:
+        # Strip AIMessages with tool_calls that have no matching responses
+        if msg.type == "ai" and getattr(msg, "tool_calls", []):
+            valid_calls = [
+                tc for tc in msg.tool_calls
+                if tc.get("id") in responded_tool_ids
+            ]
+            if not valid_calls:
+                # Replace with content-only AI message if it had text
+                if msg.content and str(msg.content).strip():
+                    sanitized.append(AIMessage(content=str(msg.content)))
+                continue
+
+        # Strip orphaned ToolMessages with no matching AI tool_call
+        if msg.type == "tool":
+            tool_call_id = getattr(msg, "tool_call_id", None)
+            has_parent = False
+            for prev in sanitized:
+                if prev.type == "ai" and getattr(prev, "tool_calls", []):
+                    if any(tc.get("id") == tool_call_id for tc in prev.tool_calls):
+                        has_parent = True
+                        break
+            if not has_parent:
+                continue
+
+        sanitized.append(msg)
+
+    return sanitized
 
 
 def make_call_model(tools_getter=get_all_tools):
@@ -172,12 +269,14 @@ def make_call_model(tools_getter=get_all_tools):
             allowed_tools.append(t)
 
         # Delegate to the appropriate brain
-        if intent in ("greeting", "meta_question"):
-            # Brain 1: Fast, no tools needed
-            response = await thinker.invoke(messages, None)
+        if intent in ("greeting", "meta_question", "conversational"):
+            # Brain 1: Fast, slim context, no tools needed
+            slim_messages = _build_slim_messages(messages)
+            response = await thinker.invoke(slim_messages, None)
         else:
-            # Brain 2: Deep reasoning with tools
-            response = await reasoner.invoke(messages, allowed_tools or None)
+            # Brain 2: Deep reasoning with tools (sanitized history)
+            safe_messages = sanitize_message_history(messages)
+            response = await reasoner.invoke(safe_messages, allowed_tools or None)
 
         if response is not None:
             return {"messages": [response]}
