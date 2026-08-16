@@ -11,8 +11,9 @@ Route prefix: /api/public
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 
-from app.agent.public_service import process_public_message
+from app.agent.public_service import process_public_message, process_public_message_stream
 from app.core.exceptions import AgentError, RateLimitError, classify_and_raise
 from app.core.logger import agent_logger
 from app.core.rate_limiter import rate_limit
@@ -58,13 +59,45 @@ async def public_chat(
     except ValueError as e:
         # Message cap exceeded
         raise HTTPException(
-            status_code=429,
+            status_code=403,
             detail=str(e),
         )
-
     except Exception as e:
         agent_logger.error("PUBLIC", "Public chat request failed", e, {
-            "session_id": body.session_id[:16] + "...",
+            "session_id": body.session_id,
+        })
+        classify_and_raise(e)
+
+
+@router.post("/stream")
+async def public_stream(
+    body: PublicChatRequest,
+    request: Request,
+    _rate: None = Depends(rate_limit("public_chat")),
+):
+    """Send a message to the portfolio chatbot and stream the response token-by-token."""
+    try:
+        generator = process_public_message_stream(
+            message=body.message,
+            session_id=body.session_id,
+            request=request,
+            current_url=body.current_url,
+        )
+
+        return StreamingResponse(
+            generator,
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-store"}
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=403,
+            detail=str(e),
+        )
+    except Exception as e:
+        agent_logger.error("PUBLIC", "Public chat stream request failed", e, {
+            "session_id": body.session_id,
         })
         classify_and_raise(e)
 

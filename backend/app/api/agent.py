@@ -10,11 +10,13 @@ Key rules:
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Query, Request
+from fastapi.responses import StreamingResponse
 
 from app.agent.agent_service import (
     UserAgentResponse,
     get_user_message_counter,
     process_user_agent_message,
+    process_user_agent_message_stream,
 )
 from app.core.auth import get_current_user
 from app.core.exceptions import classify_and_raise
@@ -78,6 +80,38 @@ async def send_message(
 
     except Exception as e:
         agent_logger.error("CTRL", "User chat request failed", e, {
+            "session_id": session_id,
+        })
+        classify_and_raise(e)
+
+
+@router.post("/stream")
+async def user_stream_message(
+    body: AgentChatBody,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    _rate: None = Depends(rate_limit("chat")),
+):
+    """Send a message to the AI agent and stream the response token-by-token."""
+    session_id = _get_user_session_id(current_user)
+
+    try:
+        generator = process_user_agent_message_stream(
+            message=body.message,
+            session_id=session_id,
+            user_id=current_user.id,
+            request=request,
+            current_url=body.currentUrl,
+        )
+
+        return StreamingResponse(
+            generator,
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-store"}
+        )
+
+    except Exception as e:
+        agent_logger.error("CTRL", "User chat stream request failed", e, {
             "session_id": session_id,
         })
         classify_and_raise(e)

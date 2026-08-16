@@ -10,13 +10,15 @@ The bot uses the full admin agent service with ALL tools and MCP access.
 
 from __future__ import annotations
 
+import json
+import time
 import logging
 
 from telegram import Update
 from telegram.constants import ChatAction, ParseMode
 from telegram.ext import Application, ContextTypes, MessageHandler, filters
 
-from app.agent.service import process_user_message
+from app.agent.service import process_user_message_stream
 from app.config import get_settings
 from app.core.logger import agent_logger
 
@@ -82,21 +84,64 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
 
     # Process Message through the full admin agent (ALL tools + MCP)
     try:
-        await context.bot.send_chat_action(chat_id=chat.id, action=ChatAction.TYPING)
+        reply_message = await update.message.reply_text("Thinking...")
 
-        response = await process_user_message(
+        generator = process_user_message_stream(
             message=message_text,
             session_id=session_id,
+            request=None,
             user_id=admin_user_id,
         )
 
-        reply = response.reply
+        current_text = ""
+        last_edit_time = time.time()
+        tool_status = ""
+
+        async for chunk in generator:
+            if not chunk.startswith("data: "):
+                continue
+
+            data_str = chunk[6:].strip()
+            if not data_str:
+                continue
+
+            try:
+                event = json.loads(data_str)
+                kind = event.get("type")
+
+                if kind == "token":
+                    current_text += event.get("content", "")
+                elif kind == "tool_start":
+                    tool_status = f"\n\n_Calling {event.get('name')}..._"
+                elif kind == "tool_end":
+                    tool_status = ""
+
+            except json.JSONDecodeError:
+                continue
+
+            # Throttle edits to 0.8 seconds (Telegram limit is ~1/sec)
+            now = time.time()
+            if now - last_edit_time > 0.8:
+                display_text = current_text + tool_status
+                if not display_text.strip():
+                    display_text = "Thinking..."
+                try:
+                    await reply_message.edit_text(display_text, parse_mode=ParseMode.MARKDOWN)
+                    last_edit_time = now
+                except Exception as e:
+                    if "Message is not modified" not in str(e):
+                        agent_logger.error("TELEGRAM", "Throttled edit failed", e)
+
+        # Final edit
+        display_text = current_text.strip()
+        if not display_text:
+            display_text = "I couldn't process that properly."
 
         try:
-            await update.message.reply_text(reply)
+            await reply_message.edit_text(display_text, parse_mode=ParseMode.MARKDOWN)
         except Exception as e:
-            agent_logger.error("TELEGRAM", "Failed to send formatted message, falling back to raw.", e)
-            await update.message.reply_text(reply)
+            if "Message is not modified" not in str(e):
+                agent_logger.error("TELEGRAM", "Final edit failed", e)
 
     except Exception as e:
         agent_logger.error("TELEGRAM", f"Error processing message: {e}", e)

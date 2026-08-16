@@ -6,8 +6,9 @@ and the complete ADMIN_PERSONA prompt. Only accessible by the admin user.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
+from fastapi.responses import StreamingResponse
 
-from app.agent.service import process_user_message
+from app.agent.service import process_user_message, process_user_message_stream
 from app.core.auth import get_admin_user
 from app.core.exceptions import classify_and_raise
 from app.core.logger import agent_logger
@@ -87,6 +88,38 @@ async def admin_send_message(
 
     except Exception as e:
         agent_logger.error("ADMIN", "Admin chat request failed", e, {
+            "session_id": session_id,
+        })
+        classify_and_raise(e)
+
+
+@router.post("/stream")
+async def admin_stream_message(
+    body: AdminChatBody,
+    request: Request,
+    admin_user: User = Depends(get_admin_user),
+    _rate: None = Depends(rate_limit("admin_chat")),
+):
+    """Send a message and stream the response token-by-token."""
+    session_id = _get_admin_session_id(admin_user)
+
+    try:
+        generator = process_user_message_stream(
+            message=body.message,
+            session_id=session_id,
+            request=request,
+            user_id=admin_user.id,
+            current_url=body.currentUrl,
+        )
+
+        return StreamingResponse(
+            generator,
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-store"}
+        )
+
+    except Exception as e:
+        agent_logger.error("ADMIN", "Admin chat stream request failed", e, {
             "session_id": session_id,
         })
         classify_and_raise(e)

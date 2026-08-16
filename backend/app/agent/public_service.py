@@ -15,8 +15,10 @@ Key differences from the authenticated agent service:
 
 from __future__ import annotations
 
+import asyncio
 import time
 from dataclasses import dataclass
+from fastapi import Request
 
 from langchain_core.messages import HumanMessage, SystemMessage
 
@@ -27,116 +29,47 @@ from app.agent.prompts import get_public_persona
 from app.core.logger import agent_logger
 from app.core.memory import get_message_history
 from app.rag.context import get_base_portfolio_context
+from app.agent.core.stream import stream_agent_response
 
-
-# Constants
 PUBLIC_SESSION_MESSAGE_CAP = 20
 
 
-# Response Dataclass
 @dataclass
 class PublicChatResponse:
-    """Return type for the public chat service."""
-
     reply: str
     session_id: str
     messages_remaining: int
 
 
-# Message Counter
 class SessionMessageCounter:
-    """In memory counter for messages per public session.
-
-    Tracks how many user messages have been sent per session_id.
-    Thread-safe via simple dict (single-process async server).
-    Stale entries are cleaned up by the session cleanup job.
-    """
-
     def __init__(self) -> None:
         self._counts: dict[str, int] = {}
 
     def get_count(self, session_id: str) -> int:
-        """Get current message count for a session."""
         return self._counts.get(session_id, 0)
 
     def increment(self, session_id: str) -> int:
-        """Increment and return the new count."""
         self._counts[session_id] = self._counts.get(session_id, 0) + 1
         return self._counts[session_id]
 
     def remove(self, session_id: str) -> None:
-        """Remove a session's counter (called during cleanup)."""
         self._counts.pop(session_id, None)
 
     def get_remaining(self, session_id: str) -> int:
-        """Return how many messages the session has left."""
         return max(0, PUBLIC_SESSION_MESSAGE_CAP - self.get_count(session_id))
 
 
-# Singleton
 _message_counter = SessionMessageCounter()
 
-
 def get_message_counter() -> SessionMessageCounter:
-    """Accessor for the session message counter singleton."""
     return _message_counter
 
 
-# Service Function
-async def process_public_message(
-    message: str,
-    session_id: str,
-    current_url: str | None = None,
-) -> PublicChatResponse:
-    """
-    Process a message from the public portfolio chatbot.
-
-    1. Check message cap (20 per session)
-    2. Load session history from memory
-    3. Build system prompt with portfolio RAG context
-    4. Invoke LangGraph with restricted tools
-    5. Persist messages for the session's lifetime
-    6. Return reply with remaining message count
-
-    Args:
-        message: The visitor's message text.
-        session_id: Ephemeral session ID from browser sessionStorage.
-        current_url: The portfolio page the visitor is currently on.
-
-    Returns:
-        PublicChatResponse with the agent's reply and remaining messages.
-
-    Raises:
-        ValueError: If the session has exceeded its message cap.
-    """
-    request_start = time.time()
-
-    # Message Cap Check
-    counter = get_message_counter()
-    current_count = counter.get_count(session_id)
-
-    if current_count >= PUBLIC_SESSION_MESSAGE_CAP:
-        raise ValueError(
-            f"Session message limit reached ({PUBLIC_SESSION_MESSAGE_CAP}). "
-            "Please start a new session."
-        )
-
-    agent_logger.info("PUBLIC", "━━━ Public Chat Request ━━━", {
-        "session_id": session_id[:16] + "...",
-        "message_number": current_count + 1,
-        "remaining": PUBLIC_SESSION_MESSAGE_CAP - current_count - 1,
-        "current_url": current_url or "N/A",
-        "message_preview": message[:80],
-    })
-
-    # Load Session History
+async def prepare_public_state(message: str, session_id: str, current_url: str | None):
     memory = get_message_history(session_id, user_id=None, role="GUEST")
     history = await memory.get_messages()
 
-    # Pre-classify intent to save time on RAG
     intent = classify_intent(message.lower())
-
-    # Build System Prompt
     if intent in ("greeting", "meta_question"):
         portfolio_context = "No portfolio context loaded for simple greeting."
     else:
@@ -145,8 +78,8 @@ async def process_public_message(
     location_context = ""
     if current_url:
         location_context = (
-            f'\n[SCREEN CONTEXT]\nThe visitor is currently on: {current_url}. '
-            f'If they use words like "this" or "here", they refer to this page.\n[END SCREEN CONTEXT]'
+            f'\n[SCREEN CONTEXT]\nThe user is currently looking at the page: {current_url}. '
+            f'If they use words like "this" or "here", they are referring to this page.\n[END SCREEN CONTEXT]'
         )
 
     system_prompt = SystemMessage(
@@ -159,7 +92,6 @@ async def process_public_message(
 
     human_msg = HumanMessage(content=message)
 
-    # Initialize LangGraph State
     initial_state: AgentState = {
         "messages": [system_prompt, *history, human_msg],
         "session_id": session_id,
@@ -169,46 +101,80 @@ async def process_public_message(
         "intent": intent,
         "summary": "",
     }
+    
+    return initial_state, memory, history, human_msg
 
-    # Invoke LangGraph (Public Agent)
-    public_agent = build_public_agent()
 
-    try:
-        final_state = await public_agent.ainvoke(initial_state)
-    except Exception as e:
-        agent_logger.error("PUBLIC", "Public LangGraph Workflow Failed", e)
-        raise
-
-    # Persist Messages
-    messages_to_save = [human_msg]
-
+async def _persist_public_messages(final_state, history, human_msg, session_id, memory, request_start):
     new_messages_offset = len(history) + 1
     final_messages = final_state["messages"]
     new_generated_messages = final_messages[new_messages_offset + 1:]
 
-    messages_to_save.extend(new_generated_messages)
+    messages_to_save = [human_msg, *new_generated_messages]
     await memory.add_messages(messages_to_save)
 
-    # Extract Final Reply (skip tool-calling intermediates with empty content)
-    final_reply = ""
-    for msg in reversed(final_messages):
-        if msg.type == "ai" and msg.content and str(msg.content).strip():
-            final_reply = msg.content
-            break
-
-    # Increment Counter
+    counter = get_message_counter()
     counter.increment(session_id)
     remaining = counter.get_remaining(session_id)
 
     total_duration = round((time.time() - request_start) * 1000)
-    agent_logger.info("PUBLIC", "━━━ Public Request Complete ━━━", {
+    agent_logger.info("PUBLIC", "Public Chat Request Complete", {
         "session_id": session_id[:16] + "...",
         "total_duration_ms": total_duration,
         "messages_remaining": remaining,
     })
 
+
+async def process_public_message_stream(
+    message: str, session_id: str, request: Request | None = None, current_url: str | None = None
+):
+    request_start = time.time()
+    counter = get_message_counter()
+    if counter.get_count(session_id) >= PUBLIC_SESSION_MESSAGE_CAP:
+        import json
+        yield f"data: {json.dumps({'type': 'error', 'message': 'Session message limit reached.'})}\n\n"
+        return
+
+    agent_logger.info("PUBLIC", "━━━ Public Stream Request ━━━", {
+        "session_id": session_id[:16] + "...",
+        "message_number": counter.get_count(session_id) + 1,
+    })
+
+    initial_state, memory, history, human_msg = await prepare_public_state(message, session_id, current_url)
+    
+    public_agent = build_public_agent()
+    final_state_ref = []
+    
+    async for chunk in stream_agent_response(request, public_agent, initial_state, final_state_ref):
+        yield chunk
+
+    if final_state_ref and final_state_ref[0]:
+        await _persist_public_messages(final_state_ref[0], history, human_msg, session_id, memory, request_start)
+
+
+async def process_public_message(
+    message: str, session_id: str, current_url: str | None = None
+) -> PublicChatResponse:
+    request_start = time.time()
+    counter = get_message_counter()
+    
+    if counter.get_count(session_id) >= PUBLIC_SESSION_MESSAGE_CAP:
+        raise ValueError(f"Session message limit reached ({PUBLIC_SESSION_MESSAGE_CAP}). Please start a new session.")
+
+    initial_state, memory, history, human_msg = await prepare_public_state(message, session_id, current_url)
+    public_agent = build_public_agent()
+    final_state = await public_agent.ainvoke(initial_state)
+
+    await _persist_public_messages(final_state, history, human_msg, session_id, memory, request_start)
+
+    final_reply = ""
+    for msg in reversed(final_state["messages"]):
+        if msg.type == "ai" and msg.content and str(msg.content).strip():
+            final_reply = msg.content
+            break
+
     return PublicChatResponse(
         reply=str(final_reply) if final_reply else "I couldn't process that properly.",
         session_id=session_id,
-        messages_remaining=remaining,
+        messages_remaining=counter.get_remaining(session_id),
     )
