@@ -87,7 +87,7 @@ async def send_message(
 
 @router.post("/stream")
 async def user_stream_message(
-    body: AgentChatBody,
+    body: AgentChatRequest,
     request: Request,
     current_user: User = Depends(get_current_user),
     _rate: None = Depends(rate_limit("chat")),

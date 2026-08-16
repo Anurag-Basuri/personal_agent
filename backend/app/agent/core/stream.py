@@ -1,6 +1,14 @@
 """
 SSE Streaming generator for LangGraph events.
+
 Maps astream_events(version="v2") to frontend-friendly JSON chunks.
+Event types emitted:
+  status     : Phase changes (routing, thinking, executing, generating)
+  token      : Individual text tokens from the LLM
+  tool_start : A tool invocation has begun
+  tool_end   : A tool invocation has completed
+  done       : Stream finished successfully
+  error      : An unrecoverable error occurred
 """
 
 import json
@@ -9,49 +17,81 @@ from typing import AsyncGenerator
 from fastapi import Request
 from app.core.logger import agent_logger
 
-async def stream_agent_response(request: Request | None, graph, initial_state: dict, final_state_ref: list) -> AsyncGenerator[str, None]:
+# LangGraph node names mapped to human-readable phase labels
+_NODE_PHASE_MAP = {
+    "route_intent": "routing",
+    "call_model": "thinking",
+    "_call_model": "thinking",
+    "call_tools": "executing",
+    "_call_tools": "executing",
+}
+
+
+def _sse(data: dict) -> str:
+    """Format a dict as a single SSE data line."""
+    return f"data: {json.dumps(data)}\n\n"
+
+
+async def stream_agent_response(
+    request: Request | None,
+    graph,
+    initial_state: dict,
+    final_state_ref: list,
+) -> AsyncGenerator[str, None]:
     """
-    Executes a LangGraph workflow and yields Server-Sent Events (SSE) token-by-token.
-    Captures the final graph state in final_state_ref[0].
+    Execute a LangGraph workflow and yield Server-Sent Events token-by-token.
+
+    Captures the final graph state in final_state_ref for post-stream
+    persistence (memory, summarization, etc.).
     """
+    first_token_sent = False
+
     try:
         async for event in graph.astream_events(initial_state, version="v2"):
-            # Stop generating if the client disconnects
             if request and await request.is_disconnected():
                 break
 
             kind = event["event"]
             name = event.get("name", "")
-            
+
             # Capture final graph state (root level chain)
             if kind == "on_chain_end" and name == "LangGraph":
                 final_state_ref.append(event["data"]["output"])
 
-            # 1. Text token streaming from the LLM
-            if kind == "on_chat_model_stream":
+            # Phase status events from node lifecycle
+            if kind == "on_chain_start" and name in _NODE_PHASE_MAP:
+                yield _sse({"type": "status", "phase": _NODE_PHASE_MAP[name]})
+
+            # Text token streaming from the LLM
+            elif kind == "on_chat_model_stream":
                 chunk = event["data"]["chunk"]
                 if chunk.content:
                     content = chunk.content
-                    # Sometimes content is a list of dicts for multimodal/complex responses
                     if isinstance(content, list):
-                        text_parts = [c.get("text", "") for c in content if isinstance(c, dict) and "text" in c]
+                        text_parts = [
+                            c.get("text", "")
+                            for c in content
+                            if isinstance(c, dict) and "text" in c
+                        ]
                         content = "".join(text_parts)
-                    
+
                     if content:
-                        yield f"data: {json.dumps({'type': 'token', 'content': str(content)})}\n\n"
+                        if not first_token_sent:
+                            yield _sse({"type": "status", "phase": "generating"})
+                            first_token_sent = True
+                        yield _sse({"type": "token", "content": str(content)})
 
-            # 2. Tool execution starts
+            # Tool execution starts
             elif kind == "on_tool_start":
-                yield f"data: {json.dumps({'type': 'tool_start', 'name': name})}\n\n"
+                yield _sse({"type": "tool_start", "name": name})
 
-            # 3. Tool execution finishes
+            # Tool execution finishes
             elif kind == "on_tool_end":
-                yield f"data: {json.dumps({'type': 'tool_end', 'name': name})}\n\n"
+                yield _sse({"type": "tool_end", "name": name})
 
-        # Final done event
-        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+        yield _sse({"type": "done"})
 
     except Exception as e:
         agent_logger.error("STREAM", "SSE stream failed", e)
         traceback.print_exc()
-        yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        yield _sse({"type": "error", "message": str(e)})
