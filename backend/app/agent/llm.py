@@ -255,8 +255,13 @@ class BaseOrchestrator:
             
             for attempt in range(attempts):
                 if tools:
-                    sanitized = prepare_sanitized_tools(tools)
-                    llm = provider.llm.bind_tools(sanitized)
+                    # Try sanitized OpenAI-format dicts first (Gemini/Groq/Mistral)
+                    # Fall back to raw BaseTool instances (Cohere requires this)
+                    try:
+                        sanitized = prepare_sanitized_tools(tools)
+                        llm = provider.llm.bind_tools(sanitized)
+                    except (ValueError, TypeError):
+                        llm = provider.llm.bind_tools(tools)
                 else:
                     llm = provider.llm
 

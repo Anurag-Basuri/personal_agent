@@ -190,45 +190,28 @@ def _build_slim_messages(messages: list) -> list:
 
 def sanitize_message_history(messages: list) -> list:
     """
-    Remove orphaned tool calls and tool results from message history.
+    Strip tool call metadata from message history for LLM safety.
 
-    Gemini requires every AIMessage with tool_calls to be immediately
-    followed by matching ToolMessages. Trimming or interrupted sessions
-    can leave orphaned entries that cause HTTP 400 errors.
+    Gemini strictly requires AIMessage(tool_calls) to be immediately
+    followed by matching ToolMessages. Old history from trimming,
+    interrupted sessions, or cross-session replay can violate this.
+
+    The simplest bulletproof fix: strip all tool_call metadata from
+    history. The LLM only needs the conversation text, not old
+    tool call IDs from previous turns.
     """
-    # Collect all tool_call IDs that have matching ToolMessage responses
-    responded_tool_ids = set()
-    for msg in messages:
-        if msg.type == "tool":
-            tool_call_id = getattr(msg, "tool_call_id", None)
-            if tool_call_id:
-                responded_tool_ids.add(tool_call_id)
-
     sanitized = []
     for msg in messages:
-        # Strip AIMessages with tool_calls that have no matching responses
-        if msg.type == "ai" and getattr(msg, "tool_calls", []):
-            valid_calls = [
-                tc for tc in msg.tool_calls
-                if tc.get("id") in responded_tool_ids
-            ]
-            if not valid_calls:
-                # Replace with content-only AI message if it had text
-                if msg.content and str(msg.content).strip():
-                    sanitized.append(AIMessage(content=str(msg.content)))
-                continue
-
-        # Strip orphaned ToolMessages with no matching AI tool_call
+        # Remove ToolMessages entirely (old tool responses)
         if msg.type == "tool":
-            tool_call_id = getattr(msg, "tool_call_id", None)
-            has_parent = False
-            for prev in sanitized:
-                if prev.type == "ai" and getattr(prev, "tool_calls", []):
-                    if any(tc.get("id") == tool_call_id for tc in prev.tool_calls):
-                        has_parent = True
-                        break
-            if not has_parent:
-                continue
+            continue
+
+        # Strip tool_calls from AIMessages, keep only the text content
+        if msg.type == "ai" and getattr(msg, "tool_calls", []):
+            content = str(msg.content).strip() if msg.content else ""
+            if content:
+                sanitized.append(AIMessage(content=content))
+            continue
 
         sanitized.append(msg)
 
