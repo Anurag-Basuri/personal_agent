@@ -19,11 +19,9 @@ from app.core.logger import agent_logger
 
 # LangGraph node names mapped to human-readable phase labels
 _NODE_PHASE_MAP = {
-    "route_intent": "routing",
-    "call_model": "thinking",
-    "_call_model": "thinking",
-    "call_tools": "executing",
-    "_call_tools": "executing",
+    "router": "routing",
+    "agent": "thinking",
+    "tools": "executing",
 }
 
 

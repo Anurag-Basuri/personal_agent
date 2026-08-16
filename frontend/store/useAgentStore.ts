@@ -142,13 +142,21 @@ export const useAgentStore = create<AgentState>(set => ({
 	},
 
 	// Streaming Actions
-	startStream: (messageId) => set({
+	startStream: (messageId) => set(state => ({
 		streamingMessageId: messageId,
 		isStreaming: true,
 		streamPhase: 'routing',
 		streamStartTime: Date.now(),
 		isTyping: false,
-	}),
+		messages: state.messages.map(m =>
+			m.id === messageId
+				? {
+						...m,
+						activityLog: [{ type: 'status', label: 'Initializing neural link', timestamp: Date.now() }],
+				  }
+				: m
+		),
+	})),
 
 	setStreamPhase: (phase) => set({ streamPhase: phase }),
 

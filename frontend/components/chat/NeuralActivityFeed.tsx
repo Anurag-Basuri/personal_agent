@@ -148,8 +148,11 @@ export function NeuralActivityFeed({ activityLog, isStreaming }: NeuralActivityF
                   {displayEntries.map((entry, idx) => {
                     const isToolEntry = entry.type === 'tool_start';
                     const isCompleted = isToolEntry && completedToolNames.has(entry.label);
-                    const isActive = isToolEntry && !isCompleted && isStreaming;
                     const isPhase = entry.type === 'status';
+                    // A phase is active if it's the last entry in the list while streaming
+                    const isPhaseActive = isPhase && idx === displayEntries.length - 1 && isStreaming;
+                    const isToolActive = isToolEntry && !isCompleted && isStreaming;
+                    const isActive = isToolActive || isPhaseActive;
 
                     return (
                       <motion.div
