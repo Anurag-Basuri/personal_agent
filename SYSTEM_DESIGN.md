@@ -1211,4 +1211,4 @@ When complete, this is what the agent does:
 ---
 
 > [!NOTE]
-> This document describes the system as it exists in code today plus the architectural vision from [ROADMAP.md](file:///d:/projects/personal_agent/ROADMAP.md). Every "implemented" claim has a direct file reference you can click to verify.
+> This document describes the system as it exists in code today. Every "implemented" claim has a direct file reference you can click to verify.
