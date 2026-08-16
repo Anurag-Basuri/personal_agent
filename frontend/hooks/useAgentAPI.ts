@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useAgentStore, ChatMessage } from '../store/useAgentStore';
+import { useSSEStream } from './useSSEStream';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
@@ -11,8 +12,18 @@ function stripNavigateTags(text: string): string {
 }
 
 export function useAgentAPI() {
-  const { addMessage, setMessages, setTyping, setHistoryLoading, resetChat, isAdmin, adminToken } = useAgentStore();
+  const {
+    addMessage,
+    setMessages,
+    setTyping,
+    setHistoryLoading,
+    resetChat,
+    isAdmin,
+    adminToken,
+    startStream,
+  } = useAgentStore();
   const { data: session, update: updateSession } = useSession();
+  const { streamMessage } = useSSEStream();
 
   const getAuthHeaders = useCallback((): HeadersInit => {
     const headers: HeadersInit = {
@@ -62,85 +73,47 @@ export function useAgentAPI() {
         timestamp: new Date().toISOString(),
       };
       addMessage(userMsg);
-      setTyping('Processing...');
 
-      try {
-        if (!hasValidToken()) {
-          throw new Error('Session expired. Please log in again.');
-        }
-
-        const endpoint = isAdmin ? `${API_BASE}/api/admin/chat/` : `${API_BASE}/api/agent/chat/`;
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-        try {
-          let res = await fetch(endpoint, {
-            method: 'POST',
-            headers: getAuthHeaders(),
-            body: JSON.stringify({
-              message: content,
-              currentUrl: window.location.href,
-            }),
-            signal: controller.signal,
-          });
-
-          if (res.status === 401) {
-            const retried = await handleAuthError(res);
-            if (retried) {
-              res = await fetch(endpoint, {
-                method: 'POST',
-                headers: getAuthHeaders(),
-                body: JSON.stringify({
-                  message: content,
-                  currentUrl: window.location.href,
-                }),
-                signal: controller.signal,
-              });
-            } else {
-              throw new Error('Session expired. Please log in again.');
-            }
-          }
-
-        const text = await res.text();
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch (e) {
-          throw new Error(`Server returned invalid response (Status ${res.status}): ${text.slice(0, 50)}...`);
-        }
-
-        if (!res.ok || !data.success) {
-          throw new Error(data.message || 'API Error');
-        }
-
-        const replyText = data.data.reply || '';
-
-        const agentMsg: ChatMessage = {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: stripNavigateTags(replyText),
-          timestamp: new Date().toISOString(),
-        };
-        addMessage(agentMsg);
-        } finally {
-          clearTimeout(timeoutId);
-        }
-      } catch (error: any) {
-        const message = error.name === 'AbortError'
-          ? 'Request timed out. The server took too long to respond. Please try again.'
-          : (error.message || 'Failed to connect to agent backend.');
-        const errorMsg: ChatMessage = {
+      if (!hasValidToken()) {
+        addMessage({
           id: crypto.randomUUID(),
           role: 'system',
-          content: `Error: ${message}`,
+          content: 'Error: Session expired. Please log in again.',
           timestamp: new Date().toISOString(),
-        };
-        addMessage(errorMsg);
-      } finally {
-        setTyping(false);
+        });
+        return;
       }
+
+      // Create a placeholder assistant message for streaming
+      const assistantId = crypto.randomUUID();
+      const assistantMsg: ChatMessage = {
+        id: assistantId,
+        role: 'assistant',
+        content: '',
+        activityLog: [],
+        timestamp: new Date().toISOString(),
+      };
+      addMessage(assistantMsg);
+
+      // Activate streaming state in the store
+      startStream(assistantId);
+
+      // Use the stream endpoint
+      const endpoint = isAdmin
+        ? `${API_BASE}/api/admin/chat/stream`
+        : `${API_BASE}/api/agent/chat/stream`;
+
+      await streamMessage(
+        endpoint,
+        getAuthHeaders(),
+        {
+          message: content,
+          currentUrl: window.location.href,
+        },
+        assistantId,
+      );
     },
-    [addMessage, setTyping, getAuthHeaders, isAdmin, hasValidToken, handleAuthError],
+    [addMessage, startStream, streamMessage, getAuthHeaders, isAdmin, hasValidToken],
   );
 
   const getHistory = useCallback(async () => {
@@ -168,9 +141,7 @@ export function useAgentAPI() {
       if (res.ok && data.success && data.data.messages) {
         const mapped: ChatMessage[] = data.data.messages
           .filter((msg: any) => {
-            // Hide internal tool result messages (not user-facing)
             if (msg.role === 'tool') return false;
-            // Hide AI messages with no content (tool-calling intermediates)
             if (msg.role === 'ai' && (!msg.content || msg.content.trim() === '')) return false;
             return true;
           })
