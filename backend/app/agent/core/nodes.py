@@ -19,7 +19,7 @@ from typing import Callable
 from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
 
 from app.agent.core.state import AgentState
-from app.agent.llm import orchestrator
+from app.agent.llm import thinker, reasoner
 from app.agent.tools import get_all_tools
 from app.core.logger import agent_logger
 from app.core.retry import retry_with_backoff
@@ -88,7 +88,7 @@ async def route_intent(state: AgentState) -> dict:
                         description=f"List of MCP servers needed. Options: {', '.join(available_servers)}"
                     )
                 
-                providers = orchestrator.get_providers()
+                providers = thinker.get_providers()
                 if providers:
                     prompt = (
                        "You are a routing agent. Determine which of the available MCP servers "
@@ -171,12 +171,13 @@ def make_call_model(tools_getter=get_all_tools):
                 continue
             allowed_tools.append(t)
 
-        # For greetings and meta questions, skip tools entirely (faster + cheaper)
+        # Delegate to the appropriate brain
         if intent in ("greeting", "meta_question"):
-            allowed_tools = []
-
-        # Delegate to the orchestrator
-        response = await orchestrator.invoke(messages, allowed_tools or None)
+            # Brain 1: Fast, no tools needed
+            response = await thinker.invoke(messages, None)
+        else:
+            # Brain 2: Deep reasoning with tools
+            response = await reasoner.invoke(messages, allowed_tools or None)
 
         if response is not None:
             return {"messages": [response]}
@@ -186,7 +187,7 @@ def make_call_model(tools_getter=get_all_tools):
             "LLM",
             "[STATIC] ALL LLM tiers exhausted -- returning static fallback",
             None,
-            {"tiers_configured": len(orchestrator.get_providers())},
+            {"tiers_configured": len(thinker.get_providers()) + len(reasoner.get_providers())},
         )
         return {"messages": [AIMessage(content=STATIC_FALLBACK_MESSAGE)]}
 

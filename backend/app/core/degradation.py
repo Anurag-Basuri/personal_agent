@@ -36,16 +36,13 @@ class SystemHealth:
 
     def __init__(self):
         self.subsystems: dict[str, bool] = {
-            # Gemini gemini-2.0-flash
-            "llm_tier_1": True,
-            # Cohere command-r-plus
-            "llm_tier_2": True,
-            # OpenRouter Llama 3.3 70B
-            "llm_tier_3": True,
-            # Groq Llama 3.1 8B
-            "llm_tier_4": True,
-            # HuggingFace Qwen 2.5 72B
-            "llm_tier_5": True,
+            "Thinker_Tier1_Groq": True,
+            "Thinker_Tier2_GeminiFlashLite": True,
+            "Thinker_Tier3_Mistral": True,
+            "Reasoner_Tier1_GeminiFlash": True,
+            "Reasoner_Tier2_Gemini3.5Flash": True,
+            "Reasoner_Tier3_Cohere": True,
+            "Reasoner_Tier4_Mistral": True,
             "rag": True,
             "mcp": True,
             "database": True,
@@ -53,7 +50,9 @@ class SystemHealth:
 
     def mark_down(self, subsystem: str) -> None:
         """Mark a subsystem as down and log the degradation."""
-        if subsystem in self.subsystems and self.subsystems[subsystem]:
+        if subsystem not in self.subsystems:
+            self.subsystems[subsystem] = True
+        if self.subsystems[subsystem]:
             self.subsystems[subsystem] = False
             agent_logger.warn(
                 "HEALTH",
@@ -62,7 +61,10 @@ class SystemHealth:
 
     def mark_up(self, subsystem: str) -> None:
         """Mark a subsystem as recovered."""
-        if subsystem in self.subsystems and not self.subsystems[subsystem]:
+        if subsystem not in self.subsystems:
+            self.subsystems[subsystem] = True
+            return
+        if not self.subsystems[subsystem]:
             self.subsystems[subsystem] = True
             agent_logger.info(
                 "HEALTH",

@@ -1,26 +1,19 @@
 """
-Centralized LLM Orchestrator.
+Centralized LLM Orchestrator (Dual-Brain Architecture).
 
-Owns the entire lifecycle of LLM provider management:
-  - Provider initialization (Gemini, Cohere, OpenRouter, Groq, HuggingFace)
-  - Per-tier circuit breakers with fast tripping
-  - Smart error classification (permanent vs rate_limited vs transient)
-  - Cascade invocation with hard per-tier timeouts
-  - Health status reporting
-
-The cascade order:
-  Tier 1: Groq           (llama-3.1-8b-instant)
-  Tier 2: OpenRouter     (openrouter/auto)
-  Tier 3: Cohere         (command-r-plus-08-2024)
-  Tier 4: Mistral        (mistral-large-latest)
-  Tier 5: HuggingFace    (Qwen/Qwen2.5-VL-72B-Instruct)
-  Tier 6: Static Python  (handled externally in nodes.py)
+Owns the entire lifecycle of LLM provider management.
+Features:
+  1. Round-robin API key rotation (Gemini)
+  2. Per-tier circuit breakers with fast tripping
+  3. Smart error classification
+  4. Dual-Brain setup:
+     ThinkerOrchestrator: Fast cheap models (Groq, Gemini Flash-Lite, Mistral) for routing and greetings.
+     ReasonerOrchestrator: Deep reasoning models (Gemini Flash, Cohere, Mistral) for tools.
 """
 
 from __future__ import annotations
 
 import copy
-
 import asyncio
 import time
 from dataclasses import dataclass, field
@@ -35,6 +28,31 @@ from app.core.degradation import system_health
 from app.core.logger import agent_logger
 from app.core.rate_limiter import check_llm_budget
 
+class RoundRobinKeyManager:
+    """Manages a pool of API keys for round-robin rotation upon 429 errors."""
+    
+    def __init__(self, key_string: str | None):
+        self._keys = [k.strip() for k in (key_string or "").split(",") if k.strip()]
+        self._current_index = 0
+
+    @property
+    def has_keys(self) -> bool:
+        return len(self._keys) > 0
+
+    def get_current_key(self) -> str:
+        if not self.has_keys:
+            return ""
+        return self._keys[self._current_index]
+
+    def rotate(self) -> str:
+        """Rotate to the next key and return it."""
+        if self.has_keys:
+            self._current_index = (self._current_index + 1) % len(self._keys)
+        return self.get_current_key()
+
+    @property
+    def total_keys(self) -> int:
+        return len(self._keys)
 
 @dataclass
 class LLMProvider:
@@ -46,7 +64,8 @@ class LLMProvider:
     llm: BaseChatModel
     timeout: float
     disabled: bool = False
-
+    key_manager: RoundRobinKeyManager | None = None
+    _init_fn: Any = field(default=None, repr=False)
 
 @dataclass
 class _TierBreaker:
@@ -61,7 +80,6 @@ class _TierBreaker:
 
     @property
     def state(self) -> str:
-        """Current state with automatic OPEN to HALF_OPEN transition."""
         if self._state == "OPEN":
             if (time.time() - self._last_failure_time) >= self.recovery_timeout:
                 self._state = "HALF_OPEN"
@@ -69,57 +87,39 @@ class _TierBreaker:
 
     @property
     def is_available(self) -> bool:
-        """Whether this tier can accept a call."""
         return self.state != "OPEN"
 
     def record_success(self) -> None:
-        """Reset on success."""
         self._state = "CLOSED"
         self._failure_count = 0
 
     def record_failure(self) -> None:
-        """Record failure and trip OPEN if threshold reached."""
         self._failure_count += 1
         self._last_failure_time = time.time()
         if self._failure_count >= self.failure_threshold:
             self._state = "OPEN"
 
     def trip_open(self) -> None:
-        """Force-trip the breaker (for permanent errors)."""
         self._state = "OPEN"
         self._failure_count = self.failure_threshold
         self._last_failure_time = time.time()
 
-
-# Placeholder API key values to skip during init
 _PLACEHOLDER_VALUES = {
-    "", "your_huggingface_api_key", "your_gemini_api_key_here",
-    "your_huggingface_deployment_token", "your-api-key-here",
-    "sk-xxx", "your_key_here", "your_github_pat_here",
-    "your_groq_api_key_here", "your_cohere_api_key_here",
-    "your_openrouter_api_key_here",
+    "", "your_gemini_api_key_here",
+    "your-api-key-here", "sk-xxx", "your_key_here",
+    "your_github_pat_here", "your_groq_api_key_here",
+    "your_cohere_api_key_here", "your_mistral_api_key_here",
 }
 
-
 def _is_valid_key(key: str | None) -> bool:
-    """Check if an API key is set and not a placeholder."""
     if not key:
         return False
-    return key.strip().lower() not in _PLACEHOLDER_VALUES
-
+    # If comma separated, check the first one
+    first_key = key.split(",")[0].strip()
+    return first_key.lower() not in _PLACEHOLDER_VALUES
 
 def _classify_error(error: Exception) -> str:
-    """
-    Classify an LLM error to decide retry strategy.
-
-    Returns:
-        "permanent"    : Model removed, invalid key, 404, tool schema. Never retry.
-        "rate_limited"  : 429 / quota exhausted. Skip tier instantly.
-        "transient"     : Timeout, 503, network. Worth one retry.
-    """
     error_str = str(error).lower()
-
-    # Permanent errors: never retry, disable the tier
     permanent_signals = [
         "404", "not found", "removed", "deprecated",
         "unauthorized", "invalid api key", "forbidden",
@@ -128,8 +128,6 @@ def _classify_error(error: Exception) -> str:
     if any(sig in error_str for sig in permanent_signals):
         return "permanent"
 
-    # Tool schema incompatibility: provider can't parse tool call history
-    # These will never succeed on retry, so treat as permanent for this request
     tool_schema_signals = [
         "tool call id", "tool_call_id",
         "not found in previous tool calls",
@@ -141,7 +139,6 @@ def _classify_error(error: Exception) -> str:
     if any(sig in error_str for sig in tool_schema_signals):
         return "permanent"
 
-    # Rate limit: skip immediately, don't waste time retrying
     rate_limit_signals = [
         "429", "rate limit", "resource_exhausted",
         "quota", "too many requests", "rate_limit",
@@ -151,20 +148,10 @@ def _classify_error(error: Exception) -> str:
 
     return "transient"
 
-
 def sanitize_json_schema(schema: dict) -> dict:
-    """Recursively clean up JSON schema to ensure compatibility with strict LLM APIs (like Cohere).
-
-    - Converts `type: ["string", "null"]` to `type: "string"`
-    - Flattens `anyOf: [{"type": "X"}, {"type": "null"}]` to `type: "X"`
-    - Ensures all property objects have a valid string `type`
-    """
     if not isinstance(schema, dict):
         return schema
-
     cleaned = dict(schema)
-
-    # 1. Fix anyOf / oneOf with null (e.g. Optional types in Pydantic v2)
     for key in ("anyOf", "oneOf"):
         if key in cleaned and isinstance(cleaned[key], list):
             non_null_schemas = [
@@ -172,36 +159,29 @@ def sanitize_json_schema(schema: dict) -> dict:
                 if isinstance(s, dict) and s.get("type") != "null"
             ]
             if len(non_null_schemas) == 1:
-                # Merge the single non-null schema into cleaned
                 sub_schema = sanitize_json_schema(non_null_schemas[0])
                 cleaned.pop(key)
                 cleaned.update(sub_schema)
             elif len(non_null_schemas) > 1:
                 cleaned[key] = [sanitize_json_schema(s) for s in non_null_schemas]
 
-    # 2. Fix type list e.g. type: ["string", "null"]
     if "type" in cleaned:
         if isinstance(cleaned["type"], list):
             types = [t for t in cleaned["type"] if t != "null"]
             cleaned["type"] = types[0] if types else "string"
 
-    # 3. Recursively sanitize properties
     if "properties" in cleaned and isinstance(cleaned["properties"], dict):
         cleaned["properties"] = {
             k: sanitize_json_schema(v) for k, v in cleaned["properties"].items()
         }
 
-    # 4. Recursively sanitize items (for arrays)
     if "items" in cleaned and isinstance(cleaned["items"], dict):
         cleaned["items"] = sanitize_json_schema(cleaned["items"])
 
     return cleaned
 
-
 def prepare_sanitized_tools(tools: list) -> list[dict]:
-    """Convert tools into OpenAI/Cohere compliant dicts with sanitized JSON schemas."""
     from langchain_core.utils.function_calling import convert_to_openai_tool
-
     sanitized_tools = []
     for tool in tools:
         if isinstance(tool, dict):
@@ -213,192 +193,94 @@ def prepare_sanitized_tools(tools: list) -> list[dict]:
             formatted["function"]["parameters"] = sanitize_json_schema(
                 formatted["function"]["parameters"]
             )
-
         sanitized_tools.append(formatted)
     return sanitized_tools
 
-
-class LLMOrchestrator:
-    """
-    Central brain for the LLM cascade.
-
-    Manages provider init, per-tier breakers, error classification,
-    and the full fallback loop with hard timeouts.
-    """
-
-    def __init__(self) -> None:
+class BaseOrchestrator:
+    """Base class for managing an LLM cascade."""
+    
+    def __init__(self, name: str) -> None:
+        self.name = name
         self._providers: list[LLMProvider] = []
         self._breakers: dict[int, _TierBreaker] = {}
         self._initialized: bool = False
 
+    def get_providers(self) -> list[LLMProvider]:
+        self._init_providers()
+        return self._providers
+
+    def get_provider_info(self) -> list[dict[str, Any]]:
+        self._init_providers()
+        info = []
+        for p in self._providers:
+            brk = self._breakers.get(p.tier)
+            info.append({
+                "tier": p.tier,
+                "provider": p.provider_name,
+                "model": p.model_name,
+                "disabled": p.disabled,
+                "breaker_state": brk.state if brk else "N/A",
+            })
+        return info
+
     def _init_providers(self) -> None:
-        """Initialize all available LLM providers in tier order."""
-        if self._initialized:
-            return
-        self._initialized = True
-
-        settings = get_settings()
-
-        tier_configs = [
-            (1, "GROQ_API_KEY", "Groq", self._init_groq),
-            (2, "OPENROUTER_API_KEY", "OpenRouter", self._init_openrouter),
-            (3, "COHERE_API_KEY", "Cohere", self._init_cohere),
-            (4, "MISTRAL_API_KEY", "Mistral", self._init_mistral),
-            (5, "HF_TOKEN", "HuggingFace", self._init_huggingface),
-        ]
-
-        for tier, key_attr, name, init_fn in tier_configs:
-            key_value = getattr(settings, key_attr, "")
-            if _is_valid_key(key_value):
-                try:
-                    provider = init_fn(tier, key_value)
-                    self._providers.append(provider)
-                    self._breakers[tier] = _TierBreaker(
-                        name=f"LLM_Tier{tier}_{name}",
-                        failure_threshold=2,
-                        recovery_timeout=30 if tier <= 3 else 60,
-                    )
-                    agent_logger.info("LLM", f"[OK] Tier {tier} ({name}/{provider.model_name}) initialized")
-                except Exception as e:
-                    agent_logger.error("LLM", f"Failed to init Tier {tier} ({name})", e)
-            else:
-                agent_logger.warn("LLM", f"[SKIP] {key_attr} not set -- Tier {tier} ({name}) skipped")
-
-        if not self._providers:
-            agent_logger.error(
-                "SYSTEM", "FATAL: No AI providers configured", None,
-                {"hint": "Set GEMINI_API_KEY, COHERE_API_KEY, OPENROUTER_API_KEY, GROQ_API_KEY, or HF_TOKEN in .env"},
-            )
-
-    @staticmethod
-    def _init_mistral(tier: int, api_key: str) -> LLMProvider:
-        """Initialize Mistral AI provider."""
-        # Force uvicorn reload
-        from langchain_mistralai import ChatMistralAI
-        llm = ChatMistralAI(
-            model="mistral-large-latest",
-            api_key=api_key,
-            temperature=0.3,
-            max_tokens=1000,
-        )
-        return LLMProvider(tier, "Mistral", "mistral-large-latest", llm, timeout=20.0)
-
-    @staticmethod
-    def _init_cohere(tier: int, api_key: str) -> LLMProvider:
-        """Initialize Cohere provider."""
-        from langchain_cohere import ChatCohere
-        llm = ChatCohere(
-            model="command-r-plus-08-2024",
-            cohere_api_key=api_key,
-            temperature=0.3,
-            max_tokens=1000,
-        )
-        return LLMProvider(tier, "Cohere", "command-r-plus-08-2024", llm, timeout=20.0)
-
-    @staticmethod
-    def _init_openrouter(tier: int, api_key: str) -> LLMProvider:
-        """Initialize OpenRouter provider (OpenAI-compatible)."""
-        from langchain_openai import ChatOpenAI
-        llm = ChatOpenAI(
-            model="openrouter/auto",
-            api_key=api_key,
-            base_url="https://openrouter.ai/api/v1",
-            temperature=0.3,
-            timeout=30,
-            max_tokens=1000,
-        )
-        return LLMProvider(tier, "OpenRouter", "auto", llm, timeout=20.0)
-
-    @staticmethod
-    def _init_groq(tier: int, api_key: str) -> LLMProvider:
-        """Initialize Groq provider."""
-        from langchain_groq import ChatGroq
-        llm = ChatGroq(
-            model="llama-3.1-8b-instant",
-            api_key=api_key,
-            temperature=0.3,
-            max_tokens=1000,
-        )
-        return LLMProvider(tier, "Groq", "llama-3.1-8b-instant", llm, timeout=5.0)
-
-    @staticmethod
-    def _init_huggingface(tier: int, api_key: str) -> LLMProvider:
-        """Initialize HuggingFace provider (OpenAI-compatible)."""
-        from langchain_openai import ChatOpenAI
-        llm = ChatOpenAI(
-            model="Qwen/Qwen2.5-VL-72B-Instruct",
-            api_key=api_key,
-            base_url="https://router.huggingface.co/v1",
-            temperature=0.3,
-            timeout=10,
-            max_tokens=1000,
-        )
-        return LLMProvider(tier, "HuggingFace", "Qwen2.5-VL-72B-Instruct", llm, timeout=10.0)
+        """To be implemented by subclasses."""
+        pass
 
     async def invoke(
         self,
         messages: list[BaseMessage],
         tools: list[BaseTool] | None = None,
     ) -> BaseMessage | None:
-        """
-        Run the full LLM cascade with smart error handling.
-
-        For each tier:
-          1. Skip if provider is permanently disabled
-          2. Skip if circuit breaker is OPEN
-          3. Skip if LLM budget is exhausted
-          4. Skip if tool history is present and provider is schema-incompatible
-          5. Attempt invocation with a hard per-attempt timeout
-          6. On permanent error -> disable tier, skip instantly
-          7. On rate limit -> skip to next tier instantly (no retry)
-          8. On transient error -> retry once, then skip
-
-        Returns None if all tiers exhausted (caller handles static fallback).
-        """
         self._init_providers()
-        # Tool history compatibility is now handled dynamically by the orchestrator
-        # and circuit breaker, so we no longer manually skip tiers here.
 
         for provider in self._providers:
             tier = provider.tier
             breaker = self._breakers.get(tier)
-            tier_label = f"llm_tier_{tier}"
+            tier_label = f"{self.name}_tier_{tier}"
 
-            # Skip permanently disabled providers
             if provider.disabled:
                 continue
 
-            # Skip if circuit breaker is OPEN
             if breaker and not breaker.is_available:
-                agent_logger.debug(
-                    "LLM",
-                    f"[SKIP] Tier {tier} ({provider.provider_name}) circuit OPEN",
-                )
+                agent_logger.debug("LLM", f"[SKIP] {self.name} Tier {tier} ({provider.provider_name}) circuit OPEN")
                 continue
 
-            # Skip if budget exhausted
             if not check_llm_budget(tier_label):
-                agent_logger.warn(
-                    "LLM",
-                    f"[SKIP] Tier {tier} ({provider.provider_name}) budget exhausted",
-                )
+                agent_logger.warn("LLM", f"[SKIP] {self.name} Tier {tier} ({provider.provider_name}) budget exhausted")
                 continue
 
-            # Bind tools if needed
-            if tools:
-                sanitized = prepare_sanitized_tools(tools)
-                llm = provider.llm.bind_tools(sanitized)
-            else:
-                llm = provider.llm
+            # Attempt logic handling Key Rotation
+            attempts = provider.key_manager.total_keys if provider.key_manager else 1
+            
+            for attempt in range(attempts):
+                if tools:
+                    sanitized = prepare_sanitized_tools(tools)
+                    llm = provider.llm.bind_tools(sanitized)
+                else:
+                    llm = provider.llm
 
-            # Attempt invocation (with optional transient retry)
-            result = await self._attempt_tier(
-                provider, llm, messages, breaker, tier_label,
-            )
-            if result is not None:
-                return result
+                result = await self._attempt_tier(provider, llm, messages, breaker, tier_label)
+                
+                # If we hit a rate limit AND have keys remaining, rotate and try again
+                if isinstance(result, Exception) and _classify_error(result) == "rate_limited":
+                    if provider.key_manager and provider.key_manager.total_keys > 1 and attempt < attempts - 1:
+                        new_key = provider.key_manager.rotate()
+                        agent_logger.warn("LLM", f"Rate limited. Rotating API key for {provider.provider_name}.")
+                        # Re-initialize the LLM instance with the new key
+                        provider.llm = provider._init_fn(new_key)
+                        continue # Try again with new key
+                    else:
+                        break # No more keys, move to next tier
+                
+                # If it's a permanent or transient error that failed after retry, move to next tier
+                if isinstance(result, Exception):
+                    break
+                    
+                # Success
+                if result is not None:
+                    return result
 
-        # All tiers exhausted
         return None
 
     async def _attempt_tier(
@@ -408,14 +290,10 @@ class LLMOrchestrator:
         messages: list[BaseMessage],
         breaker: _TierBreaker | None,
         tier_label: str,
-    ) -> BaseMessage | None:
-        """
-        Attempt a single tier with smart error handling and no internal retries.
-
-        Returns the LLM response on success, None on failure (caller continues cascade).
-        """
+    ) -> BaseMessage | Exception | None:
+        
         tier = provider.tier
-        start = agent_logger.llm_start(provider.provider_name, provider.model_name)
+        start = agent_logger.llm_start(f"{self.name}_{provider.provider_name}", provider.model_name)
         
         try:
             response = await asyncio.wait_for(
@@ -423,128 +301,171 @@ class LLMOrchestrator:
                 timeout=provider.timeout,
             )
 
-            # Success
             tool_calls = getattr(response, "tool_calls", [])
             agent_logger.llm_success(start, len(tool_calls) > 0, len(tool_calls))
-            agent_logger.info(
-                "LLM",
-                f"[OK] Tier {tier}: {provider.provider_name}/{provider.model_name}",
-            )
+            agent_logger.info("LLM", f"[OK] {self.name} Tier {tier}: {provider.provider_name}/{provider.model_name}")
 
             if breaker:
                 breaker.record_success()
             system_health.mark_up(tier_label)
             return response
 
-        except asyncio.TimeoutError:
-            agent_logger.llm_error(start, TimeoutError(f"Tier {tier} timed out after {provider.timeout}s"))
+        except asyncio.TimeoutError as e:
+            agent_logger.llm_error(start, TimeoutError(f"{self.name} Tier {tier} timed out after {provider.timeout}s"))
             error_class = "transient"
+            returned_error = e
 
         except Exception as e:
             agent_logger.llm_error(start, e)
             error_class = _classify_error(e)
+            returned_error = e
 
-            # PERMANENT: Disable the tier entirely until restart
             if error_class == "permanent":
-                agent_logger.warn(
-                    "LLM",
-                    f"[DEAD] Tier {tier} ({provider.provider_name}) permanently failed -- disabling",
-                    {"error": str(e)[:120]},
-                )
+                agent_logger.warn("LLM", f"[PERMANENT ERROR] Disabling {self.name} Tier {tier} ({provider.provider_name})")
                 provider.disabled = True
                 if breaker:
                     breaker.trip_open()
-                system_health.mark_down(tier_label)
-                return None
 
-            # RATE LIMITED: Skip immediately
-            if error_class == "rate_limited":
-                agent_logger.warn(
-                    "LLM",
-                    f"[RATE] Tier {tier} ({provider.provider_name}) rate limited -- skipping",
-                    {"error": str(e)[:80]},
-                )
-                if breaker:
-                    breaker.record_failure()
-                system_health.mark_down(tier_label)
-                return None
-
-        # TRANSIENT: Skip immediately (Fast Failure)
-        agent_logger.warn(
-            "LLM",
-            f"[FAIL] Tier {tier} ({provider.provider_name}) failed -- fast fallback",
-        )
-        if breaker:
+        if breaker and error_class != "permanent":
             breaker.record_failure()
         system_health.mark_down(tier_label)
+        
+        return returned_error
 
-        return None
+class ThinkerOrchestrator(BaseOrchestrator):
+    """Brain 1: Fast routing, intent classification, greetings."""
 
-    def get_providers(self) -> list[LLMProvider]:
-        """Return the initialized provider list."""
-        self._init_providers()
-        return list(self._providers)
+    def __init__(self) -> None:
+        super().__init__("Thinker")
 
-    def get_bound_providers(self, tools: list[BaseTool]) -> list[LLMProvider]:
-        """Return providers with tools pre-bound (for backward compat)."""
-        self._init_providers()
-        if not self._providers:
-            raise RuntimeError(
-                "No AI providers configured. Set GEMINI_API_KEY, COHERE_API_KEY, "
-                "OPENROUTER_API_KEY, GROQ_API_KEY, or HF_TOKEN in .env."
-            )
-        bound: list[LLMProvider] = []
-        for p in self._providers:
-            if p.disabled:
-                continue
-            bound_llm = p.llm.bind_tools(tools) if tools else p.llm
-            bound.append(LLMProvider(
-                tier=p.tier,
-                provider_name=p.provider_name,
-                model_name=p.model_name,
-                llm=bound_llm,
-            ))
-        return bound
+    def _init_providers(self) -> None:
+        if self._initialized:
+            return
+        self._initialized = True
+        settings = get_settings()
 
-    def get_provider_info(self) -> list[dict[str, Any]]:
-        """Return a serializable summary for health endpoints."""
-        self._init_providers()
-        return [
-            {
-                "tier": p.tier,
-                "provider": p.provider_name,
-                "model": p.model_name,
-                "disabled": p.disabled,
-                "breaker_state": self._breakers[p.tier].state if p.tier in self._breakers else "N/A",
-            }
-            for p in self._providers
+        tier_configs = [
+            (1, "GROQ_API_KEY", "Groq", self._init_groq, 5.0),
+            (2, "GEMINI_API_KEY", "GeminiFlashLite", self._init_gemini_flash_lite, 5.0),
+            (3, "MISTRAL_API_KEY", "Mistral", self._init_mistral, 10.0),
         ]
 
-    def init_eagerly(self) -> None:
-        """Call during startup to populate logs with the LLM cascade status."""
-        self._init_providers()
+        self._setup_tiers(settings, tier_configs)
 
+    def _setup_tiers(self, settings, tier_configs):
+        for tier, key_attr, name, init_fn, timeout in tier_configs:
+            key_value = getattr(settings, key_attr, "")
+            if _is_valid_key(key_value):
+                try:
+                    km = RoundRobinKeyManager(key_value)
+                    
+                    def make_init(km, init_fn):
+                        return lambda key: init_fn(key)
+                        
+                    llm = init_fn(km.get_current_key())
+                    provider = LLMProvider(
+                        tier=tier, 
+                        provider_name=name.split("Flash")[0] if "Gemini" in name else name, 
+                        model_name=llm.model_name if hasattr(llm, "model_name") else getattr(llm, "model", "unknown"), 
+                        llm=llm, 
+                        timeout=timeout,
+                        key_manager=km,
+                        _init_fn=make_init(km, init_fn)
+                    )
+                    self._providers.append(provider)
+                    self._breakers[tier] = _TierBreaker(f"{self.name}_Tier{tier}_{name}", failure_threshold=2, recovery_timeout=30)
+                    agent_logger.info("LLM", f"[OK] {self.name} Tier {tier} ({name}) initialized")
+                except Exception as e:
+                    agent_logger.error("LLM", f"Failed to init {self.name} Tier {tier} ({name})", e)
 
-# Module-level singleton
-orchestrator = LLMOrchestrator()
+    @staticmethod
+    def _init_groq(api_key: str):
+        from langchain_groq import ChatGroq
+        return ChatGroq(model="llama-3.1-8b-instant", api_key=api_key, temperature=0.3, max_tokens=1024)
 
+    @staticmethod
+    def _init_gemini_flash_lite(api_key: str):
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        return ChatGoogleGenerativeAI(model="gemini-3.1-flash-lite", google_api_key=api_key, temperature=0.3, max_output_tokens=1024)
 
-# Backward-compatible public API (used by nodes.py and other modules)
-def get_providers() -> list[LLMProvider]:
-    """Return the ordered list of available LLM providers."""
-    return orchestrator.get_providers()
+    @staticmethod
+    def _init_mistral(api_key: str):
+        from langchain_mistralai import ChatMistralAI
+        return ChatMistralAI(model="mistral-small-latest", api_key=api_key, temperature=0.3, max_tokens=1024)
 
+class ReasonerOrchestrator(BaseOrchestrator):
+    """Brain 2: Deep reasoning, complex tool calling, synthesis."""
 
-def get_bound_providers(tools: list[BaseTool]) -> list[LLMProvider]:
-    """Return providers with tools pre-bound to their LLMs."""
-    return orchestrator.get_bound_providers(tools)
+    def __init__(self) -> None:
+        super().__init__("Reasoner")
 
+    def _init_providers(self) -> None:
+        if self._initialized:
+            return
+        self._initialized = True
+        settings = get_settings()
 
-def get_provider_info() -> list[dict[str, Any]]:
-    """Return a serializable summary of configured providers for health endpoints."""
-    return orchestrator.get_provider_info()
+        tier_configs = [
+            (1, "GEMINI_API_KEY", "GeminiFlash", self._init_gemini_flash, 15.0),
+            (2, "GEMINI_API_KEY", "Gemini3.5Flash", self._init_gemini_3_5_flash, 15.0),
+            (3, "COHERE_API_KEY", "Cohere", self._init_cohere, 20.0),
+            (4, "MISTRAL_API_KEY", "Mistral", self._init_mistral, 20.0),
+        ]
 
+        self._setup_tiers(settings, tier_configs)
 
-def init_llms_eagerly() -> None:
-    """Call during startup to populate logs with the LLM cascade status."""
-    orchestrator.init_eagerly()
+    def _setup_tiers(self, settings, tier_configs):
+        for tier, key_attr, name, init_fn, timeout in tier_configs:
+            key_value = getattr(settings, key_attr, "")
+            if _is_valid_key(key_value):
+                try:
+                    km = RoundRobinKeyManager(key_value)
+                    
+                    def make_init(km, init_fn):
+                        return lambda key: init_fn(key)
+                        
+                    llm = init_fn(km.get_current_key())
+                    provider = LLMProvider(
+                        tier=tier, 
+                        provider_name="Gemini" if "Gemini" in name else name, 
+                        model_name=llm.model_name if hasattr(llm, "model_name") else getattr(llm, "model", "unknown"), 
+                        llm=llm, 
+                        timeout=timeout,
+                        key_manager=km,
+                        _init_fn=make_init(km, init_fn)
+                    )
+                    self._providers.append(provider)
+                    self._breakers[tier] = _TierBreaker(f"{self.name}_Tier{tier}_{name}", failure_threshold=2, recovery_timeout=60)
+                    agent_logger.info("LLM", f"[OK] {self.name} Tier {tier} ({name}) initialized")
+                except Exception as e:
+                    agent_logger.error("LLM", f"Failed to init {self.name} Tier {tier} ({name})", e)
+
+    @staticmethod
+    def _init_gemini_flash(api_key: str):
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        return ChatGoogleGenerativeAI(model="gemini-3.7-flash", google_api_key=api_key, temperature=0.3, max_output_tokens=4096)
+
+    @staticmethod
+    def _init_gemini_3_5_flash(api_key: str):
+        from langchain_google_genai import ChatGoogleGenerativeAI
+        return ChatGoogleGenerativeAI(model="gemini-3.5-flash", google_api_key=api_key, temperature=0.3, max_output_tokens=4096)
+
+    @staticmethod
+    def _init_cohere(api_key: str):
+        from langchain_cohere import ChatCohere
+        return ChatCohere(model="command-r-plus-08-2024", cohere_api_key=api_key, temperature=0.3, max_tokens=4096)
+
+    @staticmethod
+    def _init_mistral(api_key: str):
+        from langchain_mistralai import ChatMistralAI
+        return ChatMistralAI(model="mistral-large-latest", api_key=api_key, temperature=0.3, max_tokens=4096)
+
+# Singletons
+thinker = ThinkerOrchestrator()
+reasoner = ReasonerOrchestrator()
+
+# Deprecated export for backward compatibility during migration
+orchestrator = reasoner
+
+def get_providers():
+    return reasoner.get_providers()
