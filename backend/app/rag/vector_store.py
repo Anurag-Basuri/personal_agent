@@ -19,16 +19,20 @@ from functools import lru_cache
 
 @lru_cache(maxsize=1)
 def get_embeddings():
-    """HuggingFace embedding model for vector operations."""
-    from langchain_huggingface import HuggingFaceEmbeddings
-    return HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    """Google Generative AI embeddings for vector operations."""
+    from langchain_google_genai import GoogleGenerativeAIEmbeddings
+    # Using the standard fast text embedding model
+    return GoogleGenerativeAIEmbeddings(
+        model="models/text-embedding-004",
+        google_api_key=settings.GEMINI_API_KEY
+    )
 
 def init_embeddings_eagerly() -> None:
-    """Eagerly load the embeddings model to prevent cold start penalties."""
+    """Initialize the embeddings client early."""
     if RAG_AVAILABLE:
-        agent_logger.info("RAG", "Eagerly loading HuggingFace embeddings model...")
+        agent_logger.info("RAG", "Initializing Google GenAI embeddings client...")
         get_embeddings()
-        agent_logger.info("RAG", "[OK] Embeddings model loaded")
+        agent_logger.info("RAG", "[OK] Embeddings client ready")
 
 
 def get_neon_vector_store(collection_name: str = "portfolio_knowledge"):
