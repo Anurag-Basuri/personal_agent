@@ -111,10 +111,10 @@ graph TB
             IR -->|tool_use| FULL["Full Pipeline"]
         end
         
-        subgraph LLM_Layer["Dual-LLM Engine"]
+        subgraph LLM_Layer["Dual-Brain Engine"]
             CB["Circuit Breaker"]
-            P_LLM["Primary: HuggingFace<br/>Qwen2.5-72B"]
-            F_LLM["Fallback: Google<br/>Gemini 2.5 Flash"]
+            P_LLM["Primary (Reasoner):<br/>Gemini 3.7 Flash"]
+            F_LLM["Secondary (Thinker):<br/>Groq / Flash Lite"]
             CB --> P_LLM
             P_LLM -.->|failover| F_LLM
         end
@@ -139,6 +139,7 @@ graph TB
             T7["HackerNews"]
             T8["Web Search (DDG)"]
             T9["GitHub README Reader"]
+            T10["17 MCP Servers (Lazy Loaded)"]
         end
     end
     
@@ -448,7 +449,7 @@ class AgentState(TypedDict):
 
 ---
 
-## 6. The Agentic Toolbelt — 9 Autonomous Tools
+## 6. The Agentic Toolbelt & MCP Integration
 
 The agent autonomously decides which tools to call based on the user's question. The LLM sees the tool schemas and makes the decision — there's no hardcoded routing.
 
@@ -625,7 +626,7 @@ To build an "Industry Grade" system, we rejected easy defaults in favor of highl
 *   **The Problem**: Mixing raw SQL/SQLAlchemy queries directly inside routes or business logic makes the codebase tightly coupled, hard to test, and difficult to refactor if the database schema changes.
 *   **Our Solution**: Centralized repositories (`SessionRepository`, `MessageRepository`, `MemoryRepository`). All database access happens exclusively through these singletons. Routes and services only call repository methods.
 
-### 🛡️ Resilience Layer (6-Layer Fallback Cascade)
+### 🛡️ Resilience Layer (Dual-Brain Fallback Cascade)
 *   **Circuit Breakers**: We employ 5 independent circuit breakers around our API-based LLM calls. The system cascades through a 6-layer architecture:
     1.  **Tier 1**: GitHub Models (`gpt-4o`) — 3 fails → OPEN
     2.  **Tier 2**: GitHub Models (`meta-llama-3.3-70b-instruct`) — 3 fails → OPEN
@@ -1086,7 +1087,7 @@ graph LR
 | System | Status |
 |--------|--------|
 | LangGraph State Machine | ✅ Full DAG with intent routing + conditional edges |
-| 6-Layer LLM Cascade | ✅ GitHub Models (3 tiers) → Groq → HuggingFace → Static Fallback |
+| Dual-Brain Fallback Cascade | ✅ Thinker (Groq → Flash Lite → Mistral) & Reasoner (Gemini 3.7 → Cohere → Mistral) → Static Fallback |
 | 10 Built-in Agent Tools | ✅ GitHub, GitHub Repos, LeetCode, Portfolio, Contact, Weather, Wikipedia, Web Search, Notify |
 | 17 MCP Servers | ✅ Vercel, Netlify, Render, GitHub, Google, Zomato, Swiggy x3, QuickCommerce, HackerNews, DDG, Sequential Thinking, Puppeteer, Postgres, Linear, Todoist, Notion |
 | AES-256-GCM Encryption | ✅ Transparent via TypeDecorator |
@@ -1191,9 +1192,9 @@ When complete, this is what the agent does:
 |-------|-----------|---------------------------|
 | **Backend Framework** | FastAPI + Uvicorn | Async-native, auto OpenAPI docs, Python ecosystem for AI |
 | **Agent Framework** | LangGraph | DAG-based, not while-loop. Supports HITL, checkpointing, conditional routing |
-| **Primary LLM** | HuggingFace Qwen2.5-72B | Free tier, strong tool-calling, OpenAI-compatible endpoint |
+| **Primary LLM** | Gemini 3.7 Flash & Groq | Dual-brain setup for cost/speed optimization |
 | **Fallback LLM** | Google Gemini 2.5 Flash | Fast, cheap, reliable. Used for summarization too |
-| **Embeddings** | HuggingFace all-MiniLM-L6-v2 | Free, local-runnable, good quality for portfolio data |
+| **Embeddings** | HuggingFace all-MiniLM-L6-v2 | Free, local-runnable, PGVector integrated |
 | **Vector Store** | NeonDB + PGVector | Same DB as relational data → no orphaned vectors, single backup |
 | **ORM** | SQLAlchemy 2.0 (async) | Type-safe, async, custom TypeDecorators for encryption |
 | **Encryption** | cryptography (AES-256-GCM) | Military-grade, nonce-based, no key reuse |

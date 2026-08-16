@@ -66,7 +66,7 @@ This platform is completely decoupled to ensure standard MVC / Domain-Driven con
 | Technology | Role |
 |---|---|
 | **Python 3.11+** | Core runtime environment. |
-| **FastAPI** | High-performance asynchronous REST API framework. |
+| **FastAPI** | High-performance asynchronous REST API framework with native Server-Sent Events (SSE) streaming. |
 | **LangGraph** | DAG-based agent orchestration, state management, and multi-step reasoning. |
 | **Model Context Protocol (MCP)** | Standardized protocol allowing the agent to dynamically discover and consume tools from independent local or remote servers. |
 | **SQLAlchemy (Async)** | Object Relational Mapper for database interactions using the Repository Pattern. |
@@ -125,6 +125,7 @@ The AI uses a mix of 10 native Python tools and **17 dynamically loaded Model Co
 
 To build an "Industry Grade" system, we rejected easy defaults in favor of enterprise patterns:
 
+* **Real-time SSE Streaming**: The platform utilizes `astream_events(version="v2")` to stream LLM responses and LangGraph tool execution updates in real-time, providing immediate feedback in the chat UI.
 * **Strict Repository Pattern**: All raw SQL/SQLAlchemy queries are centralized in `SessionRepository`, `MessageRepository`, and `MemoryRepository`. Business logic never touches the database directly.
 * **Circuit Breakers**: We employ 5 independent circuit breakers around our API-based LLM calls. If GitHub Models experiences an outage, the breaker trips to `OPEN`, immediately routing traffic to Groq without waiting for timeouts. It recovers via a `HALF_OPEN` probe automatically.
 * **Graceful Degradation**: The `SystemHealth` singleton continuously tracks all subsystems (Database, RAG, MCP Servers, LLMs). If PGVector goes offline, the agent gracefully degrades to text-only mode and continues operating without crashing.
