@@ -136,9 +136,8 @@ async def lifespan(app: FastAPI):
 
     # LLM Cascade
     agent_logger.section("LLM Cascade")
-    from app.agent.llm import init_llms_eagerly, get_provider_info
-    init_llms_eagerly()
-    providers = get_provider_info()
+    from app.agent.llm import thinker, reasoner
+    providers = thinker.get_provider_info() + reasoner.get_provider_info()
     for p in providers:
         agent_logger.status_line(f"Tier {p['tier']}", f"{p['provider']}/{p['model']}")
     if not providers:
@@ -262,6 +261,7 @@ def create_app() -> FastAPI:
     app.add_middleware(
         CORSMiddleware,
         allow_origins=allowed_origins if allowed_origins else ["*"],
+        allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1|172\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+):\d+$" if settings.DEBUG else None,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],

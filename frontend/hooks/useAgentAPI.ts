@@ -5,7 +5,7 @@ import { useSession, signOut } from 'next-auth/react';
 import { useAgentStore, ChatMessage } from '../store/useAgentStore';
 import { useSSEStream } from './useSSEStream';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000';
 
 function stripNavigateTags(text: string): string {
   return (text || '').replace(/\[NAVIGATE:.*?\]/g, '').trim();
