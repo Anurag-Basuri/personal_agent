@@ -15,7 +15,15 @@ import {
 	Home,
 	ChevronDown,
 	Copy,
-	Github
+	Github,
+	Loader,
+	Brain,
+	Zap,
+	Activity,
+	CircleCheck,
+	CircleX,
+	ChevronRight,
+	Square,
 } from 'lucide-react';
 
 export const Icons = {
@@ -35,5 +43,13 @@ export const Icons = {
 	Home,
 	ChevronDown,
 	Copy,
-	Github
+	Github,
+	Loader,
+	Brain,
+	Zap,
+	Activity,
+	CircleCheck,
+	CircleX,
+	ChevronRight,
+	Square,
 };

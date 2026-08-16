@@ -10,7 +10,7 @@ export function Composer() {
   const [text, setText] = useState('');
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const { sendMessage } = useAgentAPI();
-  const { isTyping } = useAgentStore();
+  const { isStreaming } = useAgentStore();
 
   const adjustHeight = () => {
     if (textareaRef.current) {
@@ -25,7 +25,7 @@ export function Composer() {
   };
 
   const handleSubmit = () => {
-    if (!text.trim() || isTyping) return;
+    if (!text.trim() || isStreaming) return;
     sendMessage(text.trim());
     setText('');
     requestAnimationFrame(() => {
@@ -58,7 +58,7 @@ export function Composer() {
           />
 
           <AnimatePresence>
-            {text.trim() && !isTyping && (
+            {text.trim() && !isStreaming && (
               <>
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}

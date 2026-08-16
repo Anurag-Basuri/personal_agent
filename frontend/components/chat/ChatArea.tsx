@@ -5,11 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAgentStore } from '../../store/useAgentStore';
 import { MessageBubble } from './MessageBubble';
 import { SuggestionChips } from './SuggestionChips';
-import { Icons } from '../ui/Icons';
 import Image from 'next/image';
 
 export function ChatArea() {
-  const { messages, isTyping, isAdmin } = useAgentStore();
+  const { messages, isStreaming, streamingMessageId, isAdmin } = useAgentStore();
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isAutoScroll, setIsAutoScroll] = useState(true);
@@ -21,11 +20,23 @@ export function ChatArea() {
     setIsAutoScroll(isAtBottom);
   };
 
+  // Auto-scroll during streaming and new messages
   useEffect(() => {
     if (isAutoScroll) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages, isTyping, isAutoScroll]);
+  }, [messages, isStreaming, isAutoScroll]);
+
+  // Higher frequency auto-scroll during active streaming for smooth follow
+  useEffect(() => {
+    if (!isStreaming || !isAutoScroll) return;
+
+    const interval = setInterval(() => {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 300);
+
+    return () => clearInterval(interval);
+  }, [isStreaming, isAutoScroll]);
 
   if (messages.length === 0) {
     return (
@@ -70,34 +81,14 @@ export function ChatArea() {
               exit={{ opacity: 0, transition: { duration: 0.2 } }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
             >
-              <MessageBubble message={msg} />
+              <MessageBubble
+                message={msg}
+                isStreaming={isStreaming && msg.id === streamingMessageId}
+              />
             </motion.div>
           ))}
         </AnimatePresence>
 
-        {isTyping && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex gap-3 py-4"
-          >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground shadow-md shadow-primary/20">
-              <Icons.Agent className="h-4 w-4" />
-            </div>
-            <div className="flex items-center gap-3 px-5 py-3 bg-white dark:bg-white/4 border border-zinc-200 dark:border-white/6 rounded-2xl rounded-tl-sm shadow-sm">
-              {typeof isTyping === 'string' && (
-                <span className="text-xs font-semibold text-primary/80 tracking-wide font-mono">
-                  {isTyping}
-                </span>
-              )}
-              <div className="flex items-center gap-1.5 h-full">
-                <span className="typing-dot" />
-                <span className="typing-dot" />
-                <span className="typing-dot" />
-              </div>
-            </div>
-          </motion.div>
-        )}
         <div ref={bottomRef} className="h-24" />
       </div>
     </div>

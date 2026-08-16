@@ -7,14 +7,23 @@ import { cn } from '../../utils/cn';
 import { Icons } from '../ui/Icons';
 import { ToolCallBadge } from './ToolCallBadge';
 import { CodeBlock } from './CodeBlock';
+import { NeuralActivityFeed } from './NeuralActivityFeed';
+import { StreamCursor } from './StreamCursor';
 import { motion } from 'framer-motion';
 
-export function MessageBubble({ message }: { message: ChatMessage }) {
+interface MessageBubbleProps {
+  message: ChatMessage;
+  isStreaming?: boolean;
+}
+
+export function MessageBubble({ message, isStreaming = false }: MessageBubbleProps) {
   const isUser = message.role === 'user';
   const isSystem = message.role === 'system';
+  const hasContent = message.content && message.content.trim() !== '';
+  const hasActivityLog = message.activityLog && message.activityLog.length > 0;
 
-  // Skip rendering if message has no visible content
-  if (!message.content || message.content.trim() === '') return null;
+  // Skip rendering if no content AND no activity log (nothing to show)
+  if (!hasContent && !hasActivityLog && !isStreaming) return null;
 
   if (isSystem) {
     return (
@@ -54,6 +63,7 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
           isUser
             ? 'bg-zinc-100 dark:bg-muted border border-zinc-200 dark:border-border text-foreground'
             : 'bg-primary text-primary-foreground shadow-md shadow-primary/20',
+          isStreaming && !isUser && 'animate-pulse-glow',
         )}
       >
         {isUser ? <Icons.User className="h-4 w-4" /> : <Icons.Agent className="h-4 w-4" />}
@@ -81,55 +91,104 @@ export function MessageBubble({ message }: { message: ChatMessage }) {
         </div>
 
         <motion.div
-          whileHover={{ y: -1 }}
+          whileHover={isStreaming ? undefined : { y: -1 }}
           className={cn(
-            'relative px-5 py-4 rounded-2xl text-[15px] leading-relaxed',
+            'relative rounded-2xl text-[15px] leading-relaxed',
             isUser
-              ? 'bg-primary text-primary-foreground rounded-tr-sm shadow-md shadow-primary/15'
+              ? 'px-5 py-4 bg-primary text-primary-foreground rounded-tr-sm shadow-md shadow-primary/15'
               : 'bg-white dark:bg-white/4 border border-zinc-200 dark:border-white/6 rounded-tl-sm shadow-sm text-foreground',
+            // When streaming with no content yet, give a min width
+            isStreaming && !hasContent && !isUser && 'min-w-[280px] sm:min-w-[360px]',
           )}
+          style={!isUser ? { padding: hasContent || hasActivityLog ? undefined : '1rem 1.25rem' } : undefined}
         >
-          {/* Markdown Content */}
-          <div
-            className={cn(
-              'prose max-w-none wrap-break-word',
-              isUser
-                ? 'prose-invert prose-p:text-white/90'
-                : 'prose-zinc dark:prose-invert',
-            )}
-          >
-            <ReactMarkdown 
-              remarkPlugins={[remarkGfm]}
-              components={{
-                a: ({ node, ...props }) => (
-                  <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline" />
-                ),
-                code(props) {
-                  const {children, className, node, inline, ...rest} = props
-                  const match = /language-(\w+)/.exec(className || '')
-                  return match ? (
-                    <CodeBlock
-                      language={match[1]}
-                      value={String(children).replace(/\n$/, '')}
-                    />
-                  ) : (
-                    <code {...rest} className={className}>
-                      {children}
-                    </code>
-                  )
-                }
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
-          </div>
+          {/* Assistant bubble inner padding */}
+          {!isUser && (
+            <div className={cn(hasContent || hasActivityLog ? 'px-5 py-4' : '')}>
+              {/* Neural Activity Feed */}
+              {hasActivityLog && (
+                <NeuralActivityFeed
+                  activityLog={message.activityLog!}
+                  isStreaming={isStreaming}
+                />
+              )}
 
-          {/* Tool Executions */}
-          {message.toolCalls && message.toolCalls.length > 0 && (
-            <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-zinc-200/50 dark:border-white/10">
-              {message.toolCalls.map((tc) => (
-                <ToolCallBadge key={tc.id} tool={tc} />
-              ))}
+              {/* Markdown Content */}
+              {hasContent && (
+                <div className="prose prose-zinc dark:prose-invert max-w-none wrap-break-word">
+                  <ReactMarkdown 
+                    remarkPlugins={[remarkGfm]}
+                    components={{
+                      a: ({ node, ...props }) => (
+                        <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline" />
+                      ),
+                      code(props) {
+                        const {children, className, node, inline, ...rest} = props
+                        const match = /language-(\w+)/.exec(className || '')
+                        return match ? (
+                          <CodeBlock
+                            language={match[1]}
+                            value={String(children).replace(/\n$/, '')}
+                          />
+                        ) : (
+                          <code {...rest} className={className}>
+                            {children}
+                          </code>
+                        )
+                      }
+                    }}
+                  >
+                    {message.content}
+                  </ReactMarkdown>
+                  {isStreaming && <StreamCursor />}
+                </div>
+              )}
+
+              {/* Show cursor even when no content yet but streaming (between activity and first token) */}
+              {isStreaming && !hasContent && hasActivityLog && (
+                <div className="pt-1">
+                  <StreamCursor />
+                </div>
+              )}
+
+              {/* Tool Executions (for historical messages loaded from history) */}
+              {message.toolCalls && message.toolCalls.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t border-zinc-200/50 dark:border-white/10">
+                  {message.toolCalls.map((tc) => (
+                    <ToolCallBadge key={tc.id} tool={tc} />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* User message content */}
+          {isUser && (
+            <div className="prose prose-invert prose-p:text-white/90 max-w-none wrap-break-word">
+              <ReactMarkdown 
+                remarkPlugins={[remarkGfm]}
+                components={{
+                  a: ({ node, ...props }) => (
+                    <a {...props} target="_blank" rel="noopener noreferrer" className="text-blue-600 dark:text-blue-400 hover:underline" />
+                  ),
+                  code(props) {
+                    const {children, className, node, inline, ...rest} = props
+                    const match = /language-(\w+)/.exec(className || '')
+                    return match ? (
+                      <CodeBlock
+                        language={match[1]}
+                        value={String(children).replace(/\n$/, '')}
+                      />
+                    ) : (
+                      <code {...rest} className={className}>
+                        {children}
+                      </code>
+                    )
+                  }
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
             </div>
           )}
         </motion.div>
