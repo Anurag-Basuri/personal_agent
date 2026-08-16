@@ -23,15 +23,16 @@ This file tracks completion status against the [ROADMAP.md](./ROADMAP.md).
 | Phase 5: Memory & Summarization | ✅ Done | AgentMemory persistence, summarization, preference extraction |
 | Phase 6: Public API Tools | ✅ Done | Weather, Wikipedia, HackerNews, DuckDuckGo web search, GitHub tools |
 | Phase 7: Task Management | ✅ Done (via MCP) | Todoist + Linear + Notion MCP servers connected |
-| Phase 8: LangGraph Migration | ✅ Done | Full DAG with intent router, 6-layer LLM cascade |
+| Phase 8: LangGraph Migration | ✅ Done | Full DAG with intent router, Dual-Brain LLM cascade (Thinker + Reasoner) |
 | Phase 9: WhatsApp Notifications | ✅ Done | CallMeBot integration + notifier pipeline |
 | Phase 10: Google Workspace | 🔄 Partial | Google MCP configured (Gmail/Calendar/Drive), needs testing |
 | Phase 11: Notion Integration | ✅ Done | Notion MCP server connected |
 | Phase 12: DevOps Monitoring | ✅ Done | Vercel, Netlify, Render MCP servers connected |
 | Phase 13: Browser Automation | ✅ Done | Puppeteer MCP + Swiggy/Zomato/QuickCommerce MCPs |
 | Phase 14: Reliability & Safety | ✅ Done | Circuit breakers, retry, rate limiting, centralized error handling |
-| Phase 14b: Cost Optimizations | ✅ Done | 6-Layer Fallback Cascade (GitHub → Groq → HuggingFace → Static) |
+| Phase 14b: Cost Optimizations | ✅ Done | Dual-Brain Cascade (Groq/Gemini/Mistral/Cohere + Static Fallback) |
 | Phase 15: Public/Private Split | ✅ Done | 3-Way Split (Public Widget, Agent Website, Admin Exclusive) |
+| Phase 16: SSE Progressive Streaming | ✅ Done | Token-by-token SSE streaming on all chat endpoints + progressive Telegram edits |
 | UX & Product Polish | ⬜ Not Started | Frontend needs suggestion chips, rich cards, typing indicators |
 
 ---
@@ -43,7 +44,10 @@ This file tracks completion status against the [ROADMAP.md](./ROADMAP.md).
   - `🌐 /api/public/*` (Widget): No auth, 20-message cap, portfolio-safe tools, ephemeral memory.
   - `👤 /api/agent/*` (User Website): Google OAuth, 50-message cap, portfolio-safe tools, omni-memory (RAG + persistence).
   - `🔐 /api/admin/*` (Admin Exclusive): Custom auth, unlimited messages, unrestricted toolbelt (MCP/Email/DB).
-- 6-Layer LLM Fallback Cascade (GitHub Models GPT-4o → Llama-3.3-70B → GPT-4o-mini → Groq Llama-3.1 → HuggingFace → Static Fallback)
+- Dual-Brain LLM Cascade: Thinker (Groq, Gemini, Mistral) + Reasoner (Gemini, Cohere, Mistral) + Static Fallback
+- Server-Sent Events (SSE) progressive streaming across all chat endpoints (`/api/public/stream`, `/api/agent/stream`, `/api/admin/stream`)
+- Progressive throttled Telegram streaming with 0.8s update cadence
+- Independent Circuit Breakers per LLM tier with automatic HALF_OPEN recovery and Round-Robin key rotation
 - 5 independent Circuit Breakers (one per LLM tier) with automatic HALF_OPEN recovery
 - Centralized error handling: ApiError hierarchy with 8 exception subclasses, `classify_and_raise` utility, request logging middleware, DB error mapping, sanitized production errors
 - Live REST API tools fetching dynamic data from Vercel (`portfolio_url`) + background RAG webhook re-indexing (`POST /api/admin/reindex`)

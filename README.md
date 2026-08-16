@@ -90,14 +90,20 @@ This platform is completely decoupled to ensure standard MVC / Domain-Driven con
 | **HuggingFace** | Providing the embedding models for Semantic RAG pipelines. |
 | **Vercel / Render** | Hosting targets for frontend and backend deployment. |
 
-### The 6-Layer LLM Cascade
-For extreme reliability and cost optimization, requests flow through a cascading circuit breaker. If one AI provider goes down, the system instantly fails over to the next:
-1. **GitHub Models**: GPT-4o
-2. **GitHub Models**: Llama-3.3-70B
-3. **GitHub Models**: GPT-4o-mini
-4. **Groq**: Llama-3.1-8B (Instant fallback)
-5. **HuggingFace**: Qwen2.5-72B
-6. **Static Fallback**: Hardcoded Python safe responses (zero API dependency)
+### The Dual-Brain LLM Cascade
+For extreme reliability, speed, and cost optimization, requests flow through an asynchronous Dual-Brain architecture with cascading circuit breakers and round-robin key rotation:
+
+**Brain 1: Thinker (Fast Intent Routing & Greetings)**
+1. **Groq**: `llama-3.1-8b-instant` (sub-second intent routing)
+2. **Gemini**: `gemini-3.1-flash-lite`
+3. **Mistral**: `mistral-small-latest`
+
+**Brain 2: Reasoner (Deep Reasoning & Tool Execution)**
+1. **Gemini**: `gemini-3.7-flash` (Primary reasoning workhorse)
+2. **Gemini**: `gemini-3.5-flash`
+3. **Cohere**: `command-r-plus-08-2024`
+4. **Mistral**: `mistral-large-latest`
+5. **Static Fallback**: Hardcoded safe responses (zero API dependency)
 
 ---
 

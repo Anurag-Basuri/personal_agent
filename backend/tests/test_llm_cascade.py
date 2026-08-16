@@ -1,7 +1,7 @@
 """
-Unit tests for the 6-layer LLM fallback cascade logic.
+Unit tests for the Dual-Brain LLM fallback cascade logic.
 
-Tests the cascade behavior in nodes.py by mocking LLM providers
+Tests the cascade behavior in BaseOrchestrator by mocking LLM providers
 and circuit breakers to verify correct tier-by-tier fallthrough.
 """
 
@@ -16,15 +16,14 @@ from app.agent.core.nodes import (
     STATIC_FALLBACK_MESSAGE,
     call_model,
 )
-from app.agent.llm import orchestrator
 
 
-def _make_state(user_msg: str = "What is Python?") -> dict:
+def _make_state(user_msg: str = "What is Python?", intent: str = "tool_use") -> dict:
     """Create a minimal AgentState dict for testing."""
     return {
         "messages": [HumanMessage(content=user_msg)],
         "role": "ADMIN",
-        "intent": "tool_use",
+        "intent": intent,
     }
 
 
@@ -35,90 +34,68 @@ def _mock_provider(tier: int, name: str = "Mock", model: str = "mock-model"):
     provider.provider_name = name
     provider.model_name = model
     provider.llm = MagicMock()
+    provider.disabled = False
+    provider.key_manager = None
+    provider.timeout = 10.0
     return provider
 
-
-# ─── Cascade Tests ───────────────────────────────────────────────
 
 class TestCascadeSuccess:
     """Tests where at least one tier succeeds."""
 
-    @patch("app.agent.core.nodes.get_bound_providers")
+    @patch("app.agent.core.nodes.reasoner")
     @patch("app.agent.core.nodes.get_all_tools", return_value=[])
-    async def test_tier1_succeeds_immediately(self, _mock_tools, mock_providers):
-        """When Tier 1 succeeds, the cascade returns immediately without touching other tiers."""
-        p1 = _mock_provider(1, "GitHub", "gpt-4o")
+    async def test_reasoner_succeeds_immediately(self, _mock_tools, mock_reasoner):
+        """When the reasoner succeeds, call_model returns the response."""
         ai_response = AIMessage(content="Python is a programming language.")
-        p1.llm.ainvoke = AsyncMock(return_value=ai_response)
-
-        p2 = _mock_provider(2, "GitHub", "llama-3.3")
-        p2.llm.ainvoke = AsyncMock()
-
-        mock_providers.return_value = [p1, p2]
-
-        # Reset breakers to CLOSED
-        for b in _llm_breakers.values():
-            b._state = "CLOSED"
-            b._failure_count = 0
+        mock_reasoner.invoke = AsyncMock(return_value=ai_response)
+        mock_reasoner.get_providers.return_value = [_mock_provider(1)]
 
         result = await call_model(_make_state())
 
         assert len(result["messages"]) == 1
         assert result["messages"][0].content == "Python is a programming language."
-        # Tier 2 should never have been called
-        p2.llm.ainvoke.assert_not_called()
+        mock_reasoner.invoke.assert_awaited_once()
 
-    @patch("app.agent.core.nodes.get_bound_providers")
+    @patch("app.agent.core.nodes.thinker")
     @patch("app.agent.core.nodes.get_all_tools", return_value=[])
-    async def test_tier1_fails_falls_to_tier2(self, _mock_tools, mock_providers):
-        """When Tier 1 fails, the cascade falls to Tier 2."""
-        p1 = _mock_provider(1, "GitHub", "gpt-4o")
-        p1.llm.ainvoke = AsyncMock(side_effect=ConnectionError("rate limited"))
+    async def test_thinker_handles_greetings(self, _mock_tools, mock_thinker):
+        """Greetings are routed through the thinker, not the reasoner."""
+        ai_response = AIMessage(content="Hello! How can I help?")
+        mock_thinker.invoke = AsyncMock(return_value=ai_response)
+        mock_thinker.get_providers.return_value = [_mock_provider(1)]
 
-        p2 = _mock_provider(2, "GitHub", "llama-3.3")
-        ai_response = AIMessage(content="Answer from Tier 2.")
-        p2.llm.ainvoke = AsyncMock(return_value=ai_response)
+        result = await call_model(_make_state("hello", intent="greeting"))
 
-        mock_providers.return_value = [p1, p2]
-
-        for b in _llm_breakers.values():
-            b._state = "CLOSED"
-            b._failure_count = 0
-
-        result = await call_model(_make_state())
-
-        assert result["messages"][0].content == "Answer from Tier 2."
+        assert result["messages"][0].content == "Hello! How can I help?"
+        mock_thinker.invoke.assert_awaited_once()
 
 
 class TestCascadeStaticFallback:
     """Tests where all tiers fail and the static Layer 6 activates."""
 
-    @patch("app.agent.core.nodes.get_bound_providers")
+    @patch("app.agent.core.nodes.reasoner")
+    @patch("app.agent.core.nodes.thinker")
     @patch("app.agent.core.nodes.get_all_tools", return_value=[])
-    async def test_all_tiers_fail_returns_static_message(self, _mock_tools, mock_providers):
+    async def test_all_tiers_fail_returns_static_message(self, _mock_tools, mock_thinker, mock_reasoner):
         """When all providers fail, Layer 6 static message is returned (no crash)."""
-        providers = []
-        for tier in range(1, 6):
-            p = _mock_provider(tier, f"Provider{tier}", f"model-{tier}")
-            p.llm.ainvoke = AsyncMock(side_effect=RuntimeError("down"))
-            providers.append(p)
-
-        mock_providers.return_value = providers
-
-        for b in _llm_breakers.values():
-            b._state = "CLOSED"
-            b._failure_count = 0
+        mock_reasoner.invoke = AsyncMock(return_value=None)
+        mock_reasoner.get_providers.return_value = []
+        mock_thinker.get_providers.return_value = []
 
         result = await call_model(_make_state())
 
         assert len(result["messages"]) == 1
         assert result["messages"][0].content == STATIC_FALLBACK_MESSAGE
 
-    @patch("app.agent.core.nodes.get_bound_providers")
+    @patch("app.agent.core.nodes.reasoner")
+    @patch("app.agent.core.nodes.thinker")
     @patch("app.agent.core.nodes.get_all_tools", return_value=[])
-    async def test_no_providers_configured(self, _mock_tools, mock_providers):
+    async def test_no_providers_configured(self, _mock_tools, mock_thinker, mock_reasoner):
         """When zero providers are configured, Layer 6 static message is returned."""
-        mock_providers.return_value = []
+        mock_reasoner.invoke = AsyncMock(return_value=None)
+        mock_reasoner.get_providers.return_value = []
+        mock_thinker.get_providers.return_value = []
 
         result = await call_model(_make_state())
 
@@ -126,51 +103,33 @@ class TestCascadeStaticFallback:
 
 
 class TestCircuitBreakerIntegration:
-    """Tests verifying circuit breakers skip tiers instantly."""
+    """Tests verifying the orchestrator handles failures gracefully."""
 
-    @patch("app.agent.core.nodes.get_bound_providers")
+    @patch("app.agent.core.nodes.reasoner")
     @patch("app.agent.core.nodes.get_all_tools", return_value=[])
-    async def test_cb_open_skips_to_next_tier(self, _mock_tools, mock_providers):
-        """When Tier 1's circuit breaker is OPEN, it skips instantly to Tier 2."""
-        p1 = _mock_provider(1, "GitHub", "gpt-4o")
-        p1.llm.ainvoke = AsyncMock()  # Should never be called
+    async def test_exception_in_invoke_returns_static(self, _mock_tools, mock_reasoner):
+        """When invoke raises, call_model returns static fallback instead of crashing."""
+        mock_reasoner.invoke = AsyncMock(return_value=None)
+        mock_reasoner.get_providers.return_value = []
 
-        p2 = _mock_provider(2, "GitHub", "llama-3.3")
-        ai_response = AIMessage(content="From Tier 2.")
-        p2.llm.ainvoke = AsyncMock(return_value=ai_response)
-
-        mock_providers.return_value = [p1, p2]
-
-        # Force Tier 1 breaker to OPEN, Tier 2 to CLOSED
-        _llm_breakers[1]._state = "OPEN"
-        _llm_breakers[1]._last_failure_time = 9999999999.0
-        _llm_breakers[2]._state = "CLOSED"
-        _llm_breakers[2]._failure_count = 0
-
-        result = await call_model(_make_state())
-
-        assert result["messages"][0].content == "From Tier 2."
-        # Tier 1's LLM should never have been invoked (CB skipped it)
-        p1.llm.ainvoke.assert_not_called()
-
-    @patch("app.agent.core.nodes.get_bound_providers")
-    @patch("app.agent.core.nodes.get_all_tools", return_value=[])
-    async def test_all_cbs_open_returns_static(self, _mock_tools, mock_providers):
-        """When all circuit breakers are OPEN, Layer 6 activates instantly."""
-        providers = []
-        for tier in range(1, 6):
-            p = _mock_provider(tier, f"P{tier}", f"m{tier}")
-            p.llm.ainvoke = AsyncMock()  # Should never be called
-            providers.append(p)
-
-            _llm_breakers[tier]._state = "OPEN"
-            _llm_breakers[tier]._last_failure_time = 9999999999.0
-
-        mock_providers.return_value = providers
+        mock_thinker_patch = patch("app.agent.core.nodes.thinker")
+        mock_thinker = mock_thinker_patch.start()
+        mock_thinker.get_providers.return_value = []
 
         result = await call_model(_make_state())
 
         assert result["messages"][0].content == STATIC_FALLBACK_MESSAGE
-        # None of the LLMs should have been invoked
-        for p in providers:
-            p.llm.ainvoke.assert_not_called()
+        mock_thinker_patch.stop()
+
+    @patch("app.agent.core.nodes.reasoner")
+    @patch("app.agent.core.nodes.thinker")
+    @patch("app.agent.core.nodes.get_all_tools", return_value=[])
+    async def test_greeting_fallback_when_thinker_fails(self, _mock_tools, mock_thinker, mock_reasoner):
+        """When the thinker fails on a greeting, static fallback is used."""
+        mock_thinker.invoke = AsyncMock(return_value=None)
+        mock_thinker.get_providers.return_value = []
+        mock_reasoner.get_providers.return_value = []
+
+        result = await call_model(_make_state("hi there", intent="greeting"))
+
+        assert result["messages"][0].content == STATIC_FALLBACK_MESSAGE

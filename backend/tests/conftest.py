@@ -91,8 +91,10 @@ def mock_settings():
         LEETCODE_USERNAME="test-user",
         AUTH_SECRET="test-secret",
 
-        HF_TOKEN="",
+        GEMINI_API_KEY="",
         GROQ_API_KEY="",
+        MISTRAL_API_KEY="",
+        COHERE_API_KEY="",
         GITHUB_TOKEN="",
         TELEGRAM_BOT_TOKEN="",
         TELEGRAM_ALLOWED_USER_IDS="",
