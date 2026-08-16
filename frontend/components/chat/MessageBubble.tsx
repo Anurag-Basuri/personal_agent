@@ -98,7 +98,7 @@ export function MessageBubble({ message, isStreaming = false }: MessageBubblePro
               ? 'px-5 py-4 bg-primary text-primary-foreground rounded-tr-sm shadow-md shadow-primary/15'
               : 'bg-white dark:bg-white/4 border border-zinc-200 dark:border-white/6 rounded-tl-sm shadow-sm text-foreground',
             // When streaming with no content yet, give a min width
-            isStreaming && !hasContent && !isUser && 'min-w-[280px] sm:min-w-[360px]',
+            isStreaming && !hasContent && !isUser && 'min-w-70 sm:min-w-90',
           )}
           style={!isUser ? { padding: hasContent || hasActivityLog ? undefined : '1rem 1.25rem' } : undefined}
         >

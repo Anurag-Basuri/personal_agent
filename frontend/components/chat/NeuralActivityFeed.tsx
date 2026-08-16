@@ -87,8 +87,8 @@ export function NeuralActivityFeed({ activityLog, isStreaming }: NeuralActivityF
           onClick={() => setIsExpanded(true)}
           className={cn(
             'flex items-center gap-2 w-full text-left px-3 py-2 rounded-xl',
-            'bg-primary/[0.04] dark:bg-primary/[0.06] border border-primary/10 dark:border-primary/15',
-            'hover:bg-primary/[0.07] dark:hover:bg-primary/[0.09] transition-colors cursor-pointer group',
+            'bg-primary/4 dark:bg-primary/6 border border-primary/10 dark:border-primary/15',
+            'hover:bg-primary/[0.07] dark:hover:bg-primary/9 transition-colors cursor-pointer group',
           )}
         >
           <Icons.ChevronRight className="h-3 w-3 text-primary/50 group-hover:text-primary transition-colors" />
@@ -116,8 +116,8 @@ export function NeuralActivityFeed({ activityLog, isStreaming }: NeuralActivityF
               className={cn(
                 'rounded-xl border px-3 py-2.5',
                 isStreaming
-                  ? 'bg-primary/[0.03] dark:bg-primary/[0.05] border-primary/15 dark:border-primary/20'
-                  : 'bg-zinc-50/50 dark:bg-white/[0.02] border-zinc-200/60 dark:border-white/6',
+                  ? 'bg-primary/3 dark:bg-primary/5 border-primary/15 dark:border-primary/20'
+                  : 'bg-zinc-50/50 dark:bg-white/2 border-zinc-200/60 dark:border-white/6',
               )}
             >
               {/* Header */}
@@ -168,7 +168,7 @@ export function NeuralActivityFeed({ activityLog, isStreaming }: NeuralActivityF
                         {/* Icon */}
                         <div
                           className={cn(
-                            'flex-shrink-0 transition-colors',
+                            'shrink-0 transition-colors',
                             isActive
                               ? 'text-primary animate-neural-pulse'
                               : isCompleted
@@ -209,7 +209,7 @@ export function NeuralActivityFeed({ activityLog, isStreaming }: NeuralActivityF
                         </span>
 
                         {/* Duration or Live Timer */}
-                        <div className="flex-shrink-0">
+                        <div className="shrink-0">
                           {isCompleted && entry.duration != null ? (
                             <span className="text-[10px] font-mono text-emerald-500/70 tabular-nums">
                               {formatDuration(entry.duration)}
@@ -218,7 +218,7 @@ export function NeuralActivityFeed({ activityLog, isStreaming }: NeuralActivityF
                             <div className="flex items-center gap-1.5">
                               <LiveTimer startTime={entry.timestamp} />
                               <div className="w-12 h-1 rounded-full bg-primary/10 overflow-hidden">
-                                <div className="h-full w-full rounded-full bg-gradient-to-r from-transparent via-primary/40 to-transparent animate-progress-sweep" />
+                                <div className="h-full w-full rounded-full bg-linear-to-r from-transparent via-primary/40 to-transparent animate-progress-sweep" />
                               </div>
                             </div>
                           ) : null}
