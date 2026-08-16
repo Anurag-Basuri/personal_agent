@@ -17,7 +17,6 @@ aiosqlite>=0.21.0
 # LangChain AI
 langchain>=0.3.0
 langchain-core>=0.3.0
-langchain-openai>=0.3.0
 langchain-groq>=0.3.0
 langchain-huggingface>=0.1.0
 langgraph>=0.2.0
@@ -52,4 +51,8 @@ python-telegram-bot>=21.0
 # MCP (Model Context Protocol)
 mcp>=1.27,<2
 langchain-mcp-adapters>=0.1.0
+
+# Additional LLM Providers (Dual-Brain Architecture)
 langchain-mistralai>=0.1.0
+langchain-google-genai>=2.0.0
+langchain-cohere>=0.4.0

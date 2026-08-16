@@ -1,5 +1,5 @@
 """
-Application settings — validated via Pydantic Settings.
+Application settings validated via Pydantic Settings.
 
 Reads from .env file and environment variables.
 Uses lru_cache for singleton pattern.
@@ -36,12 +36,11 @@ class Settings(BaseSettings):
     PORTFOLIO_DB_URL: str = ""
 
     # AI Providers
-    HF_TOKEN: str = ""
+    # Supports comma separated list of keys for rotation
+    GEMINI_API_KEY: str = ""
     GROQ_API_KEY: str = ""
     MISTRAL_API_KEY: str = ""
-    GEMINI_API_KEY: str = ""
     COHERE_API_KEY: str = ""
-    OPENROUTER_API_KEY: str = ""
 
     # External APIs
     GITHUB_TOKEN: str = ""
