@@ -146,12 +146,34 @@ def _classify_error(error: Exception) -> str:
     if any(sig in error_str for sig in rate_limit_signals):
         return "rate_limited"
 
+    # Gemini message ordering issues are transient (history dependent)
+    gemini_transient = [
+        "function call turn comes immediately after",
+        "invalid_argument",
+    ]
+    if any(sig in error_str for sig in gemini_transient):
+        return "transient"
+
     return "transient"
 
+# Keys that are valid JSON Schema but not supported by LLM providers
+_UNSUPPORTED_SCHEMA_KEYS = {
+    "$schema", "$id", "$ref", "$comment", "$defs",
+    "definitions", "examples", "default", "const",
+    "if", "then", "else", "allOf", "not",
+    "additionalProperties", "patternProperties",
+    "minItems", "maxItems", "minLength", "maxLength",
+    "minimum", "maximum", "exclusiveMinimum", "exclusiveMaximum",
+    "pattern", "format", "contentMediaType", "contentEncoding",
+    "deprecated", "readOnly", "writeOnly",
+}
+
 def sanitize_json_schema(schema: dict) -> dict:
+    """Recursively clean JSON schemas for LLM provider compatibility."""
     if not isinstance(schema, dict):
         return schema
-    cleaned = dict(schema)
+    cleaned = {k: v for k, v in schema.items() if k not in _UNSUPPORTED_SCHEMA_KEYS}
+
     for key in ("anyOf", "oneOf"):
         if key in cleaned and isinstance(cleaned[key], list):
             non_null_schemas = [
@@ -411,10 +433,10 @@ class ReasonerOrchestrator(BaseOrchestrator):
         settings = get_settings()
 
         tier_configs = [
-            (1, "GEMINI_API_KEY", "GeminiFlash", self._init_gemini_flash, 15.0),
-            (2, "GEMINI_API_KEY", "Gemini3.5Flash", self._init_gemini_3_5_flash, 15.0),
-            (3, "COHERE_API_KEY", "Cohere", self._init_cohere, 20.0),
-            (4, "MISTRAL_API_KEY", "Mistral", self._init_mistral, 20.0),
+            (1, "GEMINI_API_KEY", "GeminiFlash", self._init_gemini_flash, 45.0),
+            (2, "GEMINI_API_KEY", "Gemini3.5Flash", self._init_gemini_3_5_flash, 45.0),
+            (3, "COHERE_API_KEY", "Cohere", self._init_cohere, 30.0),
+            (4, "MISTRAL_API_KEY", "Mistral", self._init_mistral, 30.0),
         ]
 
         self._setup_tiers(settings, tier_configs)

@@ -101,6 +101,32 @@ async def route_intent(state: AgentState) -> dict:
             available_servers = [k for k, v in mcp_manager.get_status().items() if v == "connected"]
             
             if available_servers:
+                # Build server descriptions for the routing prompt
+                _SERVER_HINTS = {
+                    "google": "Gmail, Calendar, Contacts, Drive (Google Workspace)",
+                    "github": "GitHub repos, issues, PRs, code search",
+                    "linear": "Linear project management, issues, cycles",
+                    "todoist": "Todoist tasks, projects, labels",
+                    "notion": "Notion pages, databases, blocks",
+                    "vercel": "Vercel deployments, domains, projects",
+                    "netlify": "Netlify sites, deploys, DNS",
+                    "render": "Render services, deploys, databases",
+                    "zomato": "Zomato restaurant search and food ordering",
+                    "swiggy_food": "Swiggy food delivery and restaurant search",
+                    "swiggy_instamart": "Swiggy Instamart grocery delivery",
+                    "swiggy_dineout": "Swiggy Dineout restaurant reservations",
+                    "quickcommerce": "Quick commerce delivery (Blinkit, Zepto)",
+                    "hacker_news": "Hacker News stories, comments, search",
+                    "duckduckgo": "Web search via DuckDuckGo",
+                    "sequential_thinking": "Step by step reasoning and analysis",
+                    "puppeteer": "Browser automation, screenshots, web scraping",
+                    "postgres": "Direct PostgreSQL database queries",
+                }
+                server_list = "\n".join(
+                    f"  - {s}: {_SERVER_HINTS.get(s, 'Unknown')}"
+                    for s in available_servers
+                )
+
                 class MCPRouting(BaseModel):
                     needed_servers: list[str] = Field(
                         description=f"List of MCP servers needed. Options: {', '.join(available_servers)}"
@@ -109,10 +135,10 @@ async def route_intent(state: AgentState) -> dict:
                 providers = thinker.get_providers()
                 if providers:
                     prompt = (
-                       "You are a routing agent. Determine which of the available MCP servers "
-                        "are necessary to fulfill the user's request. Only return servers that are strictly required.\n\n"
-                        f"User Request: {user_msg}\n"
-                        f"Available Servers: {', '.join(available_servers)}"
+                        "You are a precise routing agent. Select ONLY the MCP servers strictly necessary "
+                        "for the user's request. Do NOT add servers that are not directly needed.\n\n"
+                        f"User Request: {user_msg}\n\n"
+                        f"Available Servers:\n{server_list}"
                     )
                     
                     # Try each provider in the cascade for robust structured output routing
