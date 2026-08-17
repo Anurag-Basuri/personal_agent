@@ -14,7 +14,14 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import sys
 from contextlib import asynccontextmanager
+
+# Force UTF-8 output for terminals that default to cp1252 (Windows) or other legacy encodings
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if hasattr(sys.stderr, "reconfigure"):
+    sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 
 # Suppress noisy third party loggers before anything else imports them
 for _noisy in ("sqlalchemy.engine", "httpx", "httpcore", "watchfiles", "langgraph"):

@@ -54,7 +54,7 @@ class AdminChatResponseData(BaseModel):
     sessionId: str
 
 
-@router.post("/")
+@router.post("")
 async def admin_send_message(
     body: AdminChatBody,
     request: Request,

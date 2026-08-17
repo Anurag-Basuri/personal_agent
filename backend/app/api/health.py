@@ -21,7 +21,7 @@ async def health_check():
     """
     uptime_seconds = round(time.time() - _start_time)
 
-    from app.agent.llm import get_provider_info
+    from app.agent.llm import thinker, reasoner
     from app.mcp.client import mcp_manager
     from app.rag.vector_store import RAG_AVAILABLE
 
@@ -40,7 +40,7 @@ async def health_check():
         pass
 
     # LLM providers summary
-    llm_providers = get_provider_info()
+    llm_providers = thinker.get_provider_info() + reasoner.get_provider_info()
 
     # Aggregate subsystem statuses for monitoring
     subsystems = {

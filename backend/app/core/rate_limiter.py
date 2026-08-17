@@ -177,7 +177,7 @@ def rate_limit(endpoint: str):
             _rate: None = Depends(rate_limit("chat")),
         ):
     """
-    async def _check_rate_limit(request: Request) -> None:
+    async def _check_rate_limit_with_response(request: Request, response: __import__('fastapi').Response) -> None:
         identifier, role = _get_user_identifier(request)
         limits = ENDPOINT_LIMITS.get(endpoint, {})
         role_limit = limits.get(role)
@@ -212,7 +212,11 @@ def rate_limit(endpoint: str):
                 },
             )
 
-    return _check_rate_limit
+        response.headers["X-RateLimit-Limit"] = str(info["limit"])
+        response.headers["X-RateLimit-Remaining"] = str(info["remaining"])
+        response.headers["X-RateLimit-Reset"] = str(info["reset"])
+
+    return _check_rate_limit_with_response
 
 
 def check_llm_budget(resource: str, identifier: str = "global") -> bool:

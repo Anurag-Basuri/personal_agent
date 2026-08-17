@@ -76,13 +76,13 @@ class SystemHealth:
         """Count how many LLM tiers are currently operational."""
         return sum(
             1 for k, v in self.subsystems.items()
-            if k.startswith("llm_tier_") and v
+            if (k.startswith("Thinker_") or k.startswith("Reasoner_")) and v
         )
 
     @property
     def _llm_tiers_total(self) -> int:
         """Total number of tracked LLM tiers."""
-        return sum(1 for k in self.subsystems if k.startswith("llm_tier_"))
+        return sum(1 for k in self.subsystems if k.startswith("Thinker_") or k.startswith("Reasoner_"))
 
     @property
     def level(self) -> DegradationLevel:
@@ -134,11 +134,7 @@ class SystemHealth:
 
         llm_up = self._llm_tiers_up
         if llm_up > 0:
-            # Find the lowest (best) active tier
-            for i in range(1, 6):
-                if up.get(f"llm_tier_{i}", False):
-                    caps.append(f"chat (tier {i}, {llm_up} tiers available)")
-                    break
+            caps.append(f"chat ({llm_up} tiers available)")
         if up.get("mcp", True):
             caps.append("mcp_tools")
         if up.get("rag", True):
