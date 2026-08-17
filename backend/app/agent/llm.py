@@ -3,12 +3,12 @@ Centralized LLM Orchestrator (Dual-Brain Architecture).
 
 Owns the entire lifecycle of LLM provider management.
 Features:
-  1. Round-robin API key rotation (Gemini)
-  2. Per-tier circuit breakers with fast tripping
-  3. Smart error classification
-  4. Dual-Brain setup:
-     ThinkerOrchestrator: Fast cheap models (Groq, Gemini Flash-Lite, Mistral) for routing and greetings.
-     ReasonerOrchestrator: Deep reasoning models (Gemini Flash, Cohere, Mistral) for tools.
+  1. Global Sweep cascade: try all tiers, then rotate multi-key providers and sweep again.
+  2. Per-tier circuit breakers with fast tripping.
+  3. Smart error classification (permanent / rate_limited / transient).
+  4. Dual-Brain setup with strict model separation:
+     ThinkerOrchestrator: Groq llama-3.1-8b -> Gemini 3.1 Flash Lite -> Mistral Small.
+     ReasonerOrchestrator: Gemini 3.5 Flash Lite -> Cohere Command-R+ -> Mistral Large.
 """
 
 from __future__ import annotations
@@ -279,31 +279,57 @@ class BaseOrchestrator:
         messages: list[BaseMessage],
         tools: list[BaseTool] | None = None,
     ) -> BaseMessage | None:
+        """Try every provider once per sweep. If all fail, rotate multi-key
+        providers (Gemini) and sweep again. This guarantees that every
+        provider in the chain is exhausted before burning a secondary key."""
         self._init_providers()
 
-        for provider in self._providers:
-            tier = provider.tier
-            breaker = self._breakers.get(tier)
-            tier_label = f"{self.name}_tier_{tier}"
+        # Calculate how many full sweeps we can perform.
+        # Sweep 1 uses the initial keys. Each additional sweep rotates
+        # providers that have multiple keys (e.g. Gemini with 2 API keys).
+        max_sweeps = max(
+            (p.key_manager.total_keys for p in self._providers if p.key_manager),
+            default=1,
+        )
 
-            if provider.disabled:
-                continue
+        for sweep in range(max_sweeps):
+            if sweep > 0:
+                # Rotate keys for providers that have multiple keys
+                rotated_any = False
+                for provider in self._providers:
+                    if provider.key_manager and provider.key_manager.total_keys > 1:
+                        new_key = provider.key_manager.rotate()
+                        provider.llm = provider._init_fn(new_key)
+                        rotated_any = True
+                        # Reset breaker so this tier is retryable on the new key
+                        brk = self._breakers.get(provider.tier)
+                        if brk:
+                            brk.record_success()
+                        agent_logger.info(
+                            "LLM",
+                            f"[SWEEP {sweep + 1}] Rotated API key for {provider.provider_name}, retrying chain.",
+                        )
+                if not rotated_any:
+                    break
 
-            if breaker and not breaker.is_available:
-                agent_logger.debug("LLM", f"[SKIP] {self.name} Tier {tier} ({provider.provider_name}) circuit OPEN")
-                continue
+            # Single pass through every provider
+            for provider in self._providers:
+                tier = provider.tier
+                breaker = self._breakers.get(tier)
+                tier_label = f"{self.name}_tier_{tier}"
 
-            if not check_llm_budget(tier_label):
-                agent_logger.warn("LLM", f"[SKIP] {self.name} Tier {tier} ({provider.provider_name}) budget exhausted")
-                continue
+                if provider.disabled:
+                    continue
 
-            # Attempt logic handling Key Rotation
-            attempts = provider.key_manager.total_keys if provider.key_manager else 1
-            
-            for attempt in range(attempts):
+                if breaker and not breaker.is_available:
+                    agent_logger.debug("LLM", f"[SKIP] {self.name} Tier {tier} ({provider.provider_name}) circuit OPEN")
+                    continue
+
+                if not check_llm_budget(tier_label):
+                    agent_logger.warn("LLM", f"[SKIP] {self.name} Tier {tier} ({provider.provider_name}) budget exhausted")
+                    continue
+
                 if tools:
-                    # Try sanitized OpenAI-format dicts first (Gemini/Groq/Mistral)
-                    # Fall back to raw BaseTool instances (Cohere requires this)
                     try:
                         sanitized = prepare_sanitized_tools(tools)
                         llm = provider.llm.bind_tools(sanitized)
@@ -313,23 +339,10 @@ class BaseOrchestrator:
                     llm = provider.llm
 
                 result = await self._attempt_tier(provider, llm, messages, breaker, tier_label)
-                
-                # If we hit a rate limit AND have keys remaining, rotate and try again
-                if isinstance(result, Exception) and _classify_error(result) == "rate_limited":
-                    if provider.key_manager and provider.key_manager.total_keys > 1 and attempt < attempts - 1:
-                        new_key = provider.key_manager.rotate()
-                        agent_logger.warn("LLM", f"Rate limited. Rotating API key for {provider.provider_name}.")
-                        # Re-initialize the LLM instance with the new key
-                        provider.llm = provider._init_fn(new_key)
-                        continue # Try again with new key
-                    else:
-                        break # No more keys, move to next tier
-                
-                # If it's a permanent or transient error that failed after retry, move to next tier
+
                 if isinstance(result, Exception):
-                    break
-                    
-                # Success
+                    continue
+
                 if result is not None:
                     return result
 
@@ -459,9 +472,8 @@ class ReasonerOrchestrator(BaseOrchestrator):
 
         tier_configs = [
             (1, "GEMINI_API_KEY", "Gemini3.5FlashLite", self._init_gemini_flash, 45.0),
-            (2, "GROQ_API_KEY", "Groq70b", self._init_groq_70b, 45.0),
-            (3, "COHERE_API_KEY", "Cohere", self._init_cohere, 30.0),
-            (4, "MISTRAL_API_KEY", "Mistral", self._init_mistral, 30.0),
+            (2, "COHERE_API_KEY", "Cohere", self._init_cohere, 30.0),
+            (3, "MISTRAL_API_KEY", "Mistral", self._init_mistral, 30.0),
         ]
 
         self._setup_tiers(settings, tier_configs)
@@ -497,10 +509,6 @@ class ReasonerOrchestrator(BaseOrchestrator):
         from langchain_google_genai import ChatGoogleGenerativeAI
         return ChatGoogleGenerativeAI(model="gemini-3.5-flash-lite", google_api_key=api_key, temperature=0.3, max_output_tokens=4096)
 
-    @staticmethod
-    def _init_groq_70b(api_key: str):
-        from langchain_groq import ChatGroq
-        return ChatGroq(model="llama-3.3-70b-versatile", api_key=api_key, temperature=0.3, max_tokens=4096)
 
     @staticmethod
     def _init_cohere(api_key: str):
