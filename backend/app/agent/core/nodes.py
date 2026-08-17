@@ -297,14 +297,37 @@ def make_call_model(tools_getter=get_all_tools):
         if response is not None:
             # Anti-infinite-loop protection for weaker models (e.g. Mistral)
             if getattr(response, "tool_calls", []):
-                for msg in reversed(safe_messages):
+                # 1. Update the tool call counter in state
+                tool_counts = state.get("tool_call_counts") or {}
+                new_counts = dict(tool_counts)
+                
+                for tc in response.tool_calls:
+                    name = tc.get("name")
+                    if name:
+                        new_counts[name] = new_counts.get(name, 0) + 1
+                
+                state_update = {"messages": [response], "tool_call_counts": new_counts}
+
+                # 2. Check for consecutive identical tool calls using RAW messages
+                for msg in reversed(messages):
                     if getattr(msg, "tool_calls", []):
                         if msg.tool_calls == response.tool_calls:
-                            agent_logger.warn("LLM", f"Detected infinite tool-calling loop on {msg.tool_calls[0].get('name', 'unknown')}, breaking out.")
+                            agent_logger.warn("LLM", f"Detected consecutive identical tool calls on {response.tool_calls[0].get('name', 'unknown')}, breaking out.")
                             response.tool_calls = []
                             if not response.content:
                                 response.content = "I have fetched the information."
+                            return {"messages": [response]} # Ignore state_update to prevent loop
                         break
+
+                # 3. Check for absolute tool limit (if any >= 3)
+                if any(count >= 3 for count in new_counts.values()):
+                    agent_logger.warn("LLM", f"Tool limit reached: {new_counts}. Forcing text response.")
+                    response.tool_calls = []
+                    if not response.content:
+                        response.content = "I have gathered enough information."
+                    return {"messages": [response]}
+
+                return state_update
 
             return {"messages": [response]}
 

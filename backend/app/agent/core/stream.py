@@ -15,6 +15,8 @@ import json
 import traceback
 from typing import AsyncGenerator
 from fastapi import Request
+from langgraph.errors import GraphRecursionError
+
 from app.core.logger import agent_logger
 
 # LangGraph node names mapped to human-readable phase labels
@@ -45,7 +47,7 @@ async def stream_agent_response(
     first_token_sent = False
 
     try:
-        async for event in graph.astream_events(initial_state, version="v2"):
+        async for event in graph.astream_events(initial_state, version="v2", config={"recursion_limit": 15}):
             if request and await request.is_disconnected():
                 break
 
@@ -88,6 +90,10 @@ async def stream_agent_response(
                 yield _sse({"type": "tool_end", "name": name})
 
         yield _sse({"type": "done"})
+
+    except GraphRecursionError as e:
+        agent_logger.error("STREAM", "GraphRecursionError: Loop broken safely", e)
+        yield _sse({"type": "error", "message": "I apologize, but I encountered an internal loop while trying to gather that information. Please try asking in a different way."})
 
     except Exception as e:
         agent_logger.error("STREAM", "SSE stream failed", e)

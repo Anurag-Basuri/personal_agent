@@ -25,4 +25,6 @@ class AgentState(TypedDict):
     summary: str | None
     # List of MCP servers to activate (for dynamic tool routing)
     active_servers: list[str] | None
+    # Track tool call frequencies to prevent infinite loops
+    tool_call_counts: dict[str, int] | None
 

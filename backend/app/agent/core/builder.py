@@ -32,6 +32,13 @@ def should_continue(state: AgentState) -> Literal["tools", "__end__"]:
     """Determines if the graph should execute tools or end."""
     last_message = state["messages"][-1]
 
+    # Graph-level safety net: if any tool has been called 3 or more times, break the loop
+    tool_counts = state.get("tool_call_counts") or {}
+    if any(count >= 3 for count in tool_counts.values()):
+        from app.core.logger import agent_logger
+        agent_logger.warn("LLM", f"[LOOP BREAK] Forcing graph termination due to excessive tool calls: {tool_counts}")
+        return "__end__"
+
     # If the LLM requested tool calls, route to "tools"
     if getattr(last_message, "tool_calls", []):
         return "tools"
