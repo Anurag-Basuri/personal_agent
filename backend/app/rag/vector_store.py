@@ -19,12 +19,11 @@ from functools import lru_cache
 
 @lru_cache(maxsize=1)
 def get_embeddings():
-    """Google Generative AI embeddings for vector operations."""
-    from langchain_google_genai import GoogleGenerativeAIEmbeddings
-    # Using the standard fast text embedding model
-    return GoogleGenerativeAIEmbeddings(
-        model="models/text-embedding-004",
-        google_api_key=settings.GEMINI_API_KEY
+    """Cohere embeddings for vector operations."""
+    from langchain_cohere import CohereEmbeddings
+    return CohereEmbeddings(
+        model="embed-english-v3.0",
+        cohere_api_key=settings.COHERE_API_KEY
     )
 
 def init_embeddings_eagerly() -> None:

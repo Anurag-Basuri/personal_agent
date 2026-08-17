@@ -368,6 +368,25 @@ def make_call_model(tools_getter=get_all_tools):
 call_model = make_call_model(get_all_tools)
 
 
+def _unwrap_tool_output(output) -> str:
+    """Extract clean text from MCP content-block format.
+
+    MCP tools return results as [{'type': 'text', 'text': '...'}].
+    When str()-ified, this produces a Python repr that confuses
+    smaller LLMs into thinking the tool call failed.
+    This helper unwraps the actual text content.
+    """
+    if isinstance(output, list):
+        text_parts = []
+        for item in output:
+            if isinstance(item, dict) and item.get("type") == "text":
+                text_parts.append(item.get("text", ""))
+        if text_parts:
+            return "\n".join(text_parts)
+
+    return str(output)
+
+
 def make_call_tools(tools_getter: Callable[[], list] = get_all_tools):
     """Factory: returns a call_tools node wired to the given tools getter."""
 
@@ -411,7 +430,7 @@ def make_call_tools(tools_getter: Callable[[], list] = get_all_tools):
                     retryable_exceptions=(TimeoutError, ConnectionError),
                     operation_name=f"Tool:{tool_name}",
                 )
-                output_str = str(tool_output)
+                output_str = _unwrap_tool_output(tool_output)
                 agent_logger.tool_success(tool_name, t_start, output_str)
 
                 msg = ToolMessage(

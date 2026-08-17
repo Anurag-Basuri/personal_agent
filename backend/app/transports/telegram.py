@@ -112,7 +112,7 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
                 if kind == "token":
                     current_text += event.get("content", "")
                 elif kind == "tool_start":
-                    tool_status = f"\n\n_Calling {event.get('name')}..._"
+                    tool_status = f"\n\nCalling {event.get('name')}..."
                 elif kind == "tool_end":
                     tool_status = ""
 
@@ -123,26 +123,30 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
             now = time.time()
             if now - last_edit_time > 0.8:
                 display_text = current_text + tool_status
-                # Skip edit if no displayable text yet
                 if not display_text.strip():
                     continue
                 try:
-                    await reply_message.edit_text(display_text, parse_mode=ParseMode.MARKDOWN)
+                    # Use plain text for intermediate streaming edits to avoid
+                    # unclosed markdown entity errors from partial tokens.
+                    await reply_message.edit_text(display_text)
                     last_edit_time = now
                 except Exception as e:
                     if "Message is not modified" not in str(e):
-                        agent_logger.error("TELEGRAM", "Throttled edit failed", e)
+                        agent_logger.debug("TELEGRAM", f"Intermediate edit skipped: {e}")
 
-        # Final edit
+        # Final edit: attempt Markdown formatting, fall back to plain text
         display_text = current_text.strip()
         if not display_text:
             display_text = "I couldn't process that properly."
 
         try:
             await reply_message.edit_text(display_text, parse_mode=ParseMode.MARKDOWN)
-        except Exception as e:
-            if "Message is not modified" not in str(e):
-                agent_logger.error("TELEGRAM", "Final edit failed", e)
+        except Exception:
+            try:
+                await reply_message.edit_text(display_text)
+            except Exception as e:
+                if "Message is not modified" not in str(e):
+                    agent_logger.error("TELEGRAM", "Final edit failed", e)
 
     except Exception as e:
         agent_logger.error("TELEGRAM", f"Error processing message: {e}", e)

@@ -100,6 +100,7 @@ async def prepare_public_state(message: str, session_id: str, current_url: str |
         "current_url": current_url,
         "intent": intent,
         "summary": "",
+        "tool_call_counts": {},
     }
     
     return initial_state, memory, history, human_msg
