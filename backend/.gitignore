@@ -18,6 +18,8 @@ build/
 # Temporary Scripts
 /test_*.py
 scratch_*
+scratch/
+route_results.json
 
 # Database
 *.db
@@ -39,5 +41,6 @@ pip_log.txt
 
 # Testing
 .pytest_cache/
+.ruff_cache/
 .coverage
 htmlcov/

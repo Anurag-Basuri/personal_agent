@@ -53,7 +53,7 @@ Most AI platforms log transcripts in plaintext. This project enforces an **Omni-
 
 ### Native RAG & Neon.tech Vectors 🗄️
 Rather than fracturing data across multiple databases (like MongoDB for users and Chroma for vectors), everything converges into **Neon PostgreSQL**.
-* **Vector Pipeline**: The AI leverages the `pgvector` extension to transform incoming messages and portfolio metadata (projects, profile, timeline) into mathematics using `langchain-huggingface` embeddings (`all-MiniLM-L6-v2`). 
+* **Vector Pipeline**: The AI leverages the `pgvector` extension to transform incoming messages and portfolio metadata (projects, profile, timeline) into embeddings using Google Generative AI Embeddings (`models/text-embedding-004`), eliminating local PyTorch weights and speeding up startup.
 * **Semantic Recovery**: When a visitor asks "What do you know about React?", the system performs an asynchronous semantic cosine similarity search directly against Postgres, loading exact technical specifications into the AI's short-term memory dynamically.
 
 ---
@@ -87,23 +87,23 @@ This platform is completely decoupled to ensure standard MVC / Domain-Driven con
 |---|---|
 | **Neon.tech PostgreSQL** | Primary relational database. |
 | **PGVector** | Postgres extension for storing and querying 768-dimensional mathematical vector embeddings. |
-| **HuggingFace** | Providing the embedding models for Semantic RAG pipelines. |
+| **Google GenAI** | Cloud-native embedding models (`models/text-embedding-004`) for Semantic RAG pipelines. |
 | **Vercel / Render** | Hosting targets for frontend and backend deployment. |
 
-### The Dual-Brain LLM Cascade
-For extreme reliability, speed, and cost optimization, requests flow through an asynchronous Dual-Brain architecture with cascading circuit breakers and round-robin key rotation:
+### The Dual-Brain LLM Cascade & Global Sweep
+For extreme reliability, speed, and cost optimization, requests flow through an asynchronous Dual-Brain architecture with cascading circuit breakers, global sweep key rotation, and dynamic fallback:
 
-**Brain 1: Thinker (Fast Intent Routing & Greetings)**
-1. **Groq**: `llama-3.1-8b-instant` (sub-second intent routing)
-2. **Gemini**: `gemini-3.1-flash-lite`
-3. **Mistral**: `mistral-small-latest`
+**Brain 1: Thinker (Fast Intent Routing, Greetings & Conversational Fallback)**
+1. **Groq**: `llama-3.1-8b-instant` (sub-second intent routing, 8k context)
+2. **Gemini**: `gemini-3.1-flash-lite` (500 RPD free tier quota)
+3. **Mistral**: `mistral-small-latest` (fast fallback)
 
 **Brain 2: Reasoner (Deep Reasoning & Tool Execution)**
-1. **Gemini**: `gemini-3.7-flash` (Primary reasoning workhorse)
-2. **Gemini**: `gemini-3.5-flash`
-3. **Cohere**: `command-r-plus-08-2024`
-4. **Mistral**: `mistral-large-latest`
-5. **Static Fallback**: Hardcoded safe responses (zero API dependency)
+1. **Gemini**: `gemini-3.5-flash-lite` (500 RPD free tier quota, deep context)
+2. **Cohere**: `command-r-plus-08-2024` (104B parameter flagship tool orchestrator)
+3. **Mistral**: `mistral-large-latest` (Heavyweight reasoning engine)
+4. **Dynamic Thinker Fallback**: If all Reasoner tiers fail, the lightweight Thinker intercepts the failure and dynamically generates a conversational apology offering alternative explorations.
+5. **Static Fallback**: Hardcoded safe responses (zero API dependency safety net).
 
 ---
 
@@ -126,8 +126,11 @@ The AI uses a mix of 10 native Python tools and **17 dynamically loaded Model Co
 To build an "Industry Grade" system, we rejected easy defaults in favor of enterprise patterns:
 
 * **Real-time SSE Streaming**: The platform utilizes `astream_events(version="v2")` to stream LLM responses and LangGraph tool execution updates in real-time, providing immediate feedback in the chat UI.
+* **Global Sweep API Key Rotation**: Rather than burning through multiple API keys per tier, the cascade sweeps through all providers first, then automatically rotates multi-key providers (e.g. `GEMINI_API_KEY=key1,key2`) on subsequent sweeps with circuit breaker auto-reset.
+* **Anti-Looping Protection**: Intercepts repetitive tool calls in real-time to prevent smaller fallback models from entering infinite tool-calling loops.
+* **JSON Schema Sanitization**: Deep recursive sanitizer eliminates unsupported schema keywords (`oneOf`, `anyOf`, integer `enum`s) to ensure 100% function calling compatibility across Google, Cohere, Groq, and Mistral SDKs.
 * **Strict Repository Pattern**: All raw SQL/SQLAlchemy queries are centralized in `SessionRepository`, `MessageRepository`, and `MemoryRepository`. Business logic never touches the database directly.
-* **Circuit Breakers**: We employ 5 independent circuit breakers around our API-based LLM calls. If GitHub Models experiences an outage, the breaker trips to `OPEN`, immediately routing traffic to Groq without waiting for timeouts. It recovers via a `HALF_OPEN` probe automatically.
+* **Circuit Breakers**: We employ independent circuit breakers around our API-based LLM calls. If a provider experiences an outage or rate limit, the breaker trips to `OPEN`, immediately routing traffic to the next tier without waiting for timeouts. It recovers via a `HALF_OPEN` probe automatically.
 * **Graceful Degradation**: The `SystemHealth` singleton continuously tracks all subsystems (Database, RAG, MCP Servers, LLMs). If PGVector goes offline, the agent gracefully degrades to text-only mode and continues operating without crashing.
 * **TTLCache & Auto-Invalidation**: Heavy read operations (like session history) use a thread-safe, in-memory `TTLCache`. Database writes automatically invalidate specific cache patterns (e.g., `app_cache.delete("history:*")`).
 * **Multi-Tier Rate Limiting**: Expensive LLM calls are protected by a global LLM Budget per user, per hour.

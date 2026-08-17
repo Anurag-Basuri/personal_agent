@@ -27,6 +27,10 @@ build/
 .pytest_cache/
 .coverage
 htmlcov/
+.ruff_cache/
+scratch/
+backend/scratch/
+route_results.json
 
 # ─── IDE & OS ────────────────────────────
 .vscode/

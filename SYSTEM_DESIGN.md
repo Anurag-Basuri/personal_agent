@@ -264,7 +264,7 @@ graph LR
     subgraph Pipeline["⚙️ Ingestion Pipeline"]
         F["Fetch from DB"]
         C["Chunk Text<br/>(1000 chars, 150 overlap)"]
-        E["Embed via<br/>all-MiniLM-L6-v2"]
+        E["Embed via<br/>Google text-embedding-004"]
     end
     
     subgraph Store["💾 Vector Store"]
@@ -278,7 +278,7 @@ graph LR
 
 Run via: `python -m app.rag.ingester`
 
-This is defined in [ingester.py](file:///d:/projects/personal_agent/backend/app/rag/ingester.py) — it connects to your portfolio database, pulls Profile/Projects/Journey data, chunks it with `RecursiveCharacterTextSplitter`, embeds with HuggingFace, and stores in PGVector.
+This is defined in [ingester.py](file:///d:/projects/personal_agent/backend/app/rag/ingester.py) — it connects to your portfolio database, pulls Profile/Projects/Journey data, chunks it with `RecursiveCharacterTextSplitter`, embeds with Google GenAI (`models/text-embedding-004`), and stores in PGVector.
 
 ---
 
@@ -322,7 +322,7 @@ backend/app/
 │
 ├── rag/              # 📚 Knowledge Retrieval
 │   ├── ingester.py   #    Fetches portfolio data → chunks → embeds → stores in PGVector
-│   ├── vector_store.py #  PGVector factory + HuggingFace embeddings
+│   ├── vector_store.py #  PGVector factory + Google GenAI embeddings (models/text-embedding-004)
 │   └── context.py    #    Semantic search: query → top-4 chunks → formatted context
 │
 ├── models/           # 💾 SQLAlchemy ORM (8 models)
@@ -396,26 +396,27 @@ graph TD
 
 ```python
 # Fast keyword match — zero LLM tokens spent
-if cleaned in _GREETING_PATTERNS:   → intent: "greeting"      → skip tools
-if pattern in _META_PATTERNS:       → intent: "meta_question"  → skip tools
-else:                               → intent: "tool_use"       → full pipeline
+if cleaned in _GREETING_PATTERNS:   → intent: "greeting"      → routed to Thinker (no tools)
+if pattern in _META_PATTERNS:       → intent: "meta_question"  → routed to Thinker (no tools)
+if conversational:                  → intent: "conversational" → routed to Thinker (no tools)
+else:                               → intent: "tool_use"       → routed to Reasoner (with tools)
 ```
 
 **Why this matters**: A "hi" message costs $0.00 in tool-binding overhead instead of $0.01+. Over thousands of daily requests, this saves significant money.
 
-#### 2. Agent Node — [call_model()](file:///d:/projects/personal_agent/backend/app/agent/core/nodes.py#L61-L150)
-**Purpose**: Invoke the LLM with RBAC-filtered tools, wrapped in resilience layers.
+#### 2. Agent Node — [call_model()](file:///d:/projects/personal_agent/backend/app/agent/core/nodes.py)
+**Purpose**: Invoke the Dual-Brain LLM cascade with RBAC-filtered tools, Global Sweep key rotation, and dynamic fallback.
 
 ```
-1. Filter tools by role → GUEST removes `requires_admin` tools
-2. If intent is greeting/meta → bind zero tools (cheaper, faster)
-3. Check LLM budget (rate_limiter.check_llm_budget) → reject if hourly quota hit
-4. Try Primary LLM through Circuit Breaker + Retry (2 attempts, exponential backoff)
-   → If circuit is OPEN → skip instantly to fallback (no timeout wait)
-   → If retries exhausted → mark primary_llm DOWN in SystemHealth
-5. Fallback to Gemini 2.5 Flash with Retry (2 attempts)
-6. Update SystemHealth subsystem status (mark_up / mark_down)
-7. Return AIMessage (possibly with tool_calls)
+1. Filter tools by role → GUEST removes `requires_admin` tools.
+2. If intent is greeting/meta/conversational → delegates to Brain 1 (Thinker) with slim messages and zero tools.
+3. If intent is tool_use → delegates to Brain 2 (Reasoner) with sanitized messages and allowed tools.
+4. Reasoner executes a Global Sweep across tiers (Gemini 3.5 Flash Lite -> Cohere Command-R+ -> Mistral Large).
+   → If all fail and multiple Gemini keys exist, it rotates keys and sweeps again.
+   → If anti-looping detects repetitive duplicate tool calls, it intercepts and yields text.
+5. If Reasoner completely fails → dynamic fallback to Thinker with a hidden System Alert to apologize gracefully and offer alternative explorations.
+6. If Thinker also fails → returns Layer 6 static fallback response.
+7. Return AIMessage (possibly with tool_calls).
 ```
 
 #### 3. Tools Node — [call_tools()](file:///d:/projects/personal_agent/backend/app/agent/core/nodes.py#L155-L223)
@@ -587,7 +588,7 @@ The RAG pipeline ensures the agent answers portfolio questions from **real data*
 | Component | File | Purpose |
 |-----------|------|---------|
 | **Vector Store Factory** | [vector_store.py](file:///d:/projects/personal_agent/backend/app/rag/vector_store.py) | Creates PGVector instance or returns `None` on SQLite |
-| **Embeddings** | Same file | `HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")` |
+| **Embeddings** | Same file | `GoogleGenerativeAIEmbeddings(model="models/text-embedding-004")` |
 | **Document Ingester** | [ingester.py](file:///d:/projects/personal_agent/backend/app/rag/ingester.py) | Fetches Profile/Projects/Journey → chunks → embeds → stores |
 | **Context Builder** | [context.py](file:///d:/projects/personal_agent/backend/app/rag/context.py) | `asimilarity_search(query, k=4)` → formatted context block |
 
@@ -626,16 +627,16 @@ To build an "Industry Grade" system, we rejected easy defaults in favor of highl
 *   **The Problem**: Mixing raw SQL/SQLAlchemy queries directly inside routes or business logic makes the codebase tightly coupled, hard to test, and difficult to refactor if the database schema changes.
 *   **Our Solution**: Centralized repositories (`SessionRepository`, `MessageRepository`, `MemoryRepository`). All database access happens exclusively through these singletons. Routes and services only call repository methods.
 
-### 🛡️ Resilience Layer (Dual-Brain Fallback Cascade)
-*   **Circuit Breakers**: We employ 5 independent circuit breakers around our API-based LLM calls. The system cascades through a 6-layer architecture:
-    1.  **Tier 1**: GitHub Models (`gpt-4o`) — 3 fails → OPEN
-    2.  **Tier 2**: GitHub Models (`meta-llama-3.3-70b-instruct`) — 3 fails → OPEN
-    3.  **Tier 3**: GitHub Models (`gpt-4o-mini`) — 3 fails → OPEN
-    4.  **Tier 4**: Groq (`llama-3.1-8b-instant`) — 3 fails → OPEN
-    5.  **Tier 5**: HuggingFace (`Qwen/Qwen2.5-72B-Instruct`) — 3 fails → OPEN
-    6.  **Tier 6 (Static)**: Hardcoded local response (No API call).
-    *Note: Because GitHub Models tracks limits on a per-model basis, Tiers 1-3 provide three independent rate-limit buckets using a single `GITHUB_TOKEN`.*
-*   **Retry with Exponential Backoff + Jitter**: Transient failures within a single tier are retried automatically before giving up and cascading down to the next tier.
+### 🛡️ Resilience Layer (Dual-Brain Fallback Cascade & Global Sweep)
+*   **Dual-Brain Architecture**:
+    *   **Brain 1 (Thinker)**: Fast routing & greetings. Tier 1: Groq (`llama-3.1-8b-instant`) → Tier 2: Gemini (`gemini-3.1-flash-lite`, 500 RPD) → Tier 3: Mistral (`mistral-small-latest`).
+    *   **Brain 2 (Reasoner)**: Deep reasoning with tools. Tier 1: Gemini (`gemini-3.5-flash-lite`, 500 RPD) → Tier 2: Cohere (`command-r-plus-08-2024`) → Tier 3: Mistral (`mistral-large-latest`).
+*   **Global Sweep Key Rotation**: Rather than retrying a rate-limited tier immediately and burning keys, the orchestrator sweeps the full chain first. If all fail, it rotates multi-key providers (`GEMINI_API_KEY=key1,key2`) and runs a clean second sweep with auto-reset circuit breakers.
+*   **Dynamic Thinker Fallback**: If the entire Reasoner cascade fails, the system passes an alert to the Thinker to dynamically apologize and offer alternatives without tool access.
+*   **Anti-Looping Protection**: If a smaller fallback model repeats the identical tool call twice, the loop is intercepted, tool calls are stripped, and a safe text reply is yielded.
+*   **Schema Sanitizer**: Recursively strips `oneOf`, `anyOf`, and stringifies integer `enum` arrays for 100% cross-provider function-calling compatibility.
+*   **Circuit Breakers**: Independent breakers track failures per tier and trip to `OPEN` after threshold failures, recovering via `HALF_OPEN` auto-probes.
+*   **Tier 6 (Static)**: Hardcoded local response (zero API dependency ultimate safety net).
 
 ### ⚡ Caching Layer (TTL Cache)
 *   **The Problem**: Hitting the database for user preferences, session summaries, or history on every fast interaction is inefficient.
