@@ -1,0 +1,31 @@
+# Git & IDE
+.git/
+.gitignore
+.vscode/
+.idea/
+
+# Python cache & virtual environment
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.ruff_cache/
+venv/
+env/
+.venv/
+*.egg-info/
+
+# Local databases & secrets
+.env
+dev.db
+*.sqlite
+*.sqlite3
+
+# Temporary scratch & tests
+scratch/
+tests/
+
+# Frontend / node_modules (if any in build context)
+frontend/
+node_modules/

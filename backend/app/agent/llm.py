@@ -446,7 +446,7 @@ class ThinkerOrchestrator(BaseOrchestrator):
     @staticmethod
     def _init_groq(api_key: str):
         from langchain_groq import ChatGroq
-        return ChatGroq(model="llama-3.1-8b-instant", api_key=api_key, temperature=0.3, max_tokens=1024)
+        return ChatGroq(model="llama-3.3-70b-versatile", api_key=api_key, temperature=0.3, max_tokens=1024)
 
     @staticmethod
     def _init_gemini_flash_lite(api_key: str):

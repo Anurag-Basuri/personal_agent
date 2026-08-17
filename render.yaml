@@ -1,0 +1,56 @@
+services:
+  - type: web
+    name: personal-agent-backend
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: production
+    dockerContext: ./backend
+    dockerfilePath: ./backend/Dockerfile
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: DEBUG
+        value: "false"
+      - key: DATABASE_URL
+        sync: false
+      - key: AUTH_SECRET
+        sync: false
+      - key: ADMIN_ID
+        sync: false
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD_HASH
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: COHERE_API_KEY
+        sync: false
+      - key: MISTRAL_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_ADMIN_CHAT_ID
+        sync: false
+      - key: TELEGRAM_ALLOWED_USER_IDS
+        sync: false
+      - key: GITHUB_PERSONAL_ACCESS_TOKEN
+        sync: false
+      - key: VERCEL_TOKEN
+        sync: false
+      - key: NETLIFY_PAT
+        sync: false
+      - key: NOTION_TOKEN
+        sync: false
+      - key: TODOIST_API_TOKEN
+        sync: false
+      - key: LINEAR_API_KEY
+        sync: false
+      - key: QUICKCOMMERCE_API_KEY
+        sync: false
+      - key: PORTFOLIO_FRONTEND_URL
+        value: "https://anuragbasuri.vercel.app"
+      - key: PORTFOLIO_URL
+        value: "https://personal-portfolio-backend-anurag.vercel.app"
