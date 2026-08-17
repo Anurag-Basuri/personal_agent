@@ -147,6 +147,7 @@ class MCPManager:
                 self.connected_count += 1
 
         if self.connected_count > 0:
+            agent_logger.info("MCP", f"[OK] MCP background startup complete: {self.connected_count} connected, {len(self._tools)} tools available")
             system_health.mark_up("mcp")
         else:
             agent_logger.warn("MCP", "All MCP servers failed to connect.")

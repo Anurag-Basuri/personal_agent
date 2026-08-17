@@ -146,24 +146,8 @@ async def lifespan(app: FastAPI):
     # MCP Servers
     agent_logger.section("MCP Servers")
     from app.mcp.client import mcp_manager
-    try:
-        await mcp_manager.startup()
-        status = mcp_manager.get_status()
-        connected = [n for n, s in status.items() if s == "connected"]
-        failed = [n for n, s in status.items() if s == "error"]
-        disabled = [n for n, s in status.items() if s == "disabled"]
-
-        for name in connected:
-            agent_logger.status_line(name, "connected")
-        for name in failed:
-            agent_logger.status_line(name, "failed", ok=False)
-        for name in disabled:
-            agent_logger.status_line(name, f"{C.DIM}disabled{C.RESET}", ok=False)
-
-        tool_count = len(mcp_manager.get_tools())
-        print(f"\n   {C.DIM}Total:{C.RESET} {len(connected)} connected, {len(failed)} failed, {tool_count} tools")
-    except Exception as e:
-        agent_logger.status_line("Status", f"Startup error: {e}", ok=False)
+    asyncio.create_task(mcp_manager.startup())
+    agent_logger.status_line("MCP Manager", "Connecting in background")
 
     # Transports
     agent_logger.section("Transports")
