@@ -144,10 +144,12 @@ export function MessageBubble({ message, isStreaming = false }: MessageBubblePro
                 </div>
               )}
 
-              {/* Show cursor even when no content yet but streaming (between activity and first token) */}
+              {/* Show bouncing dots when no content yet but streaming (between activity and first token) */}
               {isStreaming && !hasContent && hasActivityLog && (
-                <div className="pt-1">
-                  <StreamCursor />
+                <div className="pt-2 pb-1 flex items-center gap-1.5 opacity-70">
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
+                  <span className="typing-dot" />
                 </div>
               )}
 

@@ -60,11 +60,18 @@ _CONVERSATIONAL_PATTERNS = {
 }
 
 # Compact persona for Thinker (greeting/meta/conversational intents only)
-_SLIM_SYSTEM_PROMPT = (
-    "You are Cortex, a sharp and proactive AI assistant built by Anurag Basuri. "
-    "For admin users, address them as 'Boss'. For normal users, speak as Anurag in first person. "
-    "Be conversational, warm, and concise. Keep responses under 2 sentences for simple exchanges."
-)
+def get_slim_persona(role: str) -> str:
+    if role == "ADMIN":
+        return (
+            "You are Cortex, a sharp and proactive AI assistant built by Anurag Basuri. "
+            "You serve only Anurag. ALWAYS address him as 'Boss' or 'Sir'. "
+            "Be conversational, warm, concise, and highly efficient. Keep responses under 2 sentences."
+        )
+    return (
+        "You are Anurag Basuri's AI assistant, embedded on his portfolio. "
+        "ALWAYS speak as Anurag in the first person (e.g., 'I built', 'My experience'). "
+        "Be conversational, warm, and concise. Keep responses under 2 sentences."
+    )
 
 
 async def route_intent(state: AgentState) -> dict:
@@ -188,7 +195,7 @@ def classify_intent(user_msg: str) -> str:
     return "tool_use"
 
 
-def _build_slim_messages(messages: list) -> list:
+def _build_slim_messages(messages: list, role: str) -> list:
     """
     Build a compact message list for the Thinker brain.
 
@@ -198,7 +205,7 @@ def _build_slim_messages(messages: list) -> list:
     """
     from langchain_core.messages import SystemMessage as SM
 
-    slim_system = SM(content=_SLIM_SYSTEM_PROMPT)
+    slim_system = SM(content=get_slim_persona(role))
 
     # Collect only the last few human/AI messages (skip System/Tool messages)
     recent = []
@@ -280,7 +287,7 @@ def make_call_model(tools_getter=get_all_tools):
         # Delegate to the appropriate brain
         if intent in ("greeting", "meta_question", "conversational"):
             # Brain 1: Fast, slim context, no tools needed
-            slim_messages = _build_slim_messages(messages)
+            slim_messages = _build_slim_messages(messages, role)
             response = await thinker.invoke(slim_messages, None)
         else:
             # Brain 2: Deep reasoning with tools (sanitized history)
@@ -313,7 +320,7 @@ def make_call_model(tools_getter=get_all_tools):
                     "to explore something else or ask a simpler question. Be polite and conversational. DO NOT attempt to use tools."
         )
         
-        fallback_messages = _build_slim_messages(messages)
+        fallback_messages = _build_slim_messages(messages, role)
         fallback_messages.append(fallback_prompt)
         
         fallback_response = await thinker.invoke(fallback_messages, None)
