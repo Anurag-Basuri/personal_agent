@@ -223,29 +223,38 @@ def _build_slim_messages(messages: list, role: str) -> list:
 
 def sanitize_message_history(messages: list) -> list:
     """
-    Strip tool call metadata from message history for LLM safety.
+    Strip orphaned tool call metadata from past conversation turns for LLM safety,
+    while preserving in-flight tool calls and responses for the current turn.
 
     Gemini strictly requires AIMessage(tool_calls) to be immediately
-    followed by matching ToolMessages. Old history from trimming,
-    interrupted sessions, or cross-session replay can violate this.
+    followed by matching ToolMessages. Historical messages from previous
+    sessions can violate this if trimmed or interrupted.
 
-    The simplest bulletproof fix: strip all tool_call metadata from
-    history. The LLM only needs the conversation text, not old
-    tool call IDs from previous turns.
+    Solution:
+      - Sanitize messages *before* the last HumanMessage (strip old tool blocks).
+      - Keep all messages *from* the last HumanMessage onwards completely intact
+        so the Reasoner sees the tool outputs it just requested.
     """
+    # Find the index of the last HumanMessage (start of the active turn)
+    last_human_idx = 0
+    for i, msg in enumerate(messages):
+        if msg.type == "human":
+            last_human_idx = i
+
     sanitized = []
-    for msg in messages:
-        # Remove ToolMessages entirely (old tool responses)
+    # 1. Past history before current turn: sanitize tool calls
+    for msg in messages[:last_human_idx]:
         if msg.type == "tool":
             continue
-
-        # Strip tool_calls from AIMessages, keep only the text content
         if msg.type == "ai" and getattr(msg, "tool_calls", []):
             content = str(msg.content).strip() if msg.content else ""
             if content:
                 sanitized.append(AIMessage(content=content))
             continue
+        sanitized.append(msg)
 
+    # 2. Current active turn (HumanMessage -> AIMessage with tool_calls -> ToolMessages): keep intact
+    for msg in messages[last_human_idx:]:
         sanitized.append(msg)
 
     return sanitized
