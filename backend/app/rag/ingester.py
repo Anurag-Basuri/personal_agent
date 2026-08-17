@@ -39,13 +39,13 @@ async def _fetch_api_data(portfolio_url: str, endpoint: str) -> dict | list | No
                 },
             )
             if response.status_code != 200:
-                print(f"  ⚠️ {endpoint} returned status {response.status_code}")
+                agent_logger.warn("RAG", f"[INGEST] {endpoint} returned status {response.status_code}")
                 return None
             json_data = response.json()
             # Portfolio API wraps responses: { success: true, data: ... }
             return json_data.get("data", json_data)
     except Exception as e:
-        print(f"  ❌ Failed to fetch {endpoint}: {e}")
+        agent_logger.error("RAG", f"[INGEST] Failed to fetch {endpoint}: {e}")
         return None
 
 
@@ -55,7 +55,7 @@ async def fetch_portfolio_data_via_api() -> list[Document]:
     portfolio_url = settings.PORTFOLIO_URL
 
     if not portfolio_url:
-        print("❌ PORTFOLIO_URL not set. Cannot fetch portfolio data.")
+        agent_logger.warn("RAG", "[INGEST] PORTFOLIO_URL not set. Cannot fetch portfolio data.")
         return []
 
     docs = []
@@ -217,16 +217,16 @@ async def run_ingestion():
     Fetches all portfolio data via the public API, chunks it, embeds it,
     and stores it in the PGVector store. Clears old documents first to prevent duplicates.
     """
-    agent_logger.info("RAG", "🚀 Starting RAG ingestion pipeline...")
+    agent_logger.info("RAG", "[START] Starting RAG ingestion pipeline...")
 
     if not RAG_AVAILABLE:
-        agent_logger.warn("RAG", "⚠️ RAG not available (requires PostgreSQL with pgvector)")
+        agent_logger.warn("RAG", "[WARN] RAG not available (requires PostgreSQL with pgvector)")
         return
 
     # 1. Fetch data via API
     docs = await fetch_portfolio_data_via_api()
     if not docs:
-        agent_logger.warn("RAG", "⚠️ No documents fetched. Check PORTFOLIO_URL and portfolio server.")
+        agent_logger.warn("RAG", "[WARN] No documents fetched. Check PORTFOLIO_URL and portfolio server.")
         return
 
     agent_logger.info("RAG", f"  Fetched {len(docs)} documents from portfolio API")
@@ -243,57 +243,34 @@ async def run_ingestion():
     # 3. Store in vector DB
     vector_store = get_neon_vector_store()
     if vector_store is None:
-        agent_logger.error("RAG", "❌ Could not initialize vector store")
+        agent_logger.error("RAG", "[ERROR] Could not initialize vector store")
         return
 
-    # Clear existing documents before re ingesting to prevent duplicates
+    # Clear existing documents before re-ingesting to prevent duplicates and dimension mismatches
     try:
-        # Delete all existing documents from the collection
-        # Clear all
-        await vector_store.adelete(ids=None)
-        agent_logger.info("RAG", "  Cleared old vector store documents")
+        from sqlalchemy.ext.asyncio import create_async_engine
+        from sqlalchemy import text
+        settings = get_settings()
+        engine = create_async_engine(settings.DATABASE_URL)
+        async with engine.begin() as conn:
+            # Delete embeddings associated with the portfolio_knowledge collection
+            await conn.execute(text("""
+                DELETE FROM langchain_pg_embedding 
+                WHERE collection_id IN (
+                    SELECT uuid FROM langchain_pg_collection WHERE name = 'portfolio_knowledge'
+                );
+            """))
+        agent_logger.info("RAG", "  Cleared old vector store documents from database")
     except Exception as e:
-        agent_logger.warn("RAG", f"  Could not clear old documents (non-critical): {e}")
+        agent_logger.warn("RAG", f"  Could not clear old documents: {e}")
 
     await vector_store.aadd_documents(splits)
-    agent_logger.info("RAG", f"✅ Successfully ingested {len(splits)} chunks into vector store")
+    agent_logger.info("RAG", f"[OK] Successfully ingested {len(splits)} chunks into vector store")
 
 
 async def main():
     """CLI entry point for manual ingestion."""
-    print("🚀 Starting RAG Ingestion Pipeline...")
-
-    print("1. Fetching portfolio data via API...")
-    docs = await fetch_portfolio_data_via_api()
-
-    if not docs:
-        print("⚠️ No documents were fetched. Check PORTFOLIO_URL and portfolio server.")
-        return
-
-    print(f"   Done. Fetched {len(docs)} documents.")
-
-    print("2. Splitting text for optimal embedding resolution...")
-    text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=150,
-        length_function=len,
-    )
-    splits = text_splitter.split_documents(docs)
-    print(f"   Done. Generated {len(splits)} chunks.")
-
-    if not RAG_AVAILABLE:
-        print("⚠️ RAG not available (requires PostgreSQL with pgvector). Skipping vector store.")
-        return
-
-    print("3. Connecting to PGVector Store and embedding...")
-    vector_store = get_neon_vector_store()
-
-    if vector_store is None:
-        print("❌ Could not initialize vector store.")
-        return
-
-    await vector_store.aadd_documents(splits)
-    print("✅ Successfully ingested all portfolio data into vector store!")
+    await run_ingestion()
 
 
 if __name__ == "__main__":
