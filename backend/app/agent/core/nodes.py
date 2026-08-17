@@ -16,7 +16,7 @@ from __future__ import annotations
 
 from typing import Callable
 
-from langchain_core.messages import AIMessage, HumanMessage, ToolMessage
+from langchain_core.messages import AIMessage, HumanMessage, ToolMessage, SystemMessage
 
 from app.agent.core.state import AgentState
 from app.agent.llm import thinker, reasoner
@@ -301,10 +301,31 @@ def make_call_model(tools_getter=get_all_tools):
 
             return {"messages": [response]}
 
+        # Thinker dynamic fallback
+        # If the Reasoner completely failed, don't crash to the static string immediately.
+        # Ask the Thinker to gracefully apologize to the user and offer alternatives.
+        agent_logger.warn("LLM", "Reasoner cascade exhausted. Falling back to Thinker for graceful apology.")
+        
+        fallback_prompt = SystemMessage(
+            content="System Alert: The primary reasoning engine just failed due to API rate limits or network errors. "
+                    "You (the fast Thinker model) must now apologize to the user on behalf of the system. "
+                    "Explain briefly that complex tasks are temporarily unavailable, and ask them if they'd like "
+                    "to explore something else or ask a simpler question. Be polite and conversational. DO NOT attempt to use tools."
+        )
+        
+        fallback_messages = _build_slim_messages(messages)
+        fallback_messages.append(fallback_prompt)
+        
+        fallback_response = await thinker.invoke(fallback_messages, None)
+        
+        if fallback_response is not None:
+            return {"messages": [fallback_response]}
+
         # Layer 6: Static Fallback
+        # Only reached if the Thinker also completely crashes!
         agent_logger.error(
             "LLM",
-            "[STATIC] ALL LLM tiers exhausted -- returning static fallback",
+            "[STATIC] ALL LLM tiers (including Thinker fallback) exhausted -- returning static fallback",
             None,
             {"tiers_configured": len(thinker.get_providers()) + len(reasoner.get_providers())},
         )
