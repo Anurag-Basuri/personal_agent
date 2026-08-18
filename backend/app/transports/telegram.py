@@ -153,6 +153,20 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE) -> 
         await update.message.reply_text("Sorry, I encountered an internal error while processing that.")
 
 
+async def telegram_error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """Handle unexpected errors from Telegram polling or handlers."""
+    from telegram.error import Conflict, NetworkError
+    if isinstance(context.error, Conflict):
+        # A conflict occurs when multiple bot processes poll the same token concurrently
+        agent_logger.warn("TELEGRAM", "Telegram polling conflict detected. Multiple instances or rapid reloads may be active.")
+        return
+    if isinstance(context.error, NetworkError):
+        # Network disconnects during long polling are normal and automatically recovered
+        agent_logger.warn("TELEGRAM", f"Telegram network error: {context.error}")
+        return
+    agent_logger.error("TELEGRAM", f"Telegram error: {context.error}", context.error)
+
+
 def build_telegram_app() -> Application | None:
     """Build and configure the Telegram Bot Application."""
     settings = get_settings()
@@ -166,8 +180,11 @@ def build_telegram_app() -> Application | None:
         # Handle all text messages
         application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-        # Handle /start command
+        # Handle start command
         application.add_handler(MessageHandler(filters.COMMAND, handle_message))
+
+        # Register error handler for clean conflict and network recovery
+        application.add_error_handler(telegram_error_handler)
 
         return application
     except Exception as e:
