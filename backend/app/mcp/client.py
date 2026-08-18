@@ -27,7 +27,7 @@ class MCPManager:
         self._clients: list[MultiServerMCPClient] = []
         self._tools: list[BaseTool] = []
         self._status: dict[str, str] = {}
-        self.connected_count: int = 0
+        self._startup_task: asyncio.Task | None = None
 
     def _load_config(self) -> dict[str, Any]:
         """Load and interpolate MCP server configuration from JSON file."""
@@ -85,6 +85,7 @@ class MCPManager:
         does not prevent the others from loading successfully.
         Client handles are stored in self._clients for proper shutdown.
         """
+        self._startup_task = asyncio.current_task()
         servers = self._load_config()
         if not servers:
             return
@@ -108,18 +109,30 @@ class MCPManager:
         agent_logger.info("MCP", f"Connecting to {len(enabled_servers)} servers concurrently...")
         
         async def connect_server(name: str, server_config: dict):
+            single_client = None
             try:
                 single_client = MultiServerMCPClient({name: server_config})
-                # 90 second timeout per server (npx downloads and OAuth servers need extra time)
+                # 90 second timeout per server for downloads and authorization
                 tools = await asyncio.wait_for(
                     single_client.get_tools(server_name=name),
                     timeout=90.0,
                 )
                 return name, single_client, tools, None
+            except asyncio.CancelledError:
+                if single_client:
+                    close_method = getattr(single_client, "close", None)
+                    if callable(close_method):
+                        try:
+                            res = close_method()
+                            if asyncio.iscoroutine(res):
+                                await res
+                        except Exception:
+                            pass
+                return name, None, None, "Cancelled"
             except asyncio.TimeoutError:
                 return name, None, None, "TimeoutError: Timed out after 90s"
-            except Exception as e:
-                # Unwrap ExceptionGroup from anyio/TaskGroup to show the real error
+            except BaseException as e:
+                # Unwrap ExceptionGroup or unhandled adapter exceptions
                 if type(e).__name__ in ("ExceptionGroup", "BaseExceptionGroup"):
                     sub_errors = [str(exc) for exc in getattr(e, "exceptions", [])]
                     real_error = " | ".join(sub_errors) if sub_errors else str(e)
@@ -129,13 +142,18 @@ class MCPManager:
                         return name, None, None, real_error
                 return name, None, None, str(e)
 
-        tasks = [connect_server(name, cfg) for name, cfg in enabled_servers.items()]
-        results = await asyncio.gather(*tasks)
+        try:
+            tasks = [connect_server(name, cfg) for name, cfg in enabled_servers.items()]
+            results = await asyncio.gather(*tasks)
+        except asyncio.CancelledError:
+            agent_logger.info("MCP", "MCP startup cancelled during shutdown.")
+            return
 
         for name, single_client, tools, error in results:
             if error:
                 self._status[name] = "error"
-                agent_logger.warn("MCP", f"Server '{name}' failed to connect: {error}")
+                if error != "Cancelled":
+                    agent_logger.warn("MCP", f"Server '{name}' failed to connect: {error}")
             else:
                 self._clients.append(single_client)
                 if tools:
@@ -155,6 +173,15 @@ class MCPManager:
 
     async def shutdown(self) -> None:
         """Cleanly disconnect from all servers by closing tracked client handles."""
+        # Cancel in flight startup if still connecting
+        if self._startup_task and not self._startup_task.done():
+            self._startup_task.cancel()
+            try:
+                await self._startup_task
+            except (asyncio.CancelledError, Exception):
+                pass
+            self._startup_task = None
+
         if not self._clients:
             return
 
@@ -162,9 +189,7 @@ class MCPManager:
 
         for client in self._clients:
             try:
-                # MultiServerMCPClient removed context manager support in newer versions.
-                # We check for a close method dynamically to avoid type checker errors
-                # and gracefully handle future changes.
+                # Dynamically call close method if present on client
                 close_method = getattr(client, "close", None)
                 if callable(close_method):
                     res = close_method()
