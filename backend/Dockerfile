@@ -6,17 +6,13 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PORT=8000
 
-# Copy Node.js 22 LTS, npm, and npx directly from the official Node.js image
-COPY --from=node:22-slim /usr/local/bin/node /usr/local/bin/node
-COPY --from=node:22-slim /usr/local/bin/npm /usr/local/bin/npm
-COPY --from=node:22-slim /usr/local/bin/npx /usr/local/bin/npx
-COPY --from=node:22-slim /usr/local/lib/node_modules /usr/local/lib/node_modules
-
-# Install essential system dependencies
+# Install essential system dependencies and Node.js
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
     git \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y --no-install-recommends nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
