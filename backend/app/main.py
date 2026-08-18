@@ -159,12 +159,12 @@ async def lifespan(app: FastAPI):
     # Transports
     agent_logger.section("Transports")
     try:
-        from app.transports.telegram import build_telegram_app
+        from app.transports.telegram import build_telegram_app, start_telegram_polling
         telegram_app = build_telegram_app()
         if telegram_app:
             await telegram_app.initialize()
             await telegram_app.start()
-            await telegram_app.updater.start_polling()
+            await start_telegram_polling(telegram_app)
             agent_logger.status_line("Telegram", "Polling")
         else:
             agent_logger.status_line("Telegram", "Not configured", ok=False)

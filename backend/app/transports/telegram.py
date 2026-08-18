@@ -167,6 +167,20 @@ async def telegram_error_handler(update: object, context: ContextTypes.DEFAULT_T
     agent_logger.error("TELEGRAM", f"Telegram error: {context.error}", context.error)
 
 
+def telegram_polling_error_callback(exc: Exception) -> None:
+    """Handle low level network retry loop errors during Telegram update polling."""
+    from telegram.error import Conflict, NetworkError
+    if isinstance(exc, Conflict):
+        # Log concise warning when multiple instances or rapid restarts poll simultaneously
+        agent_logger.warn("TELEGRAM", "Polling conflict: another instance is active with this bot token. Retrying...")
+        return
+    if isinstance(exc, NetworkError):
+        # Transient network issues during polling are automatically retried
+        agent_logger.warn("TELEGRAM", f"Polling network glitch: {exc}")
+        return
+    agent_logger.warn("TELEGRAM", f"Polling error: {exc}")
+
+
 def build_telegram_app() -> Application | None:
     """Build and configure the Telegram Bot Application."""
     settings = get_settings()
@@ -190,6 +204,11 @@ def build_telegram_app() -> Application | None:
     except Exception as e:
         agent_logger.error("TELEGRAM", f"Failed to build Telegram application: {e}", e)
         return None
+
+
+async def start_telegram_polling(telegram_app: Application) -> None:
+    """Start Telegram update polling with clean error callback to avoid loud tracebacks."""
+    await telegram_app.updater.start_polling(error_callback=telegram_polling_error_callback)
 
 
 async def send_telegram_push(text: str) -> dict:
