@@ -65,47 +65,23 @@
       "enabled": true
     },
     "zomato": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "-q",
-        "mcp-remote",
-        "https://mcp-server.zomato.com/mcp"
-      ],
-      "transport": "stdio",
+      "transport": "sse",
+      "url": "https://mcp-server.zomato.com/mcp",
       "enabled": true
     },
     "swiggy_food": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "-q",
-        "mcp-remote",
-        "https://mcp.swiggy.com/food"
-      ],
-      "transport": "stdio",
+      "transport": "sse",
+      "url": "https://mcp.swiggy.com/food",
       "enabled": true
     },
     "swiggy_instamart": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "-q",
-        "mcp-remote",
-        "https://mcp.swiggy.com/im"
-      ],
-      "transport": "stdio",
+      "transport": "sse",
+      "url": "https://mcp.swiggy.com/im",
       "enabled": true
     },
     "swiggy_dineout": {
-      "command": "npx",
-      "args": [
-        "-y",
-        "-q",
-        "mcp-remote",
-        "https://mcp.swiggy.com/dineout"
-      ],
-      "transport": "stdio",
+      "transport": "sse",
+      "url": "https://mcp.swiggy.com/dineout",
       "enabled": true
     },
     "quickcommerce": {
@@ -151,7 +127,7 @@
         "-q",
         "@modelcontextprotocol/server-puppeteer"
       ],
-      "enabled": true
+      "enabled": false
     },
     "postgres": {
       "command": "npx",
