@@ -28,6 +28,7 @@ class MCPManager:
         self._tools: list[BaseTool] = []
         self._status: dict[str, str] = {}
         self._startup_task: asyncio.Task | None = None
+        self.connected_count: int = 0
 
     def _load_config(self) -> dict[str, Any]:
         """Load and interpolate MCP server configuration from JSON file."""

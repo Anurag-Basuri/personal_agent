@@ -23,6 +23,11 @@ class Settings(BaseSettings):
     # Server
     PORT: int = 4000
     DEBUG: bool = False
+    
+    # Feature Flags
+    ENABLE_MCP: bool = True
+    ENABLE_TELEGRAM: bool = True
+    
     # Agent website origin
     CLIENT_URL: str = "http://localhost:3000"
     # Portfolio website origin (for CORS)

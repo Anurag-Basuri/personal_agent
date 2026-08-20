@@ -153,21 +153,28 @@ async def lifespan(app: FastAPI):
     # MCP Servers
     agent_logger.section("MCP Servers")
     from app.mcp.client import mcp_manager
-    asyncio.create_task(mcp_manager.startup())
-    agent_logger.status_line("MCP Manager", "Connecting in background")
+    if settings.ENABLE_MCP:
+        asyncio.create_task(mcp_manager.startup())
+        agent_logger.status_line("MCP Manager", "Connecting in background")
+    else:
+        agent_logger.status_line("MCP Manager", "Disabled by config", ok=False)
 
     # Transports
     agent_logger.section("Transports")
     try:
         from app.transports.telegram import build_telegram_app, start_telegram_polling
-        telegram_app = build_telegram_app()
-        if telegram_app:
-            await telegram_app.initialize()
-            await telegram_app.start()
-            await start_telegram_polling(telegram_app)
-            agent_logger.status_line("Telegram", "Polling")
+        telegram_app = None
+        if settings.ENABLE_TELEGRAM:
+            telegram_app = build_telegram_app()
+            if telegram_app:
+                await telegram_app.initialize()
+                await telegram_app.start()
+                await start_telegram_polling(telegram_app)
+                agent_logger.status_line("Telegram", "Polling")
+            else:
+                agent_logger.status_line("Telegram", "Not configured", ok=False)
         else:
-            agent_logger.status_line("Telegram", "Not configured", ok=False)
+            agent_logger.status_line("Telegram", "Disabled by config", ok=False)
     except Exception as e:
         telegram_app = None
         agent_logger.status_line("Telegram", f"Failed: {e}", ok=False)
